@@ -1,0 +1,12 @@
+error: Expected comma after condition.
+
+       Correct syntax: guard!(condition, status_code, "message")
+
+       Example:
+       guard!(!name.is_empty(), 400, "Name is required");
+
+       Original error: expected `,`
+ --> tests/ui/dx/guard_missing_comma.rs:6:29
+  |
+6 |     guard!(!name.is_empty() 400, "Name required");
+  |                             ^^^

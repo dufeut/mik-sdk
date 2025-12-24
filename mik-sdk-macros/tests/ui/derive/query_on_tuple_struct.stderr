@@ -1,0 +1,5 @@
+error: Query derive only supports structs with named fields. Example: `struct MyQuery { page: u32, limit: u32 }`
+ --> tests/ui/derive/query_on_tuple_struct.rs:5:1
+  |
+5 | struct QueryTuple(String);
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^

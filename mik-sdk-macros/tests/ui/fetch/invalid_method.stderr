@@ -1,0 +1,11 @@
+error: Unknown HTTP method 'INVALID'.
+
+       Valid methods: GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS
+
+       Example:
+       fetch!(GET "https://api.example.com/users")
+       fetch!(POST "https://api.example.com/users", json: { "name": "Alice" })
+ --> tests/ui/fetch/invalid_method.rs:5:23
+  |
+5 |     let _req = fetch!(INVALID "https://example.com");
+  |                       ^^^^^^^

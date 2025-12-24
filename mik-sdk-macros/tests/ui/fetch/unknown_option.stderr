@@ -1,0 +1,18 @@
+error: Unknown option 'invalid_opt'.
+
+       Valid options:
+       - headers: { "Name": "value" }  - Request headers
+       - json: { "key": value }         - JSON body (sets Content-Type)
+       - body: expression                   - Raw body bytes
+       - timeout: milliseconds              - Request timeout
+
+       Example:
+       fetch!(POST "https://api.example.com",
+       headers: { "Authorization": "Bearer token" },
+       json: { "name": "Alice" },
+       timeout: 5000
+       )
+ --> tests/ui/fetch/unknown_option.rs:5:50
+  |
+5 |     let _req = fetch!(GET "https://example.com", invalid_opt: true);
+  |                                                  ^^^^^^^^^^^

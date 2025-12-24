@@ -1,0 +1,15 @@
+package mik:bridge@0.1.0;
+
+/// Bridge component world.
+/// Translates WASI HTTP incoming-handler to mik handler interface.
+world http-bridge {
+    // Import the user's handler (filled by composition)
+    import mik:core/handler@0.1.0;
+
+    // Import WASI environment for configuration
+    import wasi:cli/environment@0.2.0;
+    import wasi:cli/stderr@0.2.0;
+
+    // Export the standard WASI HTTP interface
+    export wasi:http/incoming-handler@0.2.0;
+}

@@ -1,0 +1,31 @@
+[package]
+name = "external-api"
+version = "0.0.1"
+edition.workspace = true
+publish = false
+description = "Example demonstrating external HTTP API calls with fetch! macro"
+license = "MIT OR Apache-2.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen-rt = "0.44.0"
+mik-sdk = { path = "../../mik-sdk", features = ["http-client"] }
+
+[package.metadata.component]
+package = "mik:external-api"
+
+[package.metadata.component.target]
+path = "wit"
+world = "external-api"
+
+[package.metadata.component.target.dependencies]
+"mik:core" = { path = "wit/deps/core" }
+"wasi:cli" = { path = "wit/deps/cli" }
+"wasi:clocks" = { path = "wit/deps/clocks" }
+"wasi:io" = { path = "wit/deps/io" }
+"wasi:random" = { path = "wit/deps/random" }
+"wasi:filesystem" = { path = "wit/deps/filesystem" }
+"wasi:sockets" = { path = "wit/deps/sockets" }
+"wasi:http" = { path = "wit/deps/wasi-http" }

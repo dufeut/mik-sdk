@@ -1,0 +1,31 @@
+package wasi:cli@0.2.0;
+
+/// Environment variables.
+interface environment {
+    /// Get the value of an environment variable.
+    get-environment: func() -> list<tuple<string, string>>;
+}
+
+/// Standard error output stream.
+interface stderr {
+    use wasi:io/streams@0.2.0.{output-stream};
+
+    /// Get the standard error stream.
+    get-stderr: func() -> output-stream;
+}
+
+/// Standard output stream.
+interface stdout {
+    use wasi:io/streams@0.2.0.{output-stream};
+
+    /// Get the standard output stream.
+    get-stdout: func() -> output-stream;
+}
+
+/// Standard input stream.
+interface stdin {
+    use wasi:io/streams@0.2.0.{input-stream};
+
+    /// Get the standard input stream.
+    get-stdin: func() -> input-stream;
+}

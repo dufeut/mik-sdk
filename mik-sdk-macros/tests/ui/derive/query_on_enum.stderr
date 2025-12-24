@@ -1,0 +1,8 @@
+error: Query derive only supports structs. Hint: Use `#[derive(Query)]` on a struct for query parameters.
+ --> tests/ui/derive/query_on_enum.rs:5:1
+  |
+5 | / enum SearchParams {
+6 | |     Simple,
+7 | |     Complex,
+8 | | }
+  | |_^

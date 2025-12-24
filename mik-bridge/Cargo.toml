@@ -1,0 +1,39 @@
+[package]
+name = "mik-bridge"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Bridge component: translates WASI HTTP to mik handler interface"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen-rt = "0.44.0"
+
+[package.metadata.component]
+package = "mik:bridge"
+
+[package.metadata.component.target]
+path = "wit"
+world = "http-bridge"
+
+[package.metadata.component.target.dependencies]
+"mik:core" = { path = "wit/deps/core" }
+"wasi:http" = { path = "wit/deps/wasi-http" }
+"wasi:io" = { path = "wit/deps/io" }
+"wasi:cli" = { path = "wit/deps/cli" }
+"wasi:clocks" = { path = "wit/deps/clocks" }
+"wasi:filesystem" = { path = "wit/deps/filesystem" }
+"wasi:random" = { path = "wit/deps/random" }
+"wasi:sockets" = { path = "wit/deps/sockets" }
+
+[profile.release]
+lto = true
+opt-level = "z"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+# Standalone - not part of parent workspace
+[workspace]

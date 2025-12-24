@@ -1,0 +1,272 @@
+---
+title: Testing
+description: Test your mik-sdk handlers
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Testing
+
+This guide covers strategies for testing mik-sdk handlers both locally and with the composed WASM component.
+
+## Native Testing
+
+mik-sdk is designed to work on both native (for testing) and WASM (for production). The core modules automatically use appropriate implementations:
+
+| Module | Native | WASM |
+|--------|--------|------|
+| `time` | `std::time` | `wasi:clocks/wall-clock` |
+| `random` | `getrandom` | `wasi:random/random` |
+| `json` | Pure Rust | Pure Rust |
+
+### Unit Testing JSON
+
+```rust
+#[cfg(test)]
+mod tests {
+    use mik_sdk::json;
+
+    #[test]
+    fn test_json_building() {
+        let value = json::obj()
+            .set("name", json::str("Alice"))
+            .set("age", json::int(30));
+
+        assert_eq!(
+            value.to_string(),
+            r#"{"age":30,"name":"Alice"}"#
+        );
+    }
+
+    #[test]
+    fn test_json_parsing() {
+        let data = br#"{"user":{"name":"Bob","age":25}}"#;
+        let parsed = json::try_parse(data).unwrap();
+
+        assert_eq!(
+            parsed.path_str(&["user", "name"]),
+            Some("Bob".to_string())
+        );
+        assert_eq!(
+            parsed.path_int(&["user", "age"]),
+            Some(25)
+        );
+    }
+}
+```
+
+### Unit Testing Time
+
+```rust
+#[cfg(test)]
+mod tests {
+    use mik_sdk::time;
+
+    #[test]
+    fn test_timestamp() {
+        let ts = time::now();
+        assert!(ts > 1700000000); // After 2023
+    }
+
+    #[test]
+    fn test_iso_format() {
+        let iso = time::now_iso();
+        assert!(iso.ends_with('Z'));
+        assert!(iso.contains('T'));
+    }
+
+    #[test]
+    fn test_to_iso() {
+        // Known timestamp
+        let iso = time::to_iso(1737024600, 0);
+        assert_eq!(iso, "2025-01-16T10:50:00Z");
+    }
+}
+```
+
+### Unit Testing Random
+
+```rust
+#[cfg(test)]
+mod tests {
+    use mik_sdk::random;
+
+    #[test]
+    fn test_uuid_format() {
+        let uuid = random::uuid();
+        assert_eq!(uuid.len(), 36);
+        assert_eq!(uuid.chars().nth(14), Some('4')); // Version 4
+    }
+
+    #[test]
+    fn test_hex_length() {
+        let hex = random::hex(16);
+        assert_eq!(hex.len(), 32); // 16 bytes = 32 hex chars
+    }
+
+    #[test]
+    fn test_randomness() {
+        let a = random::uuid();
+        let b = random::uuid();
+        assert_ne!(a, b);
+    }
+}
+```
+
+## Integration Testing
+
+### Testing with wasmtime
+
+After composing your component, test it with wasmtime:
+
+```bash
+# Start the server
+wasmtime serve -S cli=y service.wasm &
+
+# Run tests
+curl -s http://localhost:8080/ | jq .
+curl -s http://localhost:8080/hello/World | jq .
+curl -X POST http://localhost:8080/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice","email":"alice@example.com"}' | jq .
+
+# Stop the server
+kill %1
+```
+
+### Automated Integration Tests
+
+Create a test script:
+
+```bash
+#!/bin/bash
+# test.sh
+
+set -e
+
+# Build and compose
+cargo component build --release
+wac plug mik-bridge.wasm \
+    --plug target/wasm32-wasip2/release/my_handler.wasm \
+    -o service.wasm
+
+# Start server in background
+wasmtime serve -S cli=y service.wasm &
+SERVER_PID=$!
+sleep 1
+
+# Cleanup on exit
+trap "kill $SERVER_PID 2>/dev/null" EXIT
+
+# Test cases
+echo "Testing GET /"
+RESULT=$(curl -s http://localhost:8080/)
+echo "$RESULT" | grep -q '"message"' || exit 1
+
+echo "Testing GET /hello/{name}"
+RESULT=$(curl -s http://localhost:8080/hello/Test)
+echo "$RESULT" | grep -q '"greeting"' || exit 1
+
+echo "Testing 404"
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/nonexistent)
+[ "$STATUS" = "404" ] || exit 1
+
+echo "All tests passed!"
+```
+
+## Testing Patterns
+
+### Testing Input Validation
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_valid_input() {
+        let json = br#"{"name":"Alice","email":"alice@example.com"}"#;
+        let parsed = json::try_parse(json).unwrap();
+
+        // Test that required fields are present
+        assert!(parsed.path_exists(&["name"]));
+        assert!(parsed.path_exists(&["email"]));
+    }
+
+    #[test]
+    fn test_optional_field() {
+        let json = br#"{"name":"Alice","email":"alice@example.com"}"#;
+        let parsed = json::try_parse(json).unwrap();
+
+        // age is optional
+        assert!(!parsed.path_exists(&["age"]));
+    }
+}
+```
+
+### Testing Business Logic
+
+Separate business logic from handlers for easier testing:
+
+```rust
+// Business logic (testable)
+pub fn format_greeting(name: &str) -> String {
+    format!("Hello, {}!", name)
+}
+
+pub fn validate_email(email: &str) -> bool {
+    email.contains('@') && email.contains('.')
+}
+
+// Handler (thin wrapper)
+fn hello(path: HelloPath, _req: &Request) -> Response {
+    let greeting = format_greeting(&path.name);
+    ok!({ "greeting": greeting })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_greeting() {
+        assert_eq!(format_greeting("World"), "Hello, World!");
+        assert_eq!(format_greeting("Alice"), "Hello, Alice!");
+    }
+
+    #[test]
+    fn test_validate_email() {
+        assert!(validate_email("user@example.com"));
+        assert!(!validate_email("invalid"));
+    }
+}
+```
+
+## Running Tests
+
+```bash
+# Run all tests
+cargo test
+
+# Run with output
+cargo test -- --nocapture
+
+# Run specific test
+cargo test test_json_parsing
+
+# Run tests in release mode
+cargo test --release
+```
+
+<Aside type="tip">
+The SDK includes extensive property-based tests using proptest. Run them with:
+
+```bash
+cargo test --all -- proptest
+```
+</Aside>
+
+## Next Steps
+
+- [Troubleshooting](/guides/troubleshooting/) - Common issues and solutions
+- [Architecture](/architecture/) - Understand the component model

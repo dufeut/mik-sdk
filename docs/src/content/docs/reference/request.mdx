@@ -1,0 +1,260 @@
+---
+title: Request
+description: HTTP request handling and data extraction
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Request
+
+The `Request` struct provides access to all HTTP request data including path parameters, query strings, headers, and body.
+
+## Basic Access
+
+```rust
+fn handler(req: &Request) -> Response {
+    // HTTP method
+    let method = req.method();  // Method::Get, Method::Post, etc.
+
+    // Path
+    let full_path = req.path();              // "/users?page=2"
+    let path_only = req.path_without_query(); // "/users"
+
+    ok!({ "method": format!("{:?}", method), "path": path_only })
+}
+```
+
+## Path Parameters
+
+Path parameters are extracted from route patterns like `/users/{id}`:
+
+```rust
+routes! {
+    GET "/users/{id}" => get_user,
+    GET "/orgs/{org}/users/{id}" => get_org_user,
+}
+
+fn get_user(req: &Request) -> Response {
+    // Access via param()
+    let id = req.param("id");  // Option<&str>
+
+    if let Some(user_id) = id {
+        ok!({ "id": user_id })
+    } else {
+        bad_request!("ID required")
+    }
+}
+```
+
+<Aside type="tip">
+For type-safe path parameters, use `#[derive(Path)]` in your route definitions.
+</Aside>
+
+## Query Parameters
+
+```rust
+fn search(req: &Request) -> Response {
+    // Single value (first occurrence)
+    let q = req.query("q");           // Option<&str>
+    let page = req.query("page");     // Option<&str>
+
+    // All values for multi-value params
+    // Example: /search?tag=rust&tag=wasm&tag=http
+    let tags = req.query_all("tag");  // &[String] -> ["rust", "wasm", "http"]
+
+    ok!({
+        "query": q,
+        "tags": tags
+    })
+}
+```
+
+## Headers
+
+```rust
+fn handler(req: &Request) -> Response {
+    // Single header (case-insensitive)
+    let content_type = req.header("Content-Type");
+    let auth = req.header("authorization");  // Case doesn't matter
+
+    // All values for multi-value headers
+    let cookies = req.header_all("Set-Cookie");  // Vec<&str>
+
+    // All headers
+    let all_headers = req.headers();  // &[(String, String)]
+
+    // Common header shortcuts
+    let trace_id = req.trace_id();    // x-trace-id header
+    let content_type = req.content_type();  // Content-Type header
+
+    ok!({ "auth": auth })
+}
+```
+
+## Body Access
+
+```rust
+fn create_user(req: &Request) -> Response {
+    // Check if body exists
+    if !req.has_body() {
+        return bad_request!("Request body required");
+    }
+
+    // Raw bytes
+    let bytes = req.body();  // Option<&[u8]>
+
+    // As UTF-8 text
+    let text = req.text();   // Option<&str>
+
+    // Parse with custom function
+    let json = req.json_with(json::try_parse);  // Option<JsonValue>
+
+    if let Some(parsed) = json {
+        let name = parsed.path_str(&["name"]);
+        ok!({ "name": name })
+    } else {
+        bad_request!("Invalid JSON")
+    }
+}
+```
+
+## Content-Type Detection
+
+```rust
+fn handler(req: &Request) -> Response {
+    if req.is_json() {
+        // Handle JSON
+        let body = req.json_with(json::try_parse);
+    } else if req.is_form() {
+        // Handle form data
+        let name = req.form("name");
+    } else if req.is_html() {
+        // Handle HTML
+    }
+
+    ok!({})
+}
+```
+
+## Form Data
+
+For `application/x-www-form-urlencoded` requests:
+
+```rust
+fn submit_form(req: &Request) -> Response {
+    guard!(req.is_form(), 415, "Expected form data");
+
+    // Single value
+    let name = req.form("name");      // Option<&str>
+    let email = req.form("email");    // Option<&str>
+
+    // Multi-value fields
+    // Example: checkboxes with same name
+    let roles = req.form_all("role"); // &[String]
+
+    ok!({
+        "name": name,
+        "email": email,
+        "roles": roles
+    })
+}
+```
+
+## Accept Header Matching
+
+```rust
+fn handler(req: &Request) -> Response {
+    if req.accepts("json") {
+        // Return JSON
+        ok!({ "format": "json" })
+    } else if req.accepts("html") {
+        // Return HTML response
+        // ...
+    } else {
+        // Default response
+        ok!({ "format": "default" })
+    }
+}
+```
+
+## Method Enum
+
+```rust
+use mik_sdk::prelude::Method;
+
+fn handler(req: &Request) -> Response {
+    match req.method() {
+        Method::Get => { /* ... */ }
+        Method::Post => { /* ... */ }
+        Method::Put => { /* ... */ }
+        Method::Patch => { /* ... */ }
+        Method::Delete => { /* ... */ }
+        Method::Head => { /* ... */ }
+        Method::Options => { /* ... */ }
+    }
+    ok!({})
+}
+```
+
+## Complete Example
+
+```rust
+fn create_item(req: &Request) -> Response {
+    // Validate content type
+    guard!(req.is_json(), 415, "Content-Type must be application/json");
+
+    // Parse body
+    let body = ensure!(
+        req.json_with(json::try_parse),
+        400,
+        "Invalid JSON"
+    );
+
+    // Extract fields
+    let name = ensure!(
+        body.path_str(&["name"]),
+        400,
+        "name is required"
+    );
+
+    // Get optional header
+    let trace_id = req.trace_id().unwrap_or("unknown");
+
+    // Log the request
+    log!(info, "creating item", name: &name, trace_id: trace_id);
+
+    // Create item...
+    let id = random::uuid();
+
+    created!(format!("/items/{}", id), {
+        "id": id,
+        "name": name
+    })
+}
+```
+
+## API Summary
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `method()` | `Method` | HTTP method |
+| `path()` | `&str` | Full path with query |
+| `path_without_query()` | `&str` | Path only |
+| `param(name)` | `Option<&str>` | Path parameter |
+| `query(name)` | `Option<&str>` | First query param value |
+| `query_all(name)` | `&[String]` | All query param values |
+| `header(name)` | `Option<&str>` | Header (case-insensitive) |
+| `header_all(name)` | `Vec<&str>` | All header values |
+| `headers()` | `&[(String, String)]` | All headers |
+| `trace_id()` | `Option<&str>` | x-trace-id header |
+| `body()` | `Option<&[u8]>` | Raw body bytes |
+| `text()` | `Option<&str>` | Body as UTF-8 |
+| `json_with(f)` | `Option<T>` | Parse body with function |
+| `has_body()` | `bool` | True if body is non-empty |
+| `content_type()` | `Option<&str>` | Content-Type header |
+| `is_json()` | `bool` | Content-Type is JSON |
+| `is_html()` | `bool` | Content-Type is HTML |
+| `is_form()` | `bool` | Content-Type is form |
+| `accepts(mime)` | `bool` | Accept header contains |
+| `form(name)` | `Option<&str>` | Form field value |
+| `form_all(name)` | `&[String]` | All form field values |

@@ -1,0 +1,21 @@
+error: Invalid JSON object syntax.
+       Expected: { "key": value, ... }
+
+       Common mistakes:
+       - Keys must be string literals: { "name": "Alice" } ✓ not { name: "Alice" } ✗
+       - Use colon (:) between key and value: { "x": 1 } ✓ not { "x" = 1 } ✗
+       - Separate pairs with commas: { "a": 1, "b": 2 } ✓
+
+       Original error: Expected colon (:) after object key.
+
+       Correct syntax: { "key": value }
+
+       Common mistakes:
+       - { "key" = value } ✗ (use : not =)
+       - { "key" value } ✗ (missing colon)
+
+       Original error: expected `:`
+ --> tests/ui/json/missing_colon.rs:5:28
+  |
+5 |     let _v = json!({ "key" "value" });
+  |                            ^^^^^^^

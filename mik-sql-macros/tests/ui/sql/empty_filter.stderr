@@ -1,0 +1,5 @@
+error: Empty filter block
+ --> tests/ui/sql/empty_filter.rs:7:18
+  |
+7 |         filter: {},
+  |                  ^

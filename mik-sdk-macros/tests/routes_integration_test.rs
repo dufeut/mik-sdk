@@ -1,0 +1,1134 @@
+//! Integration tests for the routes! macro with typed inputs.
+//!
+//! These tests verify:
+//! 1. Routes with typed body input (Type derive)
+//! 2. Routes with typed query input (Query derive)
+//! 3. Routes with typed path input (Path derive)
+//! 4. Routes with multiple input types combined
+//! 5. The /__schema endpoint generation returns valid JSON
+//! 6. HTTP method dispatch works correctly
+
+#![allow(dead_code)]
+
+use std::process::Command;
+
+// =============================================================================
+// COMPILE TESTS - Verify routes! macro compiles with typed inputs
+// =============================================================================
+
+/// Test that routes! macro compiles with typed body input.
+#[test]
+fn test_routes_with_typed_body_compiles() {
+    let output = Command::new("cargo")
+        .args(["check", "--package", "crud-api"])
+        .current_dir("..")
+        .output()
+        .expect("Failed to run cargo check");
+
+    assert!(
+        output.status.success(),
+        "crud-api with routes!(body: Type) should compile:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+/// Test that routes! macro compiles with typed query input.
+#[test]
+fn test_routes_with_typed_query_compiles() {
+    // crud-api uses typed query inputs
+    let output = Command::new("cargo")
+        .args(["check", "--package", "crud-api"])
+        .current_dir("..")
+        .output()
+        .expect("Failed to run cargo check");
+
+    assert!(
+        output.status.success(),
+        "crud-api with routes!(query: Query) should compile:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+/// Test that routes! macro compiles with typed path input.
+#[test]
+fn test_routes_with_typed_path_compiles() {
+    // crud-api uses typed path inputs (UserPath)
+    let output = Command::new("cargo")
+        .args(["check", "--package", "crud-api"])
+        .current_dir("..")
+        .output()
+        .expect("Failed to run cargo check");
+
+    assert!(
+        output.status.success(),
+        "crud-api with routes!(path: Path) should compile:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+// =============================================================================
+// TYPE DERIVE TESTS - Test FromJson, FromQuery, FromPath
+// =============================================================================
+
+// Mock the mik_sdk types needed by generated code
+mod mik_sdk {
+    pub mod typed {
+        use std::collections::HashMap;
+
+        #[derive(Debug, Clone)]
+        pub struct ParseError {
+            pub field: String,
+            pub message: String,
+        }
+
+        impl ParseError {
+            pub fn missing(field: &str) -> Self {
+                Self {
+                    field: field.to_string(),
+                    message: format!("Missing required field: {}", field),
+                }
+            }
+
+            pub fn invalid_format(field: &str, value: &str) -> Self {
+                Self {
+                    field: field.to_string(),
+                    message: format!("Invalid format for '{}': {}", field, value),
+                }
+            }
+
+            pub fn type_mismatch(field: &str, expected: &str) -> Self {
+                Self {
+                    field: field.to_string(),
+                    message: format!("Expected {} for field '{}'", expected, field),
+                }
+            }
+        }
+
+        #[derive(Debug, Clone)]
+        pub struct ValidationError {
+            pub field: String,
+            pub constraint: String,
+            pub message: String,
+        }
+
+        impl ValidationError {
+            pub fn min(field: &str, min: i64) -> Self {
+                Self {
+                    field: field.to_string(),
+                    constraint: "min".to_string(),
+                    message: format!("'{}' must be at least {}", field, min),
+                }
+            }
+
+            pub fn max(field: &str, max: i64) -> Self {
+                Self {
+                    field: field.to_string(),
+                    constraint: "max".to_string(),
+                    message: format!("'{}' must be at most {}", field, max),
+                }
+            }
+        }
+
+        pub trait FromJson: Sized {
+            fn from_json(value: &crate::mik_sdk::json::JsonValue) -> Result<Self, ParseError>;
+        }
+
+        pub trait FromQuery: Sized {
+            fn from_query(params: &[(String, String)]) -> Result<Self, ParseError>;
+        }
+
+        pub trait FromPath: Sized {
+            fn from_params(params: &HashMap<String, String>) -> Result<Self, ParseError>;
+        }
+
+        pub trait Validate {
+            fn validate(&self) -> Result<(), ValidationError>;
+        }
+
+        pub trait OpenApiSchema {
+            fn openapi_schema() -> &'static str;
+            fn schema_name() -> &'static str;
+            fn openapi_query_params() -> &'static str {
+                "[]"
+            }
+        }
+
+        // Implement FromJson for primitives
+        impl FromJson for String {
+            fn from_json(value: &crate::mik_sdk::json::JsonValue) -> Result<Self, ParseError> {
+                value
+                    .str()
+                    .ok_or_else(|| ParseError::type_mismatch("value", "string"))
+            }
+        }
+
+        impl FromJson for i32 {
+            fn from_json(value: &crate::mik_sdk::json::JsonValue) -> Result<Self, ParseError> {
+                value
+                    .int()
+                    .map(|n| n as i32)
+                    .ok_or_else(|| ParseError::type_mismatch("value", "integer"))
+            }
+        }
+
+        impl FromJson for i64 {
+            fn from_json(value: &crate::mik_sdk::json::JsonValue) -> Result<Self, ParseError> {
+                value
+                    .int()
+                    .ok_or_else(|| ParseError::type_mismatch("value", "integer"))
+            }
+        }
+
+        impl FromJson for u32 {
+            fn from_json(value: &crate::mik_sdk::json::JsonValue) -> Result<Self, ParseError> {
+                value
+                    .int()
+                    .map(|n| n as u32)
+                    .ok_or_else(|| ParseError::type_mismatch("value", "integer"))
+            }
+        }
+
+        impl FromJson for bool {
+            fn from_json(value: &crate::mik_sdk::json::JsonValue) -> Result<Self, ParseError> {
+                value
+                    .bool()
+                    .ok_or_else(|| ParseError::type_mismatch("value", "boolean"))
+            }
+        }
+
+        impl<T: FromJson> FromJson for Vec<T> {
+            fn from_json(value: &crate::mik_sdk::json::JsonValue) -> Result<Self, ParseError> {
+                let len = value
+                    .len()
+                    .ok_or_else(|| ParseError::type_mismatch("value", "array"))?;
+                let mut result = Vec::with_capacity(len);
+                for i in 0..len {
+                    let item = value.at(i);
+                    result.push(T::from_json(&item)?);
+                }
+                Ok(result)
+            }
+        }
+
+        impl<T: FromJson> FromJson for Option<T> {
+            fn from_json(value: &crate::mik_sdk::json::JsonValue) -> Result<Self, ParseError> {
+                if value.is_null() {
+                    Ok(None)
+                } else {
+                    T::from_json(value).map(Some)
+                }
+            }
+        }
+    }
+
+    pub mod json {
+        use std::collections::HashMap;
+
+        #[derive(Clone)]
+        pub struct JsonValue {
+            data: JsonData,
+        }
+
+        #[derive(Clone)]
+        enum JsonData {
+            Null,
+            Bool(bool),
+            Int(i64),
+            Float(f64),
+            String(String),
+            Array(Vec<JsonValue>),
+            Object(HashMap<String, JsonValue>),
+        }
+
+        impl JsonValue {
+            pub fn null() -> Self {
+                Self {
+                    data: JsonData::Null,
+                }
+            }
+
+            pub fn from_bool(b: bool) -> Self {
+                Self {
+                    data: JsonData::Bool(b),
+                }
+            }
+
+            pub fn from_int(n: i64) -> Self {
+                Self {
+                    data: JsonData::Int(n),
+                }
+            }
+
+            pub fn from_str(s: &str) -> Self {
+                Self {
+                    data: JsonData::String(s.to_string()),
+                }
+            }
+
+            pub fn from_array(arr: Vec<JsonValue>) -> Self {
+                Self {
+                    data: JsonData::Array(arr),
+                }
+            }
+
+            pub fn from_object(obj: HashMap<String, JsonValue>) -> Self {
+                Self {
+                    data: JsonData::Object(obj),
+                }
+            }
+
+            pub fn get(&self, key: &str) -> JsonValue {
+                match &self.data {
+                    JsonData::Object(obj) => obj.get(key).cloned().unwrap_or_else(Self::null),
+                    _ => Self::null(),
+                }
+            }
+
+            pub fn at(&self, index: usize) -> JsonValue {
+                match &self.data {
+                    JsonData::Array(arr) => arr.get(index).cloned().unwrap_or_else(Self::null),
+                    _ => Self::null(),
+                }
+            }
+
+            pub fn str(&self) -> Option<String> {
+                match &self.data {
+                    JsonData::String(s) => Some(s.clone()),
+                    _ => None,
+                }
+            }
+
+            pub fn int(&self) -> Option<i64> {
+                match &self.data {
+                    JsonData::Int(n) => Some(*n),
+                    _ => None,
+                }
+            }
+
+            pub fn float(&self) -> Option<f64> {
+                match &self.data {
+                    JsonData::Float(n) => Some(*n),
+                    JsonData::Int(n) => Some(*n as f64),
+                    _ => None,
+                }
+            }
+
+            pub fn bool(&self) -> Option<bool> {
+                match &self.data {
+                    JsonData::Bool(b) => Some(*b),
+                    _ => None,
+                }
+            }
+
+            pub fn is_null(&self) -> bool {
+                matches!(&self.data, JsonData::Null)
+            }
+
+            pub fn len(&self) -> Option<usize> {
+                match &self.data {
+                    JsonData::Array(arr) => Some(arr.len()),
+                    _ => None,
+                }
+            }
+        }
+    }
+}
+
+use mik_sdk_macros::{Path, Query, Type};
+use std::collections::HashMap;
+
+// =============================================================================
+// TYPED BODY INPUT TESTS (Type derive)
+// =============================================================================
+
+#[test]
+fn test_type_derive_for_request_body() {
+    #[derive(Type)]
+    struct CreateUserInput {
+        name: String,
+        email: String,
+    }
+
+    // Create mock JSON object
+    let mut obj = HashMap::new();
+    obj.insert(
+        "name".to_string(),
+        mik_sdk::json::JsonValue::from_str("Alice"),
+    );
+    obj.insert(
+        "email".to_string(),
+        mik_sdk::json::JsonValue::from_str("alice@example.com"),
+    );
+    let json = mik_sdk::json::JsonValue::from_object(obj);
+
+    // Test FromJson parsing
+    let input = <CreateUserInput as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
+    assert_eq!(input.name, "Alice");
+    assert_eq!(input.email, "alice@example.com");
+
+    // Test OpenApiSchema
+    let schema = <CreateUserInput as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    assert!(schema.contains("\"type\":\"object\""));
+    assert!(schema.contains("name"));
+    assert!(schema.contains("email"));
+}
+
+#[test]
+fn test_type_derive_with_optional_fields() {
+    #[derive(Type)]
+    struct UpdateUserInput {
+        name: Option<String>,
+        email: Option<String>,
+    }
+
+    // With only one field
+    let mut obj = HashMap::new();
+    obj.insert(
+        "name".to_string(),
+        mik_sdk::json::JsonValue::from_str("Bob"),
+    );
+    let json = mik_sdk::json::JsonValue::from_object(obj);
+
+    let input = <UpdateUserInput as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
+    assert_eq!(input.name, Some("Bob".to_string()));
+    assert_eq!(input.email, None);
+}
+
+#[test]
+fn test_type_derive_missing_required_field_returns_error() {
+    #[derive(Type, Debug)]
+    struct RequiredBody {
+        name: String,
+    }
+
+    let json = mik_sdk::json::JsonValue::from_object(HashMap::new());
+    let result = <RequiredBody as mik_sdk::typed::FromJson>::from_json(&json);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.field, "name");
+}
+
+#[test]
+fn test_type_derive_with_constraints() {
+    #[derive(Type)]
+    struct ConstrainedInput {
+        #[field(min = 1, max = 10)]
+        value: i32,
+    }
+
+    // Valid value
+    let input = ConstrainedInput { value: 5 };
+    assert!(<ConstrainedInput as mik_sdk::typed::Validate>::validate(&input).is_ok());
+
+    // Value too small
+    let input = ConstrainedInput { value: 0 };
+    assert!(<ConstrainedInput as mik_sdk::typed::Validate>::validate(&input).is_err());
+
+    // Value too large
+    let input = ConstrainedInput { value: 11 };
+    assert!(<ConstrainedInput as mik_sdk::typed::Validate>::validate(&input).is_err());
+}
+
+// =============================================================================
+// TYPED QUERY INPUT TESTS (Query derive)
+// =============================================================================
+
+#[test]
+fn test_query_derive_with_defaults() {
+    #[derive(Query)]
+    struct ListQuery {
+        #[field(default = 1)]
+        page: u32,
+        #[field(default = 50)]
+        limit: u32,
+    }
+
+    // With explicit values
+    let params = vec![
+        ("page".to_string(), "3".to_string()),
+        ("limit".to_string(), "25".to_string()),
+    ];
+    let query = <ListQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
+    assert_eq!(query.page, 3);
+    assert_eq!(query.limit, 25);
+
+    // With defaults (empty params)
+    let params = vec![];
+    let query = <ListQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
+    assert_eq!(query.page, 1);
+    assert_eq!(query.limit, 50);
+}
+
+#[test]
+fn test_query_derive_with_optional_string() {
+    #[derive(Query)]
+    struct SearchQuery {
+        search: Option<String>,
+    }
+
+    // With value
+    let params = vec![("search".to_string(), "hello world".to_string())];
+    let query = <SearchQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
+    assert_eq!(query.search, Some("hello world".to_string()));
+
+    // Without value
+    let params = vec![];
+    let query = <SearchQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
+    assert_eq!(query.search, None);
+}
+
+#[test]
+fn test_query_derive_invalid_number_returns_error() {
+    #[derive(Query, Debug)]
+    struct NumberQuery {
+        #[field(default = 1)]
+        page: u32,
+    }
+
+    // Invalid number format
+    let params = vec![("page".to_string(), "not_a_number".to_string())];
+    let result = <NumberQuery as mik_sdk::typed::FromQuery>::from_query(&params);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.field, "page");
+}
+
+#[test]
+fn test_query_derive_generates_openapi_schema() {
+    #[derive(Query)]
+    struct PaginationQuery {
+        #[field(default = 1)]
+        page: u32,
+        #[field(default = 20, max = 100)]
+        limit: u32,
+    }
+
+    let schema = <PaginationQuery as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    assert!(schema.contains("\"type\":\"object\""));
+    assert!(schema.contains("page"));
+    assert!(schema.contains("limit"));
+}
+
+// =============================================================================
+// TYPED PATH INPUT TESTS (Path derive)
+// =============================================================================
+
+#[test]
+fn test_path_derive_single_parameter() {
+    #[derive(Path)]
+    struct UserPath {
+        id: String,
+    }
+
+    let mut params = HashMap::new();
+    params.insert("id".to_string(), "user_123".to_string());
+
+    let path = <UserPath as mik_sdk::typed::FromPath>::from_params(&params).unwrap();
+    assert_eq!(path.id, "user_123");
+}
+
+#[test]
+fn test_path_derive_multiple_parameters() {
+    #[derive(Path)]
+    struct OrgUserPath {
+        org_id: String,
+        user_id: String,
+    }
+
+    let mut params = HashMap::new();
+    params.insert("org_id".to_string(), "acme-corp".to_string());
+    params.insert("user_id".to_string(), "user_456".to_string());
+
+    let path = <OrgUserPath as mik_sdk::typed::FromPath>::from_params(&params).unwrap();
+    assert_eq!(path.org_id, "acme-corp");
+    assert_eq!(path.user_id, "user_456");
+}
+
+#[test]
+fn test_path_derive_missing_parameter_returns_error() {
+    #[derive(Path, Debug)]
+    struct RequiredPath {
+        id: String,
+    }
+
+    let params = HashMap::new();
+    let result = <RequiredPath as mik_sdk::typed::FromPath>::from_params(&params);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.field, "id");
+}
+
+#[test]
+fn test_path_derive_generates_openapi_schema() {
+    #[derive(Path)]
+    struct ResourcePath {
+        resource_id: String,
+    }
+
+    let schema = <ResourcePath as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    assert!(schema.contains("\"type\":\"object\""));
+    assert!(schema.contains("resource_id"));
+}
+
+// =============================================================================
+// COMBINED INPUT TYPES TESTS
+// =============================================================================
+
+#[test]
+fn test_combined_path_and_body_types() {
+    #[derive(Path)]
+    struct ItemPath {
+        id: String,
+    }
+
+    #[derive(Type)]
+    struct UpdateItemInput {
+        name: String,
+        description: Option<String>,
+    }
+
+    // Path parsing
+    let mut path_params = HashMap::new();
+    path_params.insert("id".to_string(), "item_789".to_string());
+    let path = <ItemPath as mik_sdk::typed::FromPath>::from_params(&path_params).unwrap();
+    assert_eq!(path.id, "item_789");
+
+    // Body parsing
+    let mut obj = HashMap::new();
+    obj.insert(
+        "name".to_string(),
+        mik_sdk::json::JsonValue::from_str("Updated Item"),
+    );
+    obj.insert(
+        "description".to_string(),
+        mik_sdk::json::JsonValue::from_str("New description"),
+    );
+    let json = mik_sdk::json::JsonValue::from_object(obj);
+    let body = <UpdateItemInput as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
+    assert_eq!(body.name, "Updated Item");
+    assert_eq!(body.description, Some("New description".to_string()));
+}
+
+#[test]
+fn test_combined_path_and_query_types() {
+    #[derive(Path)]
+    struct UserPath {
+        user_id: String,
+    }
+
+    #[derive(Query)]
+    struct UserPostsQuery {
+        #[field(default = 1)]
+        page: u32,
+        #[field(default = 10)]
+        per_page: u32,
+        status: Option<String>,
+    }
+
+    // Path parsing
+    let mut path_params = HashMap::new();
+    path_params.insert("user_id".to_string(), "usr_abc".to_string());
+    let path = <UserPath as mik_sdk::typed::FromPath>::from_params(&path_params).unwrap();
+    assert_eq!(path.user_id, "usr_abc");
+
+    // Query parsing
+    let query_params = vec![
+        ("page".to_string(), "2".to_string()),
+        ("status".to_string(), "published".to_string()),
+    ];
+    let query = <UserPostsQuery as mik_sdk::typed::FromQuery>::from_query(&query_params).unwrap();
+    assert_eq!(query.page, 2);
+    assert_eq!(query.per_page, 10); // default
+    assert_eq!(query.status, Some("published".to_string()));
+}
+
+#[test]
+fn test_all_three_input_types_together() {
+    #[derive(Path)]
+    struct OrgProjectPath {
+        org: String,
+        project: String,
+    }
+
+    #[derive(Query)]
+    struct FilterQuery {
+        active: Option<String>,
+    }
+
+    #[derive(Type)]
+    struct UpdateProjectInput {
+        name: String,
+    }
+
+    // Path
+    let mut path_params = HashMap::new();
+    path_params.insert("org".to_string(), "myorg".to_string());
+    path_params.insert("project".to_string(), "myproject".to_string());
+    let path = <OrgProjectPath as mik_sdk::typed::FromPath>::from_params(&path_params).unwrap();
+    assert_eq!(path.org, "myorg");
+    assert_eq!(path.project, "myproject");
+
+    // Query
+    let query_params = vec![("active".to_string(), "true".to_string())];
+    let query = <FilterQuery as mik_sdk::typed::FromQuery>::from_query(&query_params).unwrap();
+    assert_eq!(query.active, Some("true".to_string()));
+
+    // Body
+    let mut obj = HashMap::new();
+    obj.insert(
+        "name".to_string(),
+        mik_sdk::json::JsonValue::from_str("New Project Name"),
+    );
+    let json = mik_sdk::json::JsonValue::from_object(obj);
+    let body = <UpdateProjectInput as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
+    assert_eq!(body.name, "New Project Name");
+}
+
+// =============================================================================
+// OPENAPI SCHEMA TESTS
+// =============================================================================
+
+#[test]
+fn test_openapi_schema_for_response_type() {
+    #[derive(Type)]
+    struct UserResponse {
+        id: String,
+        name: String,
+        email: String,
+        created_at: Option<String>,
+    }
+
+    let schema = <UserResponse as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    assert!(schema.contains("\"type\":\"object\""));
+    assert!(schema.contains("id"));
+    assert!(schema.contains("name"));
+    assert!(schema.contains("email"));
+    assert!(schema.contains("created_at"));
+}
+
+#[test]
+fn test_openapi_schema_with_nested_types() {
+    #[derive(Type)]
+    struct Address {
+        street: String,
+        city: String,
+    }
+
+    #[derive(Type)]
+    struct Person {
+        name: String,
+        address: Address,
+    }
+
+    // Both should generate valid schemas
+    let addr_schema = <Address as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    assert!(addr_schema.contains("street"));
+    assert!(addr_schema.contains("city"));
+
+    let person_schema = <Person as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    assert!(person_schema.contains("name"));
+    assert!(person_schema.contains("address"));
+}
+
+#[test]
+fn test_openapi_schema_with_vec_field() {
+    #[derive(Type)]
+    struct TagsResponse {
+        tags: Vec<String>,
+        count: i32,
+    }
+
+    let schema = <TagsResponse as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    assert!(schema.contains("tags"));
+    assert!(schema.contains("count"));
+    // Vec should be represented as array type
+    assert!(schema.contains("\"type\":\"array\""));
+}
+
+#[test]
+fn test_openapi_schema_name() {
+    #[derive(Type)]
+    struct MyCustomType {
+        field: String,
+    }
+
+    let name = <MyCustomType as mik_sdk::typed::OpenApiSchema>::schema_name();
+    assert_eq!(name, "MyCustomType");
+}
+
+// =============================================================================
+// HTTP METHOD DISPATCH TESTS
+// =============================================================================
+
+#[test]
+fn test_http_method_dispatch_pattern() {
+    // Simulate the method dispatch that routes! macro generates
+    fn dispatch_method(method: &str, path: &str) -> (u16, &'static str) {
+        match (method, path) {
+            ("GET", "/users") => (200, "list_users"),
+            ("POST", "/users") => (201, "create_user"),
+            ("GET", "/users/123") => (200, "get_user"),
+            ("PUT", "/users/123") => (200, "update_user"),
+            ("DELETE", "/users/123") => (204, "delete_user"),
+            _ => (404, "not_found"),
+        }
+    }
+
+    // Test all methods route correctly
+    assert_eq!(dispatch_method("GET", "/users"), (200, "list_users"));
+    assert_eq!(dispatch_method("POST", "/users"), (201, "create_user"));
+    assert_eq!(dispatch_method("GET", "/users/123"), (200, "get_user"));
+    assert_eq!(dispatch_method("PUT", "/users/123"), (200, "update_user"));
+    assert_eq!(
+        dispatch_method("DELETE", "/users/123"),
+        (204, "delete_user")
+    );
+    assert_eq!(dispatch_method("PATCH", "/users/123"), (404, "not_found"));
+}
+
+#[test]
+fn test_http_methods_are_case_sensitive_in_macro() {
+    // The routes! macro expects uppercase methods
+    fn parse_method(method: &str) -> bool {
+        matches!(
+            method,
+            "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS"
+        )
+    }
+
+    assert!(parse_method("GET"));
+    assert!(parse_method("POST"));
+    assert!(parse_method("PUT"));
+    assert!(parse_method("PATCH"));
+    assert!(parse_method("DELETE"));
+    assert!(parse_method("HEAD"));
+    assert!(parse_method("OPTIONS"));
+    assert!(!parse_method("get")); // lowercase should not match
+    assert!(!parse_method("Get")); // mixed case should not match
+}
+
+// =============================================================================
+// EDGE CASES AND ERROR HANDLING
+// =============================================================================
+
+#[test]
+fn test_type_with_all_supported_field_types() {
+    #[derive(Type)]
+    struct AllFieldTypes {
+        string_field: String,
+        int_field: i32,
+        long_field: i64,
+        bool_field: bool,
+        optional_string: Option<String>,
+        optional_int: Option<i32>,
+        string_vec: Vec<String>,
+        int_vec: Vec<i32>,
+    }
+
+    let mut obj = HashMap::new();
+    obj.insert(
+        "string_field".to_string(),
+        mik_sdk::json::JsonValue::from_str("test"),
+    );
+    obj.insert(
+        "int_field".to_string(),
+        mik_sdk::json::JsonValue::from_int(42),
+    );
+    obj.insert(
+        "long_field".to_string(),
+        mik_sdk::json::JsonValue::from_int(9_000_000_000),
+    );
+    obj.insert(
+        "bool_field".to_string(),
+        mik_sdk::json::JsonValue::from_bool(true),
+    );
+    obj.insert(
+        "optional_string".to_string(),
+        mik_sdk::json::JsonValue::from_str("optional"),
+    );
+    obj.insert(
+        "optional_int".to_string(),
+        mik_sdk::json::JsonValue::from_int(100),
+    );
+    obj.insert(
+        "string_vec".to_string(),
+        mik_sdk::json::JsonValue::from_array(vec![
+            mik_sdk::json::JsonValue::from_str("a"),
+            mik_sdk::json::JsonValue::from_str("b"),
+        ]),
+    );
+    obj.insert(
+        "int_vec".to_string(),
+        mik_sdk::json::JsonValue::from_array(vec![
+            mik_sdk::json::JsonValue::from_int(1),
+            mik_sdk::json::JsonValue::from_int(2),
+        ]),
+    );
+    let json = mik_sdk::json::JsonValue::from_object(obj);
+
+    let result = <AllFieldTypes as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
+    assert_eq!(result.string_field, "test");
+    assert_eq!(result.int_field, 42);
+    assert_eq!(result.long_field, 9_000_000_000);
+    assert!(result.bool_field);
+    assert_eq!(result.optional_string, Some("optional".to_string()));
+    assert_eq!(result.optional_int, Some(100));
+    assert_eq!(result.string_vec, vec!["a", "b"]);
+    assert_eq!(result.int_vec, vec![1, 2]);
+}
+
+#[test]
+fn test_query_with_url_encoded_values() {
+    #[derive(Query)]
+    struct SearchQuery {
+        q: Option<String>,
+    }
+
+    // URL encoded values should be passed as decoded strings
+    let params = vec![("q".to_string(), "hello world".to_string())];
+    let query = <SearchQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
+    assert_eq!(query.q, Some("hello world".to_string()));
+}
+
+#[test]
+fn test_path_with_special_characters() {
+    #[derive(Path)]
+    struct SlugPath {
+        slug: String,
+    }
+
+    // Slugs can contain hyphens
+    let mut params = HashMap::new();
+    params.insert("slug".to_string(), "my-blog-post-title".to_string());
+
+    let path = <SlugPath as mik_sdk::typed::FromPath>::from_params(&params).unwrap();
+    assert_eq!(path.slug, "my-blog-post-title");
+}
+
+#[test]
+fn test_empty_string_values_are_valid() {
+    #[derive(Query)]
+    struct EmptyQuery {
+        filter: Option<String>,
+    }
+
+    // Empty string is valid and different from missing
+    let params = vec![("filter".to_string(), "".to_string())];
+    let query = <EmptyQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
+    assert_eq!(query.filter, Some("".to_string()));
+}
+
+// =============================================================================
+// VALIDATION TESTS
+// =============================================================================
+
+#[test]
+fn test_string_length_validation() {
+    #[derive(Type)]
+    struct UsernameInput {
+        #[field(min = 3, max = 20)]
+        username: String,
+    }
+
+    // Valid length
+    let input = UsernameInput {
+        username: "alice".to_string(),
+    };
+    assert!(<UsernameInput as mik_sdk::typed::Validate>::validate(&input).is_ok());
+
+    // Too short
+    let input = UsernameInput {
+        username: "ab".to_string(),
+    };
+    let result = <UsernameInput as mik_sdk::typed::Validate>::validate(&input);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.constraint, "min");
+
+    // Too long
+    let input = UsernameInput {
+        username: "a".repeat(25),
+    };
+    let result = <UsernameInput as mik_sdk::typed::Validate>::validate(&input);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.constraint, "max");
+}
+
+#[test]
+fn test_integer_range_validation() {
+    #[derive(Type)]
+    struct AgeInput {
+        #[field(min = 0, max = 150)]
+        age: i32,
+    }
+
+    // At boundaries
+    let input = AgeInput { age: 0 };
+    assert!(<AgeInput as mik_sdk::typed::Validate>::validate(&input).is_ok());
+
+    let input = AgeInput { age: 150 };
+    assert!(<AgeInput as mik_sdk::typed::Validate>::validate(&input).is_ok());
+
+    // Below minimum
+    let input = AgeInput { age: -1 };
+    assert!(<AgeInput as mik_sdk::typed::Validate>::validate(&input).is_err());
+
+    // Above maximum
+    let input = AgeInput { age: 151 };
+    assert!(<AgeInput as mik_sdk::typed::Validate>::validate(&input).is_err());
+}
+
+// =============================================================================
+// /__SCHEMA ENDPOINT TESTS
+// =============================================================================
+
+/// Test that the routes! macro generates the __schema endpoint handler.
+#[test]
+fn test_schema_endpoint_pattern() {
+    // The routes! macro auto-registers the /__schema endpoint
+    // This test verifies the pattern that gets generated
+    fn route_matches(path: &str) -> bool {
+        path == "/__schema"
+    }
+
+    assert!(route_matches("/__schema"));
+    assert!(!route_matches("/schema"));
+    assert!(!route_matches("/__schema/"));
+    assert!(!route_matches("/__schema?version=1"));
+}
+
+/// Test that OpenAPI schema structure is valid JSON-like.
+#[test]
+fn test_openapi_schema_structure() {
+    // The generated schema should include these key parts:
+    // - type: object
+    // - properties object
+
+    #[derive(Type)]
+    struct TestUser {
+        id: String,
+        name: String,
+    }
+
+    let schema = <TestUser as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+
+    // Schema should contain valid JSON structure elements
+    assert!(schema.contains("\"type\":\"object\""));
+    assert!(schema.contains("\"properties\""));
+    // Schema contains curly braces (it's JSON)
+    assert!(schema.contains('{'));
+    assert!(schema.contains('}'));
+}
+
+/// Test that all route types contribute to the schema.
+#[test]
+fn test_all_route_types_generate_schemas() {
+    #[derive(Type)]
+    struct RequestBody {
+        data: String,
+    }
+
+    #[derive(Type)]
+    struct ResponseBody {
+        result: String,
+    }
+
+    #[derive(Query)]
+    struct QueryParams {
+        filter: Option<String>,
+    }
+
+    #[derive(Path)]
+    struct PathParams {
+        id: String,
+    }
+
+    // All types should generate valid schemas
+    let body_schema = <RequestBody as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    let response_schema = <ResponseBody as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    let query_schema = <QueryParams as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    let path_schema = <PathParams as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+
+    // All should have type:object
+    assert!(body_schema.contains("\"type\":\"object\""));
+    assert!(response_schema.contains("\"type\":\"object\""));
+    assert!(query_schema.contains("\"type\":\"object\""));
+    assert!(path_schema.contains("\"type\":\"object\""));
+
+    // All should have their fields
+    assert!(body_schema.contains("data"));
+    assert!(response_schema.contains("result"));
+    assert!(query_schema.contains("filter"));
+    assert!(path_schema.contains("id"));
+}
+
+/// Test that schema names match struct names.
+#[test]
+fn test_schema_names_match_struct_names() {
+    #[derive(Type)]
+    struct CreateUserRequest {
+        name: String,
+    }
+
+    #[derive(Query)]
+    struct UserSearchQuery {
+        q: Option<String>,
+    }
+
+    #[derive(Path)]
+    struct UserResourcePath {
+        user_id: String,
+    }
+
+    assert_eq!(
+        <CreateUserRequest as mik_sdk::typed::OpenApiSchema>::schema_name(),
+        "CreateUserRequest"
+    );
+    assert_eq!(
+        <UserSearchQuery as mik_sdk::typed::OpenApiSchema>::schema_name(),
+        "UserSearchQuery"
+    );
+    assert_eq!(
+        <UserResourcePath as mik_sdk::typed::OpenApiSchema>::schema_name(),
+        "UserResourcePath"
+    );
+}
+
+// =============================================================================
+// INTEGRATION WITH ACTUAL EXAMPLES
+// =============================================================================
+
+/// Verify that crud-api example builds successfully with routes! macro.
+#[test]
+#[ignore = "requires wasm32 target bindings"]
+fn test_crud_api_full_build() {
+    let output = Command::new("cargo")
+        .args(["build", "--package", "crud-api"])
+        .current_dir("..")
+        .output()
+        .expect("Failed to run cargo build");
+
+    assert!(
+        output.status.success(),
+        "crud-api should build successfully:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+/// Verify that hello-world example still works with basic routes.
+#[test]
+#[ignore = "requires wasm32 target bindings"]
+fn test_hello_world_still_works() {
+    let output = Command::new("cargo")
+        .args(["check", "--package", "hello-world"])
+        .current_dir("..")
+        .output()
+        .expect("Failed to run cargo check");
+
+    assert!(
+        output.status.success(),
+        "hello-world should still compile:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}

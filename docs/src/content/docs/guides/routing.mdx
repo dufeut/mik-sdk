@@ -1,0 +1,333 @@
+---
+title: Routing
+description: Define type-safe routes with automatic input extraction
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Routing
+
+mik-sdk provides a declarative, type-safe routing system with automatic extraction of path parameters, query strings, and request bodies.
+
+## Basic Routes
+
+```rust
+routes! {
+    GET "/" => home,
+    GET "/users" => list_users,
+    POST "/users" => create_user,
+    GET "/users/{id}" => get_user,
+    PUT "/users/{id}" => update_user,
+    DELETE "/users/{id}" => delete_user,
+}
+```
+
+### Supported HTTP Methods
+
+| Method | Usage |
+|--------|-------|
+| `GET` | Read resources |
+| `POST` | Create resources |
+| `PUT` | Replace resources |
+| `PATCH` | Partial update |
+| `DELETE` | Remove resources |
+| `HEAD` | Headers only |
+| `OPTIONS` | CORS preflight |
+
+### Path Patterns
+
+```rust
+routes! {
+    // Static paths
+    GET "/" => home,
+    GET "/api/health" => health,
+
+    // Single parameter
+    GET "/users/{id}" => get_user,
+
+    // Multiple parameters
+    GET "/orgs/{org_id}/users/{user_id}" => get_org_user,
+
+    // Alternative paths (both map to same handler)
+    GET "/" | "" => home,
+}
+```
+
+## Typed Inputs
+
+### Path Parameters
+
+Use `#[derive(Path)]` for URL path parameters:
+
+```rust
+#[derive(Path)]
+pub struct UserPath {
+    pub id: String,  // Matches {id} in route
+}
+
+#[derive(Path)]
+pub struct OrgUserPath {
+    pub org_id: String,   // Matches {org_id}
+    pub user_id: String,  // Matches {user_id}
+}
+
+routes! {
+    GET "/users/{id}" => get_user(path: UserPath),
+    GET "/orgs/{org_id}/users/{user_id}" => get_org_user(path: OrgUserPath),
+}
+
+fn get_user(path: UserPath, _req: &Request) -> Response {
+    ok!({ "id": path.id })
+}
+```
+
+<Aside type="tip">
+For simple single-parameter paths, use the built-in `Id` type:
+
+```rust
+routes! {
+    GET "/users/{id}" => get_user(path: Id),
+}
+
+fn get_user(path: Id, _req: &Request) -> Response {
+    ok!({ "id": path.as_str() })
+}
+```
+</Aside>
+
+### Query Parameters
+
+Use `#[derive(Query)]` for query string parameters:
+
+```rust
+#[derive(Query)]
+pub struct ListQuery {
+    // Optional parameter
+    pub search: Option<String>,
+
+    // With default value
+    #[field(default = 1)]
+    pub page: u32,
+
+    // With default and max constraint
+    #[field(default = 20, max = 100)]
+    pub limit: u32,
+}
+
+routes! {
+    GET "/users" => list_users(query: ListQuery),
+}
+
+fn list_users(query: ListQuery, _req: &Request) -> Response {
+    ok!({
+        "search": query.search,
+        "page": query.page,
+        "limit": query.limit
+    })
+}
+```
+
+Query strings are parsed from the URL:
+```
+/users?search=alice&page=2&limit=50
+```
+
+### Request Body
+
+Use `#[derive(Type)]` for JSON request bodies:
+
+```rust
+#[derive(Type)]
+pub struct CreateUserInput {
+    #[field(min = 1, max = 100)]
+    pub name: String,
+
+    #[field(format = "email")]
+    pub email: String,
+
+    // Optional field
+    pub age: Option<i32>,
+}
+
+routes! {
+    POST "/users" => create_user(body: CreateUserInput),
+}
+
+fn create_user(body: CreateUserInput, _req: &Request) -> Response {
+    ok!({
+        "name": body.name,
+        "email": body.email,
+        "age": body.age
+    })
+}
+```
+
+### Combined Inputs
+
+Handlers can receive multiple typed inputs:
+
+```rust
+routes! {
+    PUT "/users/{id}" => update_user(path: Id, body: UpdateInput),
+    GET "/orgs/{org_id}/users" => list_org_users(path: OrgPath, query: ListQuery),
+}
+
+fn update_user(path: Id, body: UpdateInput, _req: &Request) -> Response {
+    ok!({
+        "id": path.as_str(),
+        "updated_name": body.name
+    })
+}
+```
+
+## Response Types
+
+Optionally declare response types for documentation:
+
+```rust
+#[derive(Type)]
+pub struct User {
+    pub id: String,
+    pub name: String,
+    pub email: String,
+}
+
+routes! {
+    GET "/users/{id}" => get_user(path: Id) -> User,
+    GET "/users" => list_users(query: ListQuery) -> Vec<User>,
+}
+```
+
+Response types are used for:
+- OpenAPI schema generation (`/__schema` endpoint)
+- Documentation
+
+<Aside type="note">
+Response types are optional and don't affect runtime behavior. The actual response is determined by what your handler returns.
+</Aside>
+
+## Field Attributes
+
+Use `#[field(...)]` to add constraints and metadata:
+
+```rust
+#[derive(Type)]
+pub struct CreatePostInput {
+    // String constraints
+    #[field(min = 1, max = 200)]
+    pub title: String,
+
+    // Rename JSON field
+    #[field(rename = "bodyContent")]
+    pub body: String,
+
+    // Format hint (for OpenAPI)
+    #[field(format = "email")]
+    pub author_email: String,
+
+    // Pattern validation (for OpenAPI)
+    #[field(pattern = "^[a-z0-9-]+$")]
+    pub slug: String,
+
+    // Documentation
+    #[field(docs = "Tags for categorization")]
+    pub tags: Vec<String>,
+}
+
+#[derive(Query)]
+pub struct PaginationQuery {
+    // Default value (Query only)
+    #[field(default = 1)]
+    pub page: u32,
+
+    // Default with max constraint
+    #[field(default = 20, max = 100)]
+    pub limit: u32,
+}
+```
+
+| Attribute | Types | Description |
+|-----------|-------|-------------|
+| `min` | String, Vec, numbers | Minimum length/value/items |
+| `max` | String, Vec, numbers | Maximum length/value/items |
+| `default` | Query fields | Default if missing |
+| `format` | String | OpenAPI format hint |
+| `pattern` | String | Regex pattern |
+| `rename` | Any | JSON field name |
+| `docs` | Any | OpenAPI description |
+
+## Auto-Generated Endpoints
+
+The `routes!` macro automatically registers:
+
+| Endpoint | Description |
+|----------|-------------|
+| `/__schema` | OpenAPI JSON schema |
+
+```bash
+curl http://localhost:8080/__schema
+```
+
+## Handler Signature
+
+All handlers have this signature:
+
+```rust
+fn handler_name(
+    /* typed inputs */,
+    req: &Request,
+) -> Response
+```
+
+The `Request` parameter is always available for accessing:
+- Headers
+- Raw body
+- Content-Type checks
+- Form data
+
+```rust
+fn create_user(body: CreateInput, req: &Request) -> Response {
+    // Access raw request
+    let auth = req.header("Authorization");
+    let trace_id = req.trace_id();
+
+    // Use typed input
+    ok!({ "name": body.name })
+}
+```
+
+## Error Handling
+
+Parsing errors are automatically returned as RFC 7807 responses:
+
+```json
+{
+  "type": "urn:problem:validation",
+  "title": "Validation Error",
+  "status": 400,
+  "detail": "Missing required field",
+  "errors": [
+    { "field": "name", "message": "field is required" }
+  ]
+}
+```
+
+For custom error handling, use the DX macros:
+
+```rust
+fn get_user(path: Id, _req: &Request) -> Response {
+    // Early return if condition fails
+    guard!(!path.as_str().is_empty(), 400, "ID required");
+
+    // Unwrap or return error
+    let user = ensure!(find_user(path.as_str()), 404, "Not found");
+
+    ok!({ "user": user })
+}
+```
+
+## Next Steps
+
+- [Request](/reference/request/) - Access headers, body, forms
+- [Responses](/reference/responses/) - Response macros reference
+- [Error Types](/reference/errors/) - Error handling patterns

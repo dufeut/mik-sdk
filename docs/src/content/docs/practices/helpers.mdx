@@ -1,0 +1,355 @@
+---
+title: Custom Helpers
+description: Building reusable helper functions for mik-sdk handlers
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Custom Helpers
+
+Patterns for creating reusable helper functions in your handlers.
+
+## Authentication Helpers
+
+### Token Extraction
+
+```rust
+/// Extract bearer token from Authorization header
+fn get_bearer_token(req: &Request) -> Option<&str> {
+    req.header("Authorization")
+        .and_then(|h| h.strip_prefix("Bearer "))
+}
+
+fn protected_endpoint(req: &Request) -> Response {
+    let token = ensure!(get_bearer_token(req), 401, "Authentication required");
+
+    // Validate token...
+    ok!({ "authenticated": true })
+}
+```
+
+### User Context
+
+```rust
+struct UserContext {
+    user_id: String,
+    role: String,
+}
+
+fn get_user_context(req: &Request) -> Option<UserContext> {
+    // In a real app, validate JWT or session token
+    let token = get_bearer_token(req)?;
+
+    // Decode token (simplified)
+    Some(UserContext {
+        user_id: "user_123".to_string(),
+        role: "admin".to_string(),
+    })
+}
+
+fn admin_endpoint(req: &Request) -> Response {
+    let user = ensure!(get_user_context(req), 401, "Authentication required");
+    guard!(user.role == "admin", 403, "Admin access required");
+
+    ok!({ "admin": true })
+}
+```
+
+## Request Helpers
+
+### Request ID Generation
+
+```rust
+/// Get or generate a request ID for tracing
+fn get_request_id(req: &Request) -> String {
+    req.trace_id()
+        .map(String::from)
+        .unwrap_or_else(|| random::uuid())
+}
+
+fn handler(req: &Request) -> Response {
+    let request_id = get_request_id(req);
+
+    log!(info, "handling request", request_id: &request_id);
+
+    ok!({ "request_id": request_id })
+}
+```
+
+### Content Negotiation
+
+```rust
+enum ContentType {
+    Json,
+    Html,
+    Xml,
+    Other,
+}
+
+fn preferred_content_type(req: &Request) -> ContentType {
+    if req.accepts("json") {
+        ContentType::Json
+    } else if req.accepts("html") {
+        ContentType::Html
+    } else if req.accepts("xml") {
+        ContentType::Xml
+    } else {
+        ContentType::Other
+    }
+}
+
+fn multi_format_endpoint(req: &Request) -> Response {
+    match preferred_content_type(req) {
+        ContentType::Json => ok!({ "format": "json" }),
+        ContentType::Html => ok!({ "format": "html" }),
+        _ => ok!({ "format": "default" }),
+    }
+}
+```
+
+## Response Helpers
+
+### Success Response Builder
+
+```rust
+/// Standard success response with data and optional metadata
+fn success_response<T: ToString>(data: T, meta: Option<&str>) -> Response {
+    ok!({
+        "success": true,
+        "data": data.to_string(),
+        "meta": meta
+    })
+}
+```
+
+### Paginated Response
+
+```rust
+struct PageMeta {
+    page: u32,
+    limit: u32,
+    total: Option<u64>,
+    has_next: bool,
+}
+
+fn paginated_response(items: Vec<String>, meta: PageMeta) -> Response {
+    ok!({
+        "items": items,
+        "meta": {
+            "page": meta.page,
+            "limit": meta.limit,
+            "total": meta.total,
+            "has_next": meta.has_next
+        }
+    })
+}
+```
+
+## Validation Helpers
+
+### Email Validation
+
+```rust
+fn is_valid_email(email: &str) -> bool {
+    let parts: Vec<&str> = email.split('@').collect();
+    if parts.len() != 2 {
+        return false;
+    }
+
+    let local = parts[0];
+    let domain = parts[1];
+
+    !local.is_empty()
+        && !domain.is_empty()
+        && domain.contains('.')
+        && !domain.starts_with('.')
+        && !domain.ends_with('.')
+}
+
+fn create_user(body: CreateUserInput, _req: &Request) -> Response {
+    guard!(is_valid_email(&body.email), 400, "Invalid email format");
+    // ...
+}
+```
+
+### String Sanitization
+
+```rust
+fn sanitize_string(s: &str) -> String {
+    s.trim()
+        .chars()
+        .filter(|c| !c.is_control())
+        .collect()
+}
+
+fn normalize_name(name: &str) -> String {
+    sanitize_string(name)
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+```
+
+### ID Validation
+
+```rust
+fn is_valid_uuid(s: &str) -> bool {
+    if s.len() != 36 {
+        return false;
+    }
+
+    let parts: Vec<&str> = s.split('-').collect();
+    if parts.len() != 5 {
+        return false;
+    }
+
+    let expected_lens = [8, 4, 4, 4, 12];
+    for (part, expected) in parts.iter().zip(expected_lens.iter()) {
+        if part.len() != *expected {
+            return false;
+        }
+        if !part.chars().all(|c| c.is_ascii_hexdigit()) {
+            return false;
+        }
+    }
+
+    true
+}
+```
+
+## Database Helpers
+
+### Connection Helper
+
+```rust
+struct DbConfig {
+    url: String,
+    timeout: u32,
+}
+
+fn get_db_config() -> DbConfig {
+    DbConfig {
+        url: env::require("DATABASE_URL"),
+        timeout: env::get_or("DB_TIMEOUT", "5000")
+            .parse()
+            .unwrap_or(5000),
+    }
+}
+```
+
+### Query Execution
+
+```rust
+/// Execute a query via the database proxy sidecar
+fn execute_query(sql: &str, _params: &[Value]) -> Result<Vec<u8>, String> {
+    let config = get_db_config();
+
+    let response = fetch!(POST &format!("{}/query", config.url),
+        json: { "sql": sql },
+        timeout: config.timeout
+    ).send();
+
+    match response {
+        Ok(resp) if resp.is_success() => Ok(resp.body()),
+        Ok(resp) => Err(format!("Database error: {}", resp.status())),
+        Err(_) => Err("Database connection failed".to_string()),
+    }
+}
+```
+
+## Logging Helpers
+
+### Structured Request Logging
+
+```rust
+fn log_request(req: &Request, action: &str) {
+    log!(info, action,
+        method: format!("{:?}", req.method()),
+        path: req.path_without_query(),
+        trace_id: req.trace_id().unwrap_or("unknown")
+    );
+}
+
+fn log_response(req: &Request, status: u16, duration_ms: u64) {
+    log!(info, "response",
+        status: status,
+        duration_ms: duration_ms,
+        trace_id: req.trace_id().unwrap_or("unknown")
+    );
+}
+```
+
+### Error Logging
+
+```rust
+fn log_error(req: &Request, error: &str, context: &str) {
+    log!(error, "request failed",
+        error: error,
+        context: context,
+        path: req.path_without_query(),
+        trace_id: req.trace_id().unwrap_or("unknown")
+    );
+}
+```
+
+## Time Helpers
+
+### Duration Calculation
+
+```rust
+fn measure_duration<F, T>(f: F) -> (T, u64)
+where
+    F: FnOnce() -> T,
+{
+    let start = time::now_millis();
+    let result = f();
+    let elapsed = time::now_millis() - start;
+    (result, elapsed)
+}
+
+fn handler(_req: &Request) -> Response {
+    let (result, duration) = measure_duration(|| {
+        // Do work...
+        "done"
+    });
+
+    log!(info, "operation completed", duration_ms: duration);
+    ok!({ "result": result })
+}
+```
+
+### Expiration Calculation
+
+```rust
+fn expires_at(duration_seconds: u64) -> String {
+    time::to_iso(time::now() + duration_seconds, 0)
+}
+
+fn create_session(_req: &Request) -> Response {
+    ok!({
+        "created_at": time::now_iso(),
+        "expires_at": expires_at(86400)  // 24 hours
+    })
+}
+```
+
+## Module Organization
+
+Organize helpers in a separate module:
+
+```rust
+// src/helpers/mod.rs
+mod auth;
+mod request;
+mod response;
+mod validation;
+
+pub use auth::*;
+pub use request::*;
+pub use response::*;
+pub use validation::*;
+
+// src/lib.rs
+mod helpers;
+use helpers::*;
+```

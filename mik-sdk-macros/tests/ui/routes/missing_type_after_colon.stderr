@@ -1,0 +1,18 @@
+error: Expected type name after 'path: '.
+
+       The type must be a struct that derives the appropriate trait:
+       - path: Type   - Type must derive Path
+       - body: Type   - Type must derive Type (for JSON parsing)
+       - query: Type  - Type must derive Query
+
+       Example:
+       #[derive(Path)]
+       struct UserId { id: String }
+
+       GET "/users/{id}" => handler(path: UserId)
+
+       Original error: unexpected end of input, expected identifier
+ --> tests/ui/routes/missing_type_after_colon.rs:7:39
+  |
+7 |     GET "/users/{id}" => handler(path:),
+  |                                       ^

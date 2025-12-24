@@ -1,0 +1,207 @@
+---
+title: Date & Time
+description: Time utilities for timestamps and ISO 8601 formatting
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Date & Time
+
+The `time` module provides utilities for working with timestamps and date formatting.
+
+## Platform Support
+
+The time module automatically uses the appropriate implementation:
+
+| Platform | Implementation |
+|----------|----------------|
+| WASM (wasm32-wasip2) | Native `wasi:clocks/wall-clock` |
+| Native (testing) | `std::time::SystemTime` |
+
+No configuration needed - just import and use.
+
+## Getting Current Time
+
+### Unix Timestamp (Seconds)
+
+```rust
+use mik_sdk::time;
+
+let timestamp = time::now();  // u64
+// Example: 1737024600
+```
+
+### Unix Timestamp (Milliseconds)
+
+Useful for JavaScript interop where `Date.now()` uses milliseconds:
+
+```rust
+let timestamp_ms = time::now_millis();  // u64
+// Example: 1737024600500
+```
+
+### ISO 8601 String
+
+```rust
+let iso = time::now_iso();  // String
+// Example: "2025-01-16T10:50:00Z"
+
+// With milliseconds (if non-zero)
+// Example: "2025-01-16T10:50:00.500Z"
+```
+
+## Converting Raw Values
+
+If you have raw seconds and nanoseconds:
+
+```rust
+// To milliseconds
+let ms = time::to_millis(seconds, nanoseconds);
+
+// To ISO 8601 string
+let iso = time::to_iso(seconds, nanoseconds);
+
+// Examples
+time::to_millis(1737024600, 500_000_000);  // 1737024600500
+time::to_iso(1737024600, 0);               // "2025-01-16T10:50:00Z"
+time::to_iso(1737024600, 500_000_000);     // "2025-01-16T10:50:00.500Z"
+```
+
+## Common Patterns
+
+### Timestamp in JSON Response
+
+```rust
+fn get_status(_req: &Request) -> Response {
+    ok!({
+        "status": "ok",
+        "timestamp": time::now(),
+        "timestamp_iso": time::now_iso()
+    })
+}
+```
+
+### Record Creation Time
+
+```rust
+fn create_item(body: CreateInput, _req: &Request) -> Response {
+    let id = random::uuid();
+    let created_at = time::now_iso();
+
+    let (sql, params) = sql_create!(items {
+        id: &id,
+        name: &body.name,
+        created_at: &created_at,
+    });
+
+    created!(format!("/items/{}", id), {
+        "id": id,
+        "created_at": created_at
+    })
+}
+```
+
+### Update Timestamps
+
+```rust
+fn update_item(path: Id, body: UpdateInput, _req: &Request) -> Response {
+    let (sql, params) = sql_update!(items {
+        set: {
+            name: &body.name,
+            updated_at: time::now_iso(),
+        },
+        filter: { id: path.as_str() },
+    });
+
+    ok!({ "updated": true })
+}
+```
+
+### Cursor Pagination with Timestamps
+
+```rust
+use mik_sdk::query::Cursor;
+
+fn list_items(query: ListQuery, _req: &Request) -> Response {
+    let (sql, params) = sql_read!(items {
+        select: [id, name, created_at],
+        order: [-created_at, -id],
+        after: query.cursor.as_deref(),
+        limit: 20,
+    });
+
+    // After fetching results, build next cursor
+    // let last = items.last();
+    // let next_cursor = Cursor::new()
+    //     .string("created_at", &last.created_at)
+    //     .int("id", last.id)
+    //     .encode();
+
+    ok!({ "sql": sql })
+}
+```
+
+### Logging with Timestamps
+
+The logging module automatically includes ISO 8601 timestamps:
+
+```rust
+log!(info, "operation completed", duration_ms: elapsed);
+// Output: {"level":"info","msg":"operation completed","duration_ms":"123","ts":"2025-01-16T10:50:00.500Z"}
+```
+
+## ISO 8601 Format
+
+The `now_iso()` and `to_iso()` functions return UTC timestamps in ISO 8601 format:
+
+```
+YYYY-MM-DDTHH:MM:SSZ           // Without milliseconds
+YYYY-MM-DDTHH:MM:SS.sssZ       // With milliseconds
+```
+
+Examples:
+- `2025-01-16T10:50:00Z`
+- `2025-01-16T10:50:00.500Z`
+- `2024-02-29T12:00:00Z` (leap year)
+
+<Aside type="note">
+Timestamps are always in UTC (indicated by the `Z` suffix). No timezone conversion is performed.
+</Aside>
+
+## Algorithm
+
+ISO 8601 formatting uses Howard Hinnant's date algorithm, which is:
+- Well-tested and widely used
+- Handles leap years correctly
+- Efficient for embedded use
+
+## API Summary
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `time::now()` | `u64` | Unix timestamp in seconds |
+| `time::now_millis()` | `u64` | Unix timestamp in milliseconds |
+| `time::now_iso()` | `String` | Current time as ISO 8601 |
+| `time::to_millis(secs, nanos)` | `u64` | Convert to milliseconds |
+| `time::to_iso(secs, nanos)` | `String` | Convert to ISO 8601 |
+
+## Examples
+
+```rust
+use mik_sdk::time;
+
+// Get current time in various formats
+let secs = time::now();           // 1737024600
+let ms = time::now_millis();      // 1737024600500
+let iso = time::now_iso();        // "2025-01-16T10:50:00.500Z"
+
+// Convert known values
+let epoch_iso = time::to_iso(0, 0);  // "1970-01-01T00:00:00Z"
+let y2k = time::to_iso(946684800, 0); // "2000-01-01T00:00:00Z"
+
+// Use in responses
+ok!({
+    "created_at": time::now_iso(),
+    "expires_at": time::to_iso(time::now() + 3600, 0)  // +1 hour
+})
+```

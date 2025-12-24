@@ -1,0 +1,19 @@
+package my:composition;
+
+// Instantiate router first (provides json/http)
+let router = new mik:router {};
+
+// Instantiate handler with router's exports
+let handler = new mik:hello-world {
+    json: router.json,
+    http: router.http
+};
+
+// Instantiate bridge with handler
+let bridge = new mik:bridge {
+    handler: handler.handler,
+    http: router.http
+};
+
+// Export the bridge's WASI HTTP handler
+export bridge...;

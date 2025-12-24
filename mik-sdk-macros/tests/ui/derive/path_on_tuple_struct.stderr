@@ -1,0 +1,5 @@
+error: Path derive only supports structs with named fields. Example: `struct UserPath { org_id: String, id: String }`
+ --> tests/ui/derive/path_on_tuple_struct.rs:5:1
+  |
+5 | struct PathTuple(String);
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^

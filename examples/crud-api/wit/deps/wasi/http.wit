@@ -1,0 +1,291 @@
+package wasi:http@0.2.0;
+
+/// HTTP Types.
+interface types {
+    use wasi:io/streams@0.2.0.{input-stream, output-stream};
+    use wasi:io/poll@0.2.0.{pollable};
+
+    /// HTTP method.
+    variant method {
+        get,
+        head,
+        post,
+        put,
+        delete,
+        connect,
+        options,
+        trace,
+        patch,
+        other(string),
+    }
+
+    /// HTTP scheme.
+    variant scheme {
+        HTTP,
+        HTTPS,
+        other(string),
+    }
+
+    /// HTTP status code.
+    type status-code = u16;
+
+    /// Headers as a list of name-value pairs.
+    resource fields {
+        /// Construct an empty fields.
+        constructor();
+
+        /// Construct from a list.
+        from-list: static func(entries: list<tuple<string, list<u8>>>) -> result<fields, header-error>;
+
+        /// Get all values for a name.
+        get: func(name: string) -> list<list<u8>>;
+
+        /// Check if a name exists.
+        has: func(name: string) -> bool;
+
+        /// Set values for a name.
+        set: func(name: string, value: list<list<u8>>) -> result<_, header-error>;
+
+        /// Delete a name.
+        delete: func(name: string) -> result<_, header-error>;
+
+        /// Append a value.
+        append: func(name: string, value: list<u8>) -> result<_, header-error>;
+
+        /// Get all entries.
+        entries: func() -> list<tuple<string, list<u8>>>;
+
+        /// Clone the fields.
+        clone: func() -> fields;
+    }
+
+    /// Header error.
+    variant header-error {
+        invalid-syntax,
+        forbidden,
+        immutable,
+    }
+
+    /// Headers alias.
+    type headers = fields;
+
+    /// Trailers alias.
+    type trailers = fields;
+
+    /// Incoming request.
+    resource incoming-request {
+        /// Get the method.
+        method: func() -> method;
+
+        /// Get the path with query.
+        path-with-query: func() -> option<string>;
+
+        /// Get the scheme.
+        scheme: func() -> option<scheme>;
+
+        /// Get the authority.
+        authority: func() -> option<string>;
+
+        /// Get the headers.
+        headers: func() -> headers;
+
+        /// Consume the body.
+        consume: func() -> result<incoming-body, _>;
+    }
+
+    /// Outgoing request.
+    resource outgoing-request {
+        /// Construct a new outgoing request.
+        constructor(headers: headers);
+
+        /// Get/set the body.
+        body: func() -> result<outgoing-body, _>;
+
+        /// Get/set the method.
+        method: func() -> method;
+        set-method: func(method: method) -> result<_, _>;
+
+        /// Get/set the path with query.
+        path-with-query: func() -> option<string>;
+        set-path-with-query: func(path-with-query: option<string>) -> result<_, _>;
+
+        /// Get/set the scheme.
+        scheme: func() -> option<scheme>;
+        set-scheme: func(scheme: option<scheme>) -> result<_, _>;
+
+        /// Get/set the authority.
+        authority: func() -> option<string>;
+        set-authority: func(authority: option<string>) -> result<_, _>;
+
+        /// Get the headers.
+        headers: func() -> headers;
+    }
+
+    /// Request options.
+    resource request-options {
+        /// Construct new options.
+        constructor();
+
+        /// Connect timeout in nanoseconds.
+        connect-timeout: func() -> option<u64>;
+        set-connect-timeout: func(duration: option<u64>) -> result<_, _>;
+
+        /// First byte timeout in nanoseconds.
+        first-byte-timeout: func() -> option<u64>;
+        set-first-byte-timeout: func(duration: option<u64>) -> result<_, _>;
+
+        /// Between bytes timeout in nanoseconds.
+        between-bytes-timeout: func() -> option<u64>;
+        set-between-bytes-timeout: func(duration: option<u64>) -> result<_, _>;
+    }
+
+    /// Response outparam.
+    resource response-outparam {
+        /// Set the response.
+        set: static func(param: response-outparam, response: result<outgoing-response, error-code>);
+    }
+
+    /// Incoming response.
+    resource incoming-response {
+        /// Get the status code.
+        status: func() -> status-code;
+
+        /// Get the headers.
+        headers: func() -> headers;
+
+        /// Consume the body.
+        consume: func() -> result<incoming-body, _>;
+    }
+
+    /// Incoming body.
+    resource incoming-body {
+        /// Get the stream.
+        %stream: func() -> result<input-stream, _>;
+
+        /// Finish consuming.
+        finish: static func(this: incoming-body) -> future-trailers;
+    }
+
+    /// Future trailers.
+    resource future-trailers {
+        /// Subscribe for readiness.
+        subscribe: func() -> pollable;
+
+        /// Get the trailers.
+        get: func() -> option<result<option<trailers>, error-code>>;
+    }
+
+    /// Outgoing response.
+    resource outgoing-response {
+        /// Construct a new outgoing response.
+        constructor(headers: headers);
+
+        /// Get/set the status code.
+        status-code: func() -> status-code;
+        set-status-code: func(status-code: status-code) -> result<_, _>;
+
+        /// Get the headers.
+        headers: func() -> headers;
+
+        /// Get the body.
+        body: func() -> result<outgoing-body, _>;
+    }
+
+    /// Outgoing body.
+    resource outgoing-body {
+        /// Get the write stream.
+        write: func() -> result<output-stream, _>;
+
+        /// Finish writing.
+        finish: static func(this: outgoing-body, trailers: option<trailers>) -> result<_, error-code>;
+    }
+
+    /// Future incoming response.
+    resource future-incoming-response {
+        /// Subscribe for readiness.
+        subscribe: func() -> pollable;
+
+        /// Get the response.
+        get: func() -> option<result<incoming-response, error-code>>;
+    }
+
+    /// Error codes.
+    variant error-code {
+        DNS-timeout,
+        DNS-error(dns-error-payload),
+        destination-not-found,
+        destination-unavailable,
+        destination-IP-prohibited,
+        destination-IP-unroutable,
+        connection-refused,
+        connection-terminated,
+        connection-timeout,
+        connection-read-timeout,
+        connection-write-timeout,
+        connection-limit-reached,
+        TLS-protocol-error,
+        TLS-certificate-error,
+        TLS-alert-received(tls-alert-received-payload),
+        HTTP-request-denied,
+        HTTP-request-length-required,
+        HTTP-request-body-size(option<u64>),
+        HTTP-request-method-invalid,
+        HTTP-request-URI-invalid,
+        HTTP-request-URI-too-long,
+        HTTP-request-header-section-size(option<u32>),
+        HTTP-request-header-size(option<field-size-payload>),
+        HTTP-request-trailer-section-size(option<u32>),
+        HTTP-request-trailer-size(field-size-payload),
+        HTTP-response-incomplete,
+        HTTP-response-header-section-size(option<u32>),
+        HTTP-response-header-size(field-size-payload),
+        HTTP-response-body-size(option<u64>),
+        HTTP-response-trailer-section-size(option<u32>),
+        HTTP-response-trailer-size(field-size-payload),
+        HTTP-response-transfer-coding(option<string>),
+        HTTP-response-content-coding(option<string>),
+        HTTP-response-timeout,
+        HTTP-upgrade-failed,
+        HTTP-protocol-error,
+        loop-detected,
+        configuration-error,
+        internal-error(option<string>),
+    }
+
+    /// DNS error payload.
+    record dns-error-payload {
+        rcode: option<string>,
+        info-code: option<u16>,
+    }
+
+    /// TLS alert payload.
+    record tls-alert-received-payload {
+        alert-id: option<u8>,
+        alert-message: option<string>,
+    }
+
+    /// Field size payload.
+    record field-size-payload {
+        field-name: option<string>,
+        field-size: option<u32>,
+    }
+
+    /// Convert error code to debug string.
+    http-error-code: func(err: borrow<error-code>) -> option<error-code>;
+}
+
+/// Outgoing HTTP handler.
+interface outgoing-handler {
+    use types.{outgoing-request, request-options, future-incoming-response, error-code};
+
+    /// Send an HTTP request and get a response.
+    handle: func(request: outgoing-request, options: option<request-options>) -> result<future-incoming-response, error-code>;
+}
+
+/// Incoming HTTP handler (for servers).
+interface incoming-handler {
+    use types.{incoming-request, response-outparam};
+
+    /// Handle an incoming HTTP request.
+    handle: func(request: incoming-request, response-out: response-outparam);
+}

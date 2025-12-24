@@ -1,0 +1,263 @@
+---
+title: Error Types
+description: Error handling with ParseError and ValidationError
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Error Types
+
+mik-sdk provides two error types for input parsing and validation: `ParseError` and `ValidationError`.
+
+## ParseError
+
+Used when input cannot be parsed into the expected type.
+
+### Variants
+
+```rust
+use mik_sdk::typed::ParseError;
+
+// Field is missing
+ParseError::MissingField { field: String }
+
+// Value format is wrong
+ParseError::InvalidFormat { field: String, value: String }
+
+// Type doesn't match
+ParseError::TypeMismatch { field: String, expected: String }
+
+// Custom error
+ParseError::Custom { field: String, message: String }
+```
+
+### Constructors
+
+```rust
+let err = ParseError::missing("email");
+let err = ParseError::invalid_format("age", "abc");
+let err = ParseError::type_mismatch("count", "integer");
+let err = ParseError::custom("field", "custom message");
+```
+
+### Accessors
+
+```rust
+let err = ParseError::missing("email");
+
+err.field()    // "email"
+err.message()  // "field is required"
+```
+
+### Nested Context
+
+For nested objects, add path context:
+
+```rust
+let err = ParseError::missing("city")
+    .with_path("address");
+// err.field() => "address.city"
+
+let nested = err.with_path("user");
+// nested.field() => "user.address.city"
+```
+
+## ValidationError
+
+Used when a value exists but fails validation constraints.
+
+### Variants
+
+```rust
+use mik_sdk::typed::ValidationError;
+
+// Below minimum
+ValidationError::Min { field: String, min: i64 }
+
+// Above maximum
+ValidationError::Max { field: String, max: i64 }
+
+// Pattern mismatch
+ValidationError::Pattern { field: String, pattern: String }
+
+// Format error
+ValidationError::Format { field: String, expected: String }
+
+// Custom constraint
+ValidationError::Custom { field: String, constraint: String, message: String }
+```
+
+### Constructors
+
+```rust
+let err = ValidationError::min("name", 3);
+let err = ValidationError::max("items", 100);
+let err = ValidationError::pattern("email", "^.+@.+\\..+$");
+let err = ValidationError::format("date", "ISO 8601");
+let err = ValidationError::custom("field", "constraint_name", "error message");
+```
+
+### Accessors
+
+```rust
+let err = ValidationError::min("name", 3);
+
+err.field()       // "name"
+err.constraint()  // "min"
+err.message()     // "must be at least 3"
+```
+
+## Pattern Matching
+
+Both error types support pattern matching for custom handling:
+
+```rust
+fn handle_error(error: ParseError) -> Response {
+    match error {
+        ParseError::MissingField { field } => {
+            bad_request!(format!("{} is required", field))
+        }
+        ParseError::TypeMismatch { field, expected } => {
+            bad_request!(format!("{} must be a {}", field, expected))
+        }
+        ParseError::InvalidFormat { field, value } => {
+            bad_request!(format!("Invalid format for {}: {}", field, value))
+        }
+        _ => bad_request!("Validation failed")
+    }
+}
+
+fn handle_validation(error: ValidationError) -> Response {
+    match error {
+        ValidationError::Min { field, min } => {
+            bad_request!(format!("{} must be at least {}", field, min))
+        }
+        ValidationError::Max { field, max } => {
+            bad_request!(format!("{} must be at most {}", field, max))
+        }
+        _ => bad_request!("Validation failed")
+    }
+}
+```
+
+## Converting Between Types
+
+`ValidationError` can be converted to `ParseError`:
+
+```rust
+fn validate_input(value: &str) -> Result<String, ParseError> {
+    if value.len() < 3 {
+        let validation_err = ValidationError::min("name", 3);
+        return Err(validation_err.into());  // Converts to ParseError
+    }
+    Ok(value.to_string())
+}
+```
+
+## Using with Result
+
+The error types work well with `Result` and the `?` operator:
+
+```rust
+fn parse_request(body: &[u8]) -> Result<UserInput, ParseError> {
+    let json = json::try_parse(body)
+        .ok_or_else(|| ParseError::custom("body", "Invalid JSON"))?;
+
+    let name = json.path_str(&["name"])
+        .ok_or_else(|| ParseError::missing("name"))?;
+
+    if name.len() < 3 {
+        return Err(ValidationError::min("name", 3).into());
+    }
+
+    let email = json.path_str(&["email"])
+        .ok_or_else(|| ParseError::missing("email"))?;
+
+    Ok(UserInput { name, email })
+}
+
+fn create_user(_req: &Request) -> Response {
+    let body = ensure!(_req.body(), 400, "Body required");
+
+    match parse_request(body) {
+        Ok(input) => {
+            ok!({ "name": input.name })
+        }
+        Err(err) => {
+            error! {
+                status: 400,
+                title: "Validation Error",
+                detail: err.message(),
+                meta: { "field": err.field() }
+            }
+        }
+    }
+}
+```
+
+## Automatic Error Handling
+
+When using typed inputs with `#[derive(Type)]`, `#[derive(Path)]`, or `#[derive(Query)]`, parsing errors are automatically converted to RFC 7807 responses:
+
+```rust
+#[derive(Type)]
+pub struct CreateInput {
+    #[field(min = 3)]
+    pub name: String,
+    pub email: String,
+}
+
+routes! {
+    POST "/users" => create_user(body: CreateInput),
+}
+
+// If parsing fails, automatically returns:
+// {
+//   "type": "urn:problem:validation",
+//   "title": "Validation Error",
+//   "status": 400,
+//   "detail": "Missing required field",
+//   "errors": [
+//     { "field": "name", "message": "field is required" }
+//   ]
+// }
+```
+
+## Forward Compatibility
+
+Both error types are marked `#[non_exhaustive]`, meaning new variants may be added in future versions. Always include a catch-all arm in match statements:
+
+```rust
+match error {
+    ParseError::MissingField { field } => { /* ... */ }
+    ParseError::TypeMismatch { field, expected } => { /* ... */ }
+    _ => { /* Handle unknown variants */ }
+}
+```
+
+## API Summary
+
+### ParseError
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `missing(field)` | `ParseError` | Create MissingField |
+| `invalid_format(field, value)` | `ParseError` | Create InvalidFormat |
+| `type_mismatch(field, expected)` | `ParseError` | Create TypeMismatch |
+| `custom(field, message)` | `ParseError` | Create Custom |
+| `field()` | `&str` | Get field name |
+| `message()` | `String` | Get error message |
+| `with_path(path)` | `ParseError` | Add path prefix |
+
+### ValidationError
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `min(field, min)` | `ValidationError` | Create Min |
+| `max(field, max)` | `ValidationError` | Create Max |
+| `pattern(field, pattern)` | `ValidationError` | Create Pattern |
+| `format(field, expected)` | `ValidationError` | Create Format |
+| `custom(field, constraint, msg)` | `ValidationError` | Create Custom |
+| `field()` | `&str` | Get field name |
+| `constraint()` | `&str` | Get constraint name |
+| `message()` | `String` | Get error message |

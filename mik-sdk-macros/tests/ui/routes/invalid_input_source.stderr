@@ -1,0 +1,13 @@
+error: Invalid input source 'data'.
+
+       Valid sources:
+       - path  - URL path parameters (e.g., /users/{id})
+       - body  - JSON request body
+       - query - Query string parameters
+
+       Example:
+       GET "/users" => handler(path: Id, body: CreateUser) -> User
+ --> tests/ui/routes/invalid_input_source.rs:7:29
+  |
+7 |     GET "/users" => handler(data: UserType),
+  |                             ^^^^

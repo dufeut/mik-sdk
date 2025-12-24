@@ -1,0 +1,22 @@
+[package]
+name = "mik-sql-macros"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Procedural macros for mik-sql query builder"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2.0", features = ["full", "parsing", "extra-traits"] }
+
+[dev-dependencies]
+# Uses package rename to avoid release-please cargo-workspace cycle detection
+# See: https://github.com/googleapis/release-please/issues/1662
+mik_sql = { path = "../mik-sql", package = "mik-sql" }
+trybuild = "1.0"

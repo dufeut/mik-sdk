@@ -1,0 +1,164 @@
+---
+title: Installation
+description: Set up your development environment for mik-sdk
+---
+
+import { Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+# Installation
+
+This guide walks you through setting up your development environment to build WASI HTTP handlers with mik-sdk.
+
+## Prerequisites
+
+<Steps>
+
+1. **Rust 1.85+** with the `wasm32-wasip2` target
+
+   ```bash
+   rustup update
+   rustup target add wasm32-wasip2
+   ```
+
+2. **cargo-component** for building WASM components
+
+   ```bash
+   cargo install cargo-component
+   ```
+
+3. **wac** for component composition
+
+   ```bash
+   cargo install wac-cli
+   ```
+
+4. **wasmtime** (optional) for running components locally
+
+   ```bash
+   # Via cargo
+   cargo install wasmtime-cli
+
+   # Or via package manager (macOS)
+   brew install wasmtime
+   ```
+
+</Steps>
+
+## Project Setup
+
+Create a new handler project:
+
+```bash
+cargo new --lib my-handler
+cd my-handler
+```
+
+Configure `Cargo.toml`:
+
+```toml
+[package]
+name = "my-handler"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+mik-sdk = { git = "https://github.com/hlop3z/mik-sdk" }
+
+[package.metadata.component]
+package = "my:handler"
+
+[package.metadata.component.target.dependencies]
+"mik:core" = { path = "wit/deps/core" }
+```
+
+## WIT Dependencies
+
+Copy the WIT interface definitions to your project:
+
+```
+my-handler/
+├── Cargo.toml
+├── src/
+│   └── lib.rs
+└── wit/
+    ├── world.wit
+    └── deps/
+        └── core/
+            └── core.wit
+```
+
+Create `wit/world.wit`:
+
+```wit
+package my:handler;
+
+world handler {
+    include mik:core/handler-world;
+}
+```
+
+<Aside type="tip">
+You can copy the `wit/` directory from the `examples/hello-world/` folder in the mik-sdk repository.
+</Aside>
+
+## Feature Flags
+
+mik-sdk provides optional features:
+
+```toml
+[dependencies]
+# Default (includes SQL macros)
+mik-sdk = { git = "https://github.com/hlop3z/mik-sdk" }
+
+# With HTTP client for outbound requests
+mik-sdk = { git = "https://github.com/hlop3z/mik-sdk", features = ["http-client"] }
+
+# Without SQL (smaller binary)
+mik-sdk = { git = "https://github.com/hlop3z/mik-sdk", default-features = false }
+```
+
+| Feature | Default | Description |
+|---------|---------|-------------|
+| `sql` | Yes | SQL query builder macros |
+| `http-client` | No | Outbound HTTP requests |
+
+## Verify Installation
+
+Build a minimal handler to verify your setup:
+
+```rust
+// src/lib.rs
+#[allow(warnings)]
+mod bindings;
+
+use bindings::exports::mik::core::handler::{self, Guest, Response};
+use mik_sdk::prelude::*;
+
+routes! {
+    GET "/" => home,
+}
+
+fn home(_req: &Request) -> Response {
+    ok!({ "message": "Hello from mik-sdk!" })
+}
+```
+
+Build the component:
+
+```bash
+cargo component build --release
+```
+
+If successful, you'll find your component at:
+```
+target/wasm32-wasip2/release/my_handler.wasm
+```
+
+## Next Steps
+
+- [Quick Start](/guides/quickstart/) - Build a complete handler
+- [Routing](/guides/routing/) - Learn the routing system
+- [Architecture](/architecture/) - Understand the component model

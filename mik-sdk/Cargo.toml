@@ -1,0 +1,51 @@
+[package]
+name = "mik-sdk"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Ergonomic macros for WASI HTTP handlers - ok!, error!, json!"
+keywords = ["wasm", "wasi", "http", "json", "macros"]
+categories = ["wasm", "web-programming"]
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = ["sql"]
+sql = ["dep:mik-sql", "dep:mik-sql-macros"]
+# Enable HTTP client (.send() method) - only needed if making outbound HTTP calls
+http-client = ["dep:wit-bindgen-rt", "dep:wit-bindgen"]
+
+[dependencies]
+mik-sdk-macros = { path = "../mik-sdk-macros", version = "0.0.0" }
+mik-sql = { path = "../mik-sql", version = "0.0.0", optional = true }
+mik-sql-macros = { path = "../mik-sql-macros", version = "0.0.0", optional = true }
+# Used for native testing (random/time use WASI directly on wasm32)
+getrandom = "0.3"
+miniserde = "0.1"
+# WASI bindings - always needed for wasm32, optional for native with wasi-http feature
+wit-bindgen-rt = { version = "0.44.0", optional = true }
+wit-bindgen = { workspace = true, optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wit-bindgen-rt = "0.44.0"
+wit-bindgen = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+criterion = { workspace = true }
+insta = { workspace = true }
+
+[[bench]]
+name = "parsing"
+harness = false
+
+[[bench]]
+name = "json"
+harness = false
+
+[[bench]]
+name = "request"
+harness = false

@@ -1,0 +1,348 @@
+---
+title: Troubleshooting
+description: Common issues and solutions when working with mik-sdk
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Troubleshooting
+
+This guide covers common issues you may encounter when developing with mik-sdk and their solutions.
+
+## Build Issues
+
+### Missing wasm32-wasip2 Target
+
+**Error:**
+```
+error[E0463]: can't find crate for `core`
+```
+
+**Solution:**
+```bash
+rustup target add wasm32-wasip2
+```
+
+### cargo-component Not Found
+
+**Error:**
+```
+error: no such command: `component`
+```
+
+**Solution:**
+```bash
+cargo install cargo-component
+```
+
+### WIT Dependency Issues
+
+**Error:**
+```
+error: failed to resolve package `mik:core`
+```
+
+**Solution:** Ensure your `wit/` directory structure is correct:
+
+```
+my-handler/
+└── wit/
+    ├── world.wit
+    └── deps/
+        └── core/
+            └── core.wit
+```
+
+Your `wit/world.wit` should include:
+```wit
+package my:handler;
+
+world handler {
+    include mik:core/handler-world;
+}
+```
+
+### Bindings Module Missing
+
+**Error:**
+```
+error[E0433]: failed to resolve: could not find `bindings` in the crate root
+```
+
+**Solution:** The `bindings` module is generated during build. Ensure you have:
+
+1. Correct `Cargo.toml` metadata:
+```toml
+[package.metadata.component]
+package = "my:handler"
+
+[package.metadata.component.target.dependencies]
+"mik:core" = { path = "wit/deps/core" }
+```
+
+2. Build with cargo-component:
+```bash
+cargo component build
+```
+
+## Runtime Issues
+
+### wasmtime Errors
+
+**Error:**
+```
+Error: failed to run main module
+```
+
+**Solution:** Use the `-S cli=y` flag for proper stdio support:
+```bash
+wasmtime serve -S cli=y service.wasm
+```
+
+### Component Composition Fails
+
+**Error:**
+```
+error: failed to plug component
+```
+
+**Solution:** Ensure both components are built with the same WIT interfaces:
+
+1. Use matching mik-bridge version
+2. Verify WIT versions match:
+```bash
+wasm-tools component wit target/wasm32-wasip2/release/handler.wasm
+wasm-tools component wit mik-bridge.wasm
+```
+
+### 404 for All Routes
+
+**Symptom:** All requests return 404.
+
+**Possible causes:**
+
+1. **Routes not defined** - Ensure `routes!` macro is present:
+```rust
+routes! {
+    GET "/" => home,
+}
+```
+
+2. **Wrong path format** - Paths must start with `/`:
+```rust
+// Wrong
+GET "users" => list_users,
+
+// Correct
+GET "/users" => list_users,
+```
+
+3. **Component not composed** - Ensure you're running the composed component, not the raw handler.
+
+## JSON Issues
+
+### JSON Parse Fails
+
+**Symptom:** `json::try_parse()` returns `None`.
+
+**Possible causes:**
+
+1. **Invalid JSON** - Validate your JSON:
+```rust
+if let Some(parsed) = json::try_parse(body) {
+    // Valid JSON
+} else {
+    log::warn!("Invalid JSON received");
+}
+```
+
+2. **Exceeds size limit** - Default max is 1MB:
+```rust
+// Check size before parsing
+if body.len() > 1_000_000 {
+    return bad_request!("Request body too large");
+}
+```
+
+3. **Exceeds depth limit** - Default max depth is 20:
+```rust
+// Deeply nested JSON may be rejected
+```
+
+### path_str Returns None
+
+**Symptom:** `parsed.path_str(&["key"])` returns `None` unexpectedly.
+
+**Possible causes:**
+
+1. **Wrong path** - Check the actual JSON structure:
+```rust
+// For {"user": {"name": "Alice"}}
+parsed.path_str(&["user", "name"])  // Correct
+parsed.path_str(&["name"])          // Wrong - returns None
+```
+
+2. **Wrong type** - Use the correct accessor:
+```rust
+// For {"count": 42}
+parsed.path_str(&["count"])  // None - it's a number
+parsed.path_int(&["count"])  // Some(42)
+```
+
+## Input Validation Issues
+
+### Required Field Not Detected
+
+**Symptom:** Handler receives request with missing required field.
+
+**Solution:** Ensure the field is not `Option`:
+
+```rust
+#[derive(Type)]
+pub struct CreateInput {
+    pub name: String,           // Required
+    pub email: Option<String>,  // Optional
+}
+```
+
+### Default Value Not Applied
+
+**Symptom:** Query parameter doesn't have expected default.
+
+**Solution:** Use `#[field(default = value)]` on Query types:
+
+```rust
+#[derive(Query)]  // Must be Query, not Type
+pub struct ListQuery {
+    #[field(default = 1)]
+    pub page: u32,
+}
+```
+
+<Aside type="note">
+`default` only works with `#[derive(Query)]`, not with `#[derive(Type)]`.
+</Aside>
+
+## HTTP Client Issues
+
+### Feature Not Enabled
+
+**Error:**
+```
+error: cannot find macro `fetch` in this scope
+```
+
+**Solution:** Enable the `http-client` feature:
+
+```toml
+[dependencies]
+mik-sdk = { git = "...", features = ["http-client"] }
+```
+
+### Request Timeout
+
+**Symptom:** HTTP requests hang or timeout.
+
+**Solution:** Set explicit timeouts:
+
+```rust
+let response = fetch!(GET "https://api.example.com",
+    timeout: 5000  // 5 seconds
+).send()?;
+```
+
+### SSRF Protection Blocking Requests
+
+**Symptom:** Requests to internal services fail.
+
+**Solution:** Only use `.deny_private_ips()` for user-provided URLs:
+
+```rust
+// For known internal services - no SSRF protection
+let response = fetch!(GET "http://db-proxy:8080/query").send()?;
+
+// For user-provided URLs - enable SSRF protection
+let response = fetch!(GET &user_url)
+    .deny_private_ips()
+    .send()?;
+```
+
+## Logging Issues
+
+### Logs Not Appearing
+
+**Symptom:** `log::info!()` calls don't produce output.
+
+**Solution:** Logs go to stderr. When running with wasmtime:
+
+```bash
+# Logs visible in terminal
+wasmtime serve -S cli=y service.wasm
+
+# Capture to file
+wasmtime serve -S cli=y service.wasm 2>logs.txt
+```
+
+### Debug Logs Missing in Release
+
+**Symptom:** `log::debug!()` doesn't output anything.
+
+**This is expected.** `log::debug!()` is compiled out in release builds. Use `log::info!()` for logs that should always appear, or build in debug mode:
+
+```bash
+cargo component build  # Debug mode - debug! logs appear
+cargo component build --release  # Release mode - debug! compiled out
+```
+
+## Performance Issues
+
+### Slow JSON Parsing
+
+**Symptom:** Handler is slow when parsing large JSON.
+
+**Solution:** Use lazy path accessors instead of tree traversal:
+
+```rust
+// Fast - lazy scanning (~100ns per field)
+let name = parsed.path_str(&["user", "name"]);
+let age = parsed.path_int(&["user", "age"]);
+
+// Slow - full tree parse (~3000ns+)
+let name = parsed.get("user").get("name").str();
+```
+
+### Large Component Size
+
+**Symptom:** Composed component is larger than expected.
+
+**Solutions:**
+
+1. **Build in release mode:**
+```bash
+cargo component build --release
+```
+
+2. **Disable unused features:**
+```toml
+[dependencies]
+mik-sdk = { git = "...", default-features = false }
+```
+
+3. **Enable LTO:**
+```toml
+[profile.release]
+lto = true
+```
+
+## Getting Help
+
+If you encounter an issue not covered here:
+
+1. Check the examples in the repository
+2. Review the API reference documentation
+3. Open an issue on GitHub
+
+## Next Steps
+
+- [Architecture](/architecture/) - Understand how components work
+- [Testing](/guides/testing/) - Test your handlers

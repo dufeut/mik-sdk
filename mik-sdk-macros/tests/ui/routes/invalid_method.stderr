@@ -1,0 +1,9 @@
+error: Invalid HTTP method 'INVALID'.
+
+       Valid methods: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
+
+       Example: GET "/users" => list_users
+ --> tests/ui/routes/invalid_method.rs:7:5
+  |
+7 |     INVALID "/users" => home,
+  |     ^^^^^^^

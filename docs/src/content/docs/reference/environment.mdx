@@ -1,0 +1,164 @@
+---
+title: Environment
+description: Environment variable access
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+# Environment
+
+The `env` module provides simple access to environment variables.
+
+## Getting Variables
+
+### Optional Access
+
+```rust
+use mik_sdk::env;
+
+let value = env::get("DATABASE_URL");  // Option<String>
+
+if let Some(url) = value {
+    // Use the URL
+}
+```
+
+### With Default Value
+
+```rust
+let port = env::get_or("PORT", "8080");  // String
+let env = env::get_or("ENV", "development");
+```
+
+### Required Value
+
+```rust
+let secret = env::require("API_SECRET");  // String, panics if missing
+```
+
+<Aside type="caution">
+`require()` will panic if the variable is not set. Use it only for variables that are absolutely required for your handler to function.
+</Aside>
+
+## Common Patterns
+
+### Configuration Loading
+
+```rust
+struct Config {
+    database_url: String,
+    redis_url: Option<String>,
+    log_level: String,
+    max_connections: u32,
+}
+
+fn load_config() -> Config {
+    Config {
+        database_url: env::require("DATABASE_URL"),
+        redis_url: env::get("REDIS_URL"),
+        log_level: env::get_or("LOG_LEVEL", "info"),
+        max_connections: env::get_or("MAX_CONNECTIONS", "10")
+            .parse()
+            .unwrap_or(10),
+    }
+}
+```
+
+### Feature Flags
+
+```rust
+fn is_feature_enabled(feature: &str) -> bool {
+    let key = format!("FEATURE_{}", feature.to_uppercase());
+    env::get(&key)
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false)
+}
+
+fn handler(_req: &Request) -> Response {
+    if is_feature_enabled("new_api") {
+        // New implementation
+    } else {
+        // Old implementation
+    }
+    ok!({})
+}
+```
+
+### Service URLs
+
+```rust
+fn get_service_url(service: &str) -> String {
+    let key = format!("{}_URL", service.to_uppercase());
+    env::get_or(&key, &format!("http://{}:8080", service))
+}
+
+fn call_service(service: &str) -> Response {
+    let url = get_service_url(service);
+    let response = fetch!(GET &url).send()?;
+    ok!({ "status": response.status() })
+}
+```
+
+### Environment-Specific Behavior
+
+```rust
+fn is_production() -> bool {
+    env::get_or("ENV", "development") == "production"
+}
+
+fn handler(_req: &Request) -> Response {
+    if is_production() {
+        // Production behavior
+    } else {
+        // Development behavior (e.g., more verbose responses)
+    }
+    ok!({})
+}
+```
+
+## API Summary
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `env::get(key)` | `Option<String>` | Get variable, None if not set |
+| `env::get_or(key, default)` | `String` | Get variable or use default |
+| `env::require(key)` | `String` | Get variable, panic if not set |
+
+## Examples
+
+```rust
+use mik_sdk::env;
+
+// Optional
+let optional = env::get("OPTIONAL_VAR");
+
+// With default
+let port = env::get_or("PORT", "3000");
+let host = env::get_or("HOST", "0.0.0.0");
+
+// Required (panics if missing)
+let secret = env::require("SECRET_KEY");
+
+// Parse to other types
+let timeout: u64 = env::get_or("TIMEOUT", "30")
+    .parse()
+    .unwrap_or(30);
+
+let debug: bool = env::get_or("DEBUG", "false") == "true";
+```
+
+## Runtime Considerations
+
+<Aside type="note">
+Environment variables are read at runtime. In WASI environments, the runtime must provide access to environment variables for these functions to work.
+</Aside>
+
+When running with wasmtime:
+
+```bash
+# Set variables for the component
+wasmtime serve -S cli=y \
+    --env DATABASE_URL=postgres://localhost/db \
+    --env API_SECRET=mysecret \
+    service.wasm
+```

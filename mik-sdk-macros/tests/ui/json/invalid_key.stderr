@@ -1,0 +1,24 @@
+error: Invalid JSON object syntax.
+       Expected: { "key": value, ... }
+
+       Common mistakes:
+       - Keys must be string literals: { "name": "Alice" } ✓ not { name: "Alice" } ✗
+       - Use colon (:) between key and value: { "x": 1 } ✓ not { "x" = 1 } ✗
+       - Separate pairs with commas: { "a": 1, "b": 2 } ✓
+
+       Original error: Invalid object key.
+       Expected: string literal
+
+       Correct syntax:
+       - { "name": "Alice" } ✓
+       - { "age": 30 } ✓
+
+       Common mistakes:
+       - { name: "Alice" } ✗ (missing quotes around key)
+       - { 'name': "Alice" } ✗ (use double quotes, not single)
+
+       Original error: expected string literal
+ --> tests/ui/json/invalid_key.rs:5:22
+  |
+5 |     let _v = json!({ 123: "value" });
+  |                      ^^^

@@ -1,0 +1,5 @@
+---
+source: mik-sql/tests/snapshots_sql.rs
+expression: result.sql
+---
+SELECT id, price FROM products WHERE price > $1

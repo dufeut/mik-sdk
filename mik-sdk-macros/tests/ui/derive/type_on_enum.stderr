@@ -1,0 +1,8 @@
+error: Type derive only supports structs. Hint: Use `#[derive(Type)]` on a struct for JSON body/response types.
+ --> tests/ui/derive/type_on_enum.rs:5:1
+  |
+5 | / enum MyEnum {
+6 | |     A,
+7 | |     B,
+8 | | }
+  | |_^

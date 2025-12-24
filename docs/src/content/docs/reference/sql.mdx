@@ -1,0 +1,421 @@
+---
+title: SQL Macros
+description: Generate parameterized SQL queries with Mongo-style filters
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# SQL Macros
+
+mik-sdk includes a SQL query builder that generates parameterized queries with Mongo-style filter syntax. The generated SQL can be executed by your database sidecar service.
+
+## Overview
+
+The SQL macros generate `(sql_string, params)` tuples:
+
+```rust
+let (sql, params) = sql_read!(users {
+    select: [id, name],
+    filter: { active: true },
+});
+// sql: "SELECT id, name FROM users WHERE active = $1"
+// params: [Value::Bool(true)]
+```
+
+## CRUD Operations
+
+### sql_read! - SELECT
+
+```rust
+// Basic select
+let (sql, params) = sql_read!(users {
+    select: [id, name, email],
+});
+// SELECT id, name, email FROM users
+
+// With filter
+let (sql, params) = sql_read!(users {
+    select: [id, name],
+    filter: { active: true, role: "admin" },
+});
+// SELECT id, name FROM users WHERE active = $1 AND role = $2
+
+// With ordering
+let (sql, params) = sql_read!(users {
+    select: [id, name, created_at],
+    order: [-created_at, name],  // DESC, ASC
+});
+// SELECT ... ORDER BY created_at DESC, name ASC
+
+// With limit
+let (sql, params) = sql_read!(users {
+    select: [id, name],
+    limit: 20,
+});
+// SELECT ... LIMIT 20
+
+// With pagination
+let (sql, params) = sql_read!(users {
+    select: [id, name],
+    page: 2,
+    limit: 20,
+});
+// SELECT ... LIMIT 20 OFFSET 20
+```
+
+### sql_create! - INSERT
+
+```rust
+let (sql, params) = sql_create!(users {
+    name: "Alice",
+    email: "alice@example.com",
+    active: true,
+});
+// INSERT INTO users (name, email, active) VALUES ($1, $2, $3)
+
+// With RETURNING clause
+let (sql, params) = sql_create!(users {
+    name: "Alice",
+    email: "alice@example.com",
+    returning: [id, created_at],
+});
+// INSERT INTO ... RETURNING id, created_at
+```
+
+### sql_update! - UPDATE
+
+```rust
+let (sql, params) = sql_update!(users {
+    set: {
+        name: "Bob",
+        updated_at: time::now_iso(),
+    },
+    filter: { id: 123 },
+});
+// UPDATE users SET name = $1, updated_at = $2 WHERE id = $3
+```
+
+<Aside type="caution">
+Always include a `filter` in UPDATE queries to avoid updating all rows.
+</Aside>
+
+### sql_delete! - DELETE
+
+```rust
+let (sql, params) = sql_delete!(users {
+    filter: { id: 123 },
+});
+// DELETE FROM users WHERE id = $1
+```
+
+## Filter Operators
+
+### Comparison
+
+```rust
+sql_read!(users {
+    filter: {
+        age: { $eq: 30 },      // age = 30
+        age: { $ne: 30 },      // age != 30
+        age: { $gt: 18 },      // age > 18
+        age: { $gte: 18 },     // age >= 18
+        age: { $lt: 65 },      // age < 65
+        age: { $lte: 65 },     // age <= 65
+    },
+});
+```
+
+| Operator | SQL | Description |
+|----------|-----|-------------|
+| `$eq` | `=` | Equal to |
+| `$ne` | `!=` | Not equal to |
+| `$gt` | `>` | Greater than |
+| `$gte` | `>=` | Greater than or equal |
+| `$lt` | `<` | Less than |
+| `$lte` | `<=` | Less than or equal |
+
+### List Operators
+
+```rust
+sql_read!(users {
+    filter: {
+        role: { $in: ["admin", "moderator", "editor"] },
+        id: { $nin: [1, 2, 3] },
+    },
+});
+// role IN ($1, $2, $3) AND id NOT IN ($4, $5, $6)
+```
+
+| Operator | SQL | Description |
+|----------|-----|-------------|
+| `$in` | `IN (...)` | Value in list |
+| `$nin` | `NOT IN (...)` | Value not in list |
+
+### Text Operators
+
+```rust
+sql_read!(users {
+    filter: {
+        name: { $like: "%alice%" },
+        email: { $starts_with: "admin" },
+        email: { $ends_with: "@example.com" },
+        bio: { $contains: "developer" },
+        name: { $ilike: "%ALICE%" },  // Case-insensitive
+    },
+});
+```
+
+| Operator | SQL | Description |
+|----------|-----|-------------|
+| `$like` | `LIKE` | Pattern match |
+| `$ilike` | `ILIKE` | Case-insensitive LIKE |
+| `$starts_with` | `LIKE 'x%'` | Starts with |
+| `$ends_with` | `LIKE '%x'` | Ends with |
+| `$contains` | `LIKE '%x%'` | Contains |
+
+### Range Operator
+
+```rust
+sql_read!(users {
+    filter: {
+        age: { $between: [18, 65] },
+    },
+});
+// age BETWEEN $1 AND $2
+```
+
+### Logical Operators
+
+```rust
+// OR
+sql_read!(users {
+    filter: {
+        $or: [
+            { role: "admin" },
+            { verified: true }
+        ]
+    },
+});
+// (role = $1) OR (verified = $2)
+
+// AND (explicit)
+sql_read!(users {
+    filter: {
+        $and: [
+            { active: true },
+            { age: { $gte: 18 } }
+        ]
+    },
+});
+// (active = $1) AND (age >= $2)
+
+// NOT
+sql_read!(users {
+    filter: {
+        $not: { banned: true }
+    },
+});
+// NOT (banned = $1)
+```
+
+## Ordering
+
+```rust
+sql_read!(posts {
+    select: [id, title, created_at, views],
+    order: [-created_at, -views, title],  // DESC, DESC, ASC
+});
+// ORDER BY created_at DESC, views DESC, title ASC
+```
+
+Prefix with `-` for descending order.
+
+## Pagination
+
+### Offset Pagination
+
+```rust
+let (sql, params) = sql_read!(users {
+    select: [id, name],
+    order: id,
+    page: 3,      // Page number (1-indexed)
+    limit: 20,    // Items per page
+});
+// SELECT ... ORDER BY id LIMIT 20 OFFSET 40
+```
+
+### Cursor Pagination
+
+For large datasets, cursor pagination is more efficient:
+
+```rust
+use mik_sdk::query::Cursor;
+
+// First page
+let (sql, params) = sql_read!(posts {
+    select: [id, title, created_at],
+    order: [-created_at, -id],
+    limit: 20,
+});
+
+// Subsequent pages
+let (sql, params) = sql_read!(posts {
+    select: [id, title, created_at],
+    order: [-created_at, -id],
+    after: Some(&cursor_string),  // From previous response
+    limit: 20,
+});
+```
+
+#### Building Cursors
+
+```rust
+use mik_sdk::query::Cursor;
+
+// After fetching results, build next cursor from last item
+let next_cursor = Cursor::new()
+    .string("created_at", &last_item.created_at)
+    .int("id", last_item.id)
+    .encode();
+
+// Return in response
+ok!({
+    "items": items,
+    "next_cursor": next_cursor
+})
+```
+
+## SQLite Dialect
+
+For SQLite, add `sqlite` as the first parameter:
+
+```rust
+let (sql, params) = sql_read!(sqlite, users {
+    filter: { active: true },
+});
+// SELECT * FROM users WHERE active = ?1
+// (Uses ?1, ?2 placeholders instead of $1, $2)
+```
+
+## Batched Loading
+
+Use the `ids!` macro to extract IDs for batch loading:
+
+```rust
+fn list_posts(_req: &Request) -> Response {
+    // Get posts
+    let (sql, params) = sql_read!(posts {
+        select: [id, title, author_id],
+        limit: 20,
+    });
+    // Execute: let posts = db.query(sql, params);
+
+    // Extract author IDs
+    // let author_ids = ids!(posts, author_id);
+
+    // Batch load authors (single query)
+    // let (sql, params) = sql_read!(users {
+    //     filter: { id: { $in: author_ids } },
+    // });
+    // let authors = db.query(sql, params);
+
+    ok!({ "pattern": "batched loading" })
+}
+```
+
+<Aside type="caution" title="Query Policy">
+**One query per table per request.** Never execute per-row queries. Use `$in` with `ids!` for related data.
+</Aside>
+
+## Type Hints
+
+Use type hints in values for clarity:
+
+```rust
+sql_create!(users {
+    name: str(name_var),
+    age: int(age_var),
+    active: bool(is_active),
+    score: float(score_var),
+});
+```
+
+## Complete Example
+
+```rust
+#[derive(Query)]
+pub struct ListQuery {
+    pub search: Option<String>,
+    #[field(default = 1)]
+    pub page: u32,
+    #[field(default = 20, max = 100)]
+    pub limit: u32,
+}
+
+fn list_users(query: ListQuery, _req: &Request) -> Response {
+    let (sql, params) = if let Some(ref search) = query.search {
+        sql_read!(users {
+            select: [id, name, email, created_at],
+            filter: {
+                active: true,
+                $or: [
+                    { name: { $contains: search } },
+                    { email: { $contains: search } }
+                ]
+            },
+            order: [-created_at, id],
+            page: query.page,
+            limit: query.limit,
+        })
+    } else {
+        sql_read!(users {
+            select: [id, name, email, created_at],
+            filter: { active: true },
+            order: [-created_at, id],
+            page: query.page,
+            limit: query.limit,
+        })
+    };
+
+    // Execute via sidecar: let result = db.query(sql, params);
+
+    ok!({
+        "sql": sql,
+        "page": query.page,
+        "limit": query.limit
+    })
+}
+```
+
+## API Summary
+
+### Macros
+
+| Macro | Purpose |
+|-------|---------|
+| `sql_read!(table { ... })` | SELECT query |
+| `sql_create!(table { ... })` | INSERT query |
+| `sql_update!(table { ... })` | UPDATE query |
+| `sql_delete!(table { ... })` | DELETE query |
+| `ids!(collection)` | Extract field values |
+| `ids!(collection, field)` | Extract specific field |
+
+### sql_read! Options
+
+| Option | Description |
+|--------|-------------|
+| `select: [fields]` | Columns to select |
+| `filter: { ... }` | WHERE conditions |
+| `order: [fields]` | ORDER BY (prefix `-` for DESC) |
+| `limit: n` | LIMIT clause |
+| `page: n` | Page number (with limit) |
+| `after: cursor` | Cursor for keyset pagination |
+
+### Cursor Methods
+
+| Method | Description |
+|--------|-------------|
+| `Cursor::new()` | Create new cursor builder |
+| `.string(key, val)` | Add string field |
+| `.int(key, val)` | Add integer field |
+| `.encode()` | Encode to base64 string |

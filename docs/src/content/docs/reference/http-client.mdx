@@ -1,0 +1,317 @@
+---
+title: HTTP Client
+description: Making outbound HTTP requests with the fetch! macro
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# HTTP Client
+
+mik-sdk provides an HTTP client for making outbound requests to external services. Enable it with the `http-client` feature.
+
+## Setup
+
+Add the feature to your `Cargo.toml`:
+
+```toml
+[dependencies]
+mik-sdk = { git = "...", features = ["http-client"] }
+```
+
+## Basic Requests
+
+### GET Request
+
+```rust
+fn fetch_data(_req: &Request) -> Response {
+    let response = fetch!(GET "https://api.example.com/data")
+        .send()?;
+
+    if response.is_success() {
+        ok!({ "data": json::try_parse(&response.body()) })
+    } else {
+        error! {
+            status: 502,
+            title: "Upstream Error",
+            detail: format!("API returned {}", response.status())
+        }
+    }
+}
+```
+
+### POST with JSON Body
+
+```rust
+fn create_item(_req: &Request) -> Response {
+    let response = fetch!(POST "https://api.example.com/items", json: {
+        "name": "Widget",
+        "price": 19.99
+    }).send()?;
+
+    if response.is_success() {
+        ok!({ "created": true })
+    } else {
+        error! { status: 500, title: "Failed", detail: "Could not create item" }
+    }
+}
+```
+
+### Other HTTP Methods
+
+```rust
+// PUT
+fetch!(PUT "https://api.example.com/items/123", json: {
+    "name": "Updated Widget"
+}).send()?;
+
+// PATCH
+fetch!(PATCH "https://api.example.com/items/123", json: {
+    "price": 24.99
+}).send()?;
+
+// DELETE
+fetch!(DELETE "https://api.example.com/items/123").send()?;
+```
+
+## Request Options
+
+### Headers
+
+```rust
+let response = fetch!(GET "https://api.example.com/protected",
+    headers: {
+        "Authorization": format!("Bearer {}", token),
+        "X-Custom-Header": "value"
+    }
+).send()?;
+```
+
+### Timeout
+
+Set a timeout in milliseconds:
+
+```rust
+let response = fetch!(GET "https://slow-api.example.com/data",
+    timeout: 5000  // 5 seconds
+).send()?;
+```
+
+### Raw Body
+
+For non-JSON payloads:
+
+```rust
+let response = fetch!(POST "https://api.example.com/upload",
+    headers: { "Content-Type": "text/plain" },
+    body: b"Raw text content"
+).send()?;
+```
+
+### Combined Options
+
+```rust
+let response = fetch!(POST "https://api.example.com/data",
+    headers: {
+        "Authorization": format!("Bearer {}", token),
+        "X-Request-ID": random::uuid()
+    },
+    json: {
+        "name": "Example",
+        "value": 42
+    },
+    timeout: 10000
+).send()?;
+```
+
+## Response Handling
+
+### Response Object
+
+```rust
+let response = fetch!(GET "https://api.example.com/data").send()?;
+
+// Status code
+let status = response.status();  // u16
+
+// Check success (2xx)
+if response.is_success() {
+    // ...
+}
+
+// Body as bytes
+let body = response.body();  // Vec<u8>
+
+// Parse JSON
+if let Some(json) = json::try_parse(&body) {
+    let value = json.path_str(&["field"]);
+}
+
+// Headers
+let content_type = response.header("Content-Type");
+```
+
+### Error Handling
+
+```rust
+fn call_api(_req: &Request) -> Response {
+    match fetch!(GET "https://api.example.com/data").send() {
+        Ok(response) => {
+            if response.is_success() {
+                ok!({ "data": json::try_parse(&response.body()) })
+            } else {
+                error! {
+                    status: response.status(),
+                    title: "API Error",
+                    detail: format!("Upstream returned {}", response.status())
+                }
+            }
+        }
+        Err(_) => {
+            error! {
+                status: 503,
+                title: "Service Unavailable",
+                detail: "Could not reach upstream service"
+            }
+        }
+    }
+}
+```
+
+## Security Features
+
+### SSRF Protection
+
+Block requests to private IP addresses when using user-provided URLs:
+
+```rust
+fn fetch_url(body: UrlInput, _req: &Request) -> Response {
+    // User-provided URL - enable SSRF protection
+    let response = fetch!(GET &body.url)
+        .deny_private_ips()  // Blocks localhost, 10.x, 192.168.x, etc.
+        .send()?;
+
+    ok!({ "fetched": true })
+}
+```
+
+Blocked addresses include:
+- `127.0.0.0/8` (loopback)
+- `10.0.0.0/8` (private)
+- `172.16.0.0/12` (private)
+- `192.168.0.0/16` (private)
+- `169.254.0.0/16` (link-local)
+- `::1` (IPv6 loopback)
+- Private IPv6 ranges
+
+<Aside type="caution">
+Only use `.deny_private_ips()` for user-provided URLs. For known internal service URLs, omit this to allow internal communication.
+</Aside>
+
+### Trace ID Propagation
+
+Forward trace IDs for distributed tracing:
+
+```rust
+fn call_downstream(req: &Request) -> Response {
+    let response = fetch!(GET "https://api.example.com/data")
+        .with_trace_id(req.trace_id())  // Forwards x-trace-id header
+        .send()?;
+
+    ok!({ "traced": true })
+}
+```
+
+This adds the `x-trace-id` header to outbound requests if present in the incoming request.
+
+## Dynamic URLs
+
+Use string interpolation for dynamic URLs:
+
+```rust
+fn get_user(path: Id, _req: &Request) -> Response {
+    let url = format!("https://api.example.com/users/{}", path.as_str());
+
+    let response = fetch!(GET &url).send()?;
+
+    ok!({ "data": json::try_parse(&response.body()) })
+}
+```
+
+Or inline:
+
+```rust
+let response = fetch!(GET format!("https://api.example.com/users/{}", user_id))
+    .send()?;
+```
+
+## Complete Example
+
+```rust
+fn create_order(body: OrderInput, req: &Request) -> Response {
+    // Validate order
+    guard!(body.items.len() > 0, 400, "Order must have items");
+
+    // Call inventory service
+    let inventory = fetch!(POST "http://inventory:8080/reserve",
+        headers: { "X-Request-ID": random::uuid() },
+        json: { "items": body.items },
+        timeout: 5000
+    )
+    .with_trace_id(req.trace_id())
+    .send();
+
+    let inv_response = ensure!(inventory.ok(), 503, "Inventory service unavailable");
+    guard!(inv_response.is_success(), 409, "Items not available");
+
+    // Call payment service
+    let payment = fetch!(POST "http://payments:8080/charge",
+        json: {
+            "amount": body.total,
+            "customer_id": body.customer_id
+        },
+        timeout: 10000
+    )
+    .with_trace_id(req.trace_id())
+    .send();
+
+    let pay_response = ensure!(payment.ok(), 503, "Payment service unavailable");
+    guard!(pay_response.is_success(), 402, "Payment failed");
+
+    // Create order
+    let order_id = random::uuid();
+    log!(info, "order created", order_id: &order_id, customer: &body.customer_id);
+
+    created!(format!("/orders/{}", order_id), {
+        "id": order_id,
+        "status": "confirmed"
+    })
+}
+```
+
+## API Summary
+
+### fetch! Macro Options
+
+| Option | Description |
+|--------|-------------|
+| `headers: { ... }` | HTTP headers |
+| `json: { ... }` | JSON body (sets Content-Type) |
+| `body: bytes` | Raw body bytes |
+| `timeout: ms` | Timeout in milliseconds |
+
+### Builder Methods
+
+| Method | Description |
+|--------|-------------|
+| `.send()` | Execute the request |
+| `.deny_private_ips()` | Enable SSRF protection |
+| `.with_trace_id(opt)` | Add trace ID header |
+
+### Response Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `status()` | `u16` | HTTP status code |
+| `is_success()` | `bool` | True if 2xx |
+| `body()` | `Vec<u8>` | Response body |
+| `header(name)` | `Option<&str>` | Response header |

@@ -1,0 +1,90 @@
+package wasi:io@0.2.0;
+
+/// Error type for stream operations.
+interface error {
+    /// A resource which represents some error information.
+    resource error {
+        /// Returns a string that is suitable to assist humans in debugging.
+        to-debug-string: func() -> string;
+    }
+}
+
+/// Pollable type for async operations.
+interface poll {
+    /// A "pollable" handle.
+    resource pollable {
+        /// Return the readiness of a pollable.
+        ready: func() -> bool;
+
+        /// Block until ready.
+        block: func();
+    }
+
+    /// Poll for completion on a set of pollables.
+    poll: func(in: list<borrow<pollable>>) -> list<u32>;
+}
+
+/// Stream types.
+interface streams {
+    use error.{error};
+    use poll.{pollable};
+
+    /// An error for input-stream and output-stream operations.
+    variant stream-error {
+        /// The last operation failed.
+        last-operation-failed(error),
+        /// The stream is closed.
+        closed,
+    }
+
+    /// An input byte stream.
+    resource input-stream {
+        /// Read bytes from the stream.
+        read: func(len: u64) -> result<list<u8>, stream-error>;
+
+        /// Read bytes from the stream, blocking.
+        blocking-read: func(len: u64) -> result<list<u8>, stream-error>;
+
+        /// Skip bytes in the stream.
+        skip: func(len: u64) -> result<u64, stream-error>;
+
+        /// Skip bytes in the stream, blocking.
+        blocking-skip: func(len: u64) -> result<u64, stream-error>;
+
+        /// Create a pollable for this stream.
+        subscribe: func() -> pollable;
+    }
+
+    /// An output byte stream.
+    resource output-stream {
+        /// Check readiness for writing.
+        check-write: func() -> result<u64, stream-error>;
+
+        /// Write bytes to the stream.
+        write: func(contents: list<u8>) -> result<_, stream-error>;
+
+        /// Write bytes to the stream, blocking.
+        blocking-write-and-flush: func(contents: list<u8>) -> result<_, stream-error>;
+
+        /// Flush the stream.
+        flush: func() -> result<_, stream-error>;
+
+        /// Flush the stream, blocking.
+        blocking-flush: func() -> result<_, stream-error>;
+
+        /// Create a pollable for this stream.
+        subscribe: func() -> pollable;
+
+        /// Write zeroes to the stream.
+        write-zeroes: func(len: u64) -> result<_, stream-error>;
+
+        /// Write zeroes to the stream, blocking.
+        blocking-write-zeroes-and-flush: func(len: u64) -> result<_, stream-error>;
+
+        /// Splice from an input stream.
+        splice: func(src: borrow<input-stream>, len: u64) -> result<u64, stream-error>;
+
+        /// Splice from an input stream, blocking.
+        blocking-splice: func(src: borrow<input-stream>, len: u64) -> result<u64, stream-error>;
+    }
+}

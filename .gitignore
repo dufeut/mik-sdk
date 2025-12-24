@@ -1,0 +1,30 @@
+# Rust
+target/
+*.rlib
+*.rmeta
+**/*.rs.bk
+
+# WASM binaries
+*.wasm
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (for docs)
+node_modules/
+
+# Env
+.env
+
+# Legacy/temp
+.__notes__/
+.img
+
+# Local config
+.claude/
+

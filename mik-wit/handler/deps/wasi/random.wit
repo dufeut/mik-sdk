@@ -1,0 +1,25 @@
+package wasi:random@0.2.0;
+
+/// WASI Random - cryptographically secure random bytes.
+interface random {
+    /// Return `len` cryptographically-secure random bytes.
+    get-random-bytes: func(len: u64) -> list<u8>;
+
+    /// Return a cryptographically-secure random u64 value.
+    get-random-u64: func() -> u64;
+}
+
+/// Insecure random for non-cryptographic use (faster).
+interface insecure {
+    /// Return `len` insecure random bytes.
+    get-insecure-random-bytes: func(len: u64) -> list<u8>;
+
+    /// Return an insecure random u64 value.
+    get-insecure-random-u64: func() -> u64;
+}
+
+/// Insecure random seed.
+interface insecure-seed {
+    /// Return a 128-bit value that may contain a pseudo-random seed.
+    insecure-seed: func() -> tuple<u64, u64>;
+}

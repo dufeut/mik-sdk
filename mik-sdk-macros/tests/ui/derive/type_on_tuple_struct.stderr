@@ -1,0 +1,5 @@
+error: Type derive only supports structs with named fields. Example: `struct MyType { field: String }`
+ --> tests/ui/derive/type_on_tuple_struct.rs:5:1
+  |
+5 | struct MyTuple(String, i32);
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

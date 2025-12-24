@@ -1,0 +1,302 @@
+---
+title: Responses
+description: Response macros and building HTTP responses
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Responses
+
+mik-sdk provides a rich set of macros for building HTTP responses with proper status codes, headers, and JSON bodies.
+
+## Success Responses
+
+### ok! - 200 OK
+
+The most common response for successful requests:
+
+```rust
+fn get_user(path: Id, _req: &Request) -> Response {
+    ok!({
+        "id": path.as_str(),
+        "name": "Alice",
+        "email": "alice@example.com"
+    })
+}
+```
+
+Output:
+```json
+{"id":"123","name":"Alice","email":"alice@example.com"}
+```
+
+### Type Inference
+
+Variables work directly in `ok!` without explicit type hints:
+
+```rust
+fn handler(_req: &Request) -> Response {
+    let name = "Alice".to_string();
+    let age: i32 = 30;
+    let active = true;
+    let tags: Vec<&str> = vec!["admin", "user"];
+    let score: Option<f64> = Some(95.5);
+
+    ok!({
+        "name": name,     // String -> JSON string
+        "age": age,       // i32 -> JSON integer
+        "active": active, // bool -> JSON boolean
+        "tags": tags,     // Vec -> JSON array
+        "score": score    // Option -> value or null
+    })
+}
+```
+
+### created! - 201 Created
+
+For resource creation, includes a `Location` header:
+
+```rust
+fn create_user(body: CreateInput, _req: &Request) -> Response {
+    let id = random::uuid();
+
+    created!(format!("/users/{}", id), {
+        "id": id,
+        "name": body.name
+    })
+}
+```
+
+Response headers include:
+```
+Location: /users/550e8400-e29b-41d4-...
+```
+
+### accepted! - 202 Accepted
+
+For async processing requests:
+
+```rust
+fn queue_job(body: JobInput, _req: &Request) -> Response {
+    let job_id = random::uuid();
+    // Queue the job...
+    accepted!()
+}
+```
+
+### no_content! - 204 No Content
+
+For successful operations with no response body:
+
+```rust
+fn delete_user(path: Id, _req: &Request) -> Response {
+    // Delete the user...
+    no_content!()
+}
+```
+
+## Redirect Responses
+
+### redirect! - 302 Found
+
+```rust
+fn old_endpoint(_req: &Request) -> Response {
+    redirect!("/api/v2/users")
+}
+```
+
+For other redirect codes, use the full `error!` macro with a Location header.
+
+## Error Responses
+
+### Quick Error Macros
+
+Convenient shortcuts for common error responses:
+
+```rust
+// 400 Bad Request
+fn handler(_req: &Request) -> Response {
+    bad_request!("Invalid email format")
+}
+
+// 403 Forbidden
+fn protected(_req: &Request) -> Response {
+    forbidden!("Access denied")
+}
+
+// 404 Not Found
+fn get_item(path: Id, _req: &Request) -> Response {
+    not_found!("Item not found")
+}
+
+// 409 Conflict
+fn create_item(_req: &Request) -> Response {
+    conflict!("Item already exists")
+}
+```
+
+### error! - RFC 7807 Problem Details
+
+For detailed error responses following [RFC 7807](https://www.rfc-editor.org/rfc/rfc7807.html):
+
+```rust
+fn handler(_req: &Request) -> Response {
+    error! {
+        status: 400,
+        title: "Validation Error",
+        detail: "The request body contains invalid data"
+    }
+}
+```
+
+Output:
+```json
+{
+  "type": "about:blank",
+  "title": "Validation Error",
+  "status": 400,
+  "detail": "The request body contains invalid data"
+}
+```
+
+### Full RFC 7807 Response
+
+```rust
+fn handler(_req: &Request) -> Response {
+    error! {
+        status: status::UNPROCESSABLE_ENTITY,
+        title: "Validation Error",
+        detail: "Email address is invalid",
+        problem_type: "urn:problem:validation",
+        instance: "/users/123",
+        meta: {
+            "field": "email",
+            "code": "invalid_format"
+        }
+    }
+}
+```
+
+Output:
+```json
+{
+  "type": "urn:problem:validation",
+  "title": "Validation Error",
+  "status": 422,
+  "detail": "Email address is invalid",
+  "instance": "/users/123",
+  "field": "email",
+  "code": "invalid_format"
+}
+```
+
+## DX Macros for Error Handling
+
+### guard! - Early Return Validation
+
+Return early if a condition is false:
+
+```rust
+fn create_user(body: CreateInput, _req: &Request) -> Response {
+    guard!(!body.name.is_empty(), 400, "Name is required");
+    guard!(body.name.len() <= 100, 400, "Name too long");
+    guard!(body.email.contains('@'), 400, "Invalid email");
+
+    // Continue with valid data...
+    ok!({ "created": true })
+}
+```
+
+If any guard fails, returns:
+```json
+{
+  "type": "about:blank",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "Name is required"
+}
+```
+
+### ensure! - Unwrap or Return Error
+
+Unwrap `Option` or `Result`, or return an error:
+
+```rust
+fn get_user(path: Id, _req: &Request) -> Response {
+    // From Option
+    let user = ensure!(find_user(path.as_str()), 404, "User not found");
+
+    // From Result
+    let data = ensure!(parse_data(), 400, "Invalid data");
+
+    ok!({ "user": user.name })
+}
+
+fn find_user(id: &str) -> Option<User> {
+    // ...
+}
+
+fn parse_data() -> Result<Data, Error> {
+    // ...
+}
+```
+
+## Status Code Constants
+
+Use predefined constants for clarity:
+
+```rust
+use mik_sdk::prelude::status;
+
+fn handler(_req: &Request) -> Response {
+    error! {
+        status: status::NOT_FOUND,
+        title: "Not Found",
+        detail: "Resource does not exist"
+    }
+}
+```
+
+Available constants:
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `status::OK` | 200 | OK |
+| `status::CREATED` | 201 | Created |
+| `status::ACCEPTED` | 202 | Accepted |
+| `status::NO_CONTENT` | 204 | No Content |
+| `status::MOVED_PERMANENTLY` | 301 | Moved Permanently |
+| `status::FOUND` | 302 | Found (redirect) |
+| `status::NOT_MODIFIED` | 304 | Not Modified |
+| `status::TEMPORARY_REDIRECT` | 307 | Temporary Redirect |
+| `status::PERMANENT_REDIRECT` | 308 | Permanent Redirect |
+| `status::BAD_REQUEST` | 400 | Bad Request |
+| `status::UNAUTHORIZED` | 401 | Unauthorized |
+| `status::FORBIDDEN` | 403 | Forbidden |
+| `status::NOT_FOUND` | 404 | Not Found |
+| `status::METHOD_NOT_ALLOWED` | 405 | Method Not Allowed |
+| `status::NOT_ACCEPTABLE` | 406 | Not Acceptable |
+| `status::CONFLICT` | 409 | Conflict |
+| `status::GONE` | 410 | Gone |
+| `status::UNPROCESSABLE_ENTITY` | 422 | Unprocessable Entity |
+| `status::TOO_MANY_REQUESTS` | 429 | Too Many Requests |
+| `status::INTERNAL_SERVER_ERROR` | 500 | Internal Server Error |
+| `status::NOT_IMPLEMENTED` | 501 | Not Implemented |
+| `status::BAD_GATEWAY` | 502 | Bad Gateway |
+| `status::SERVICE_UNAVAILABLE` | 503 | Service Unavailable |
+| `status::GATEWAY_TIMEOUT` | 504 | Gateway Timeout |
+
+## Response Macro Summary
+
+| Macro | Status | Use Case |
+|-------|--------|----------|
+| `ok!({ ... })` | 200 | Successful response with JSON |
+| `created!(loc, { ... })` | 201 | Resource created |
+| `accepted!()` | 202 | Async processing accepted |
+| `no_content!()` | 204 | Success, no body |
+| `redirect!(url)` | 302 | Redirect to URL |
+| `bad_request!(msg)` | 400 | Invalid request |
+| `forbidden!(msg)` | 403 | Access denied |
+| `not_found!(msg)` | 404 | Resource not found |
+| `conflict!(msg)` | 409 | Conflict with state |
+| `error! { ... }` | any | Full RFC 7807 error |

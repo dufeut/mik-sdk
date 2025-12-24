@@ -1,0 +1,18 @@
+error: Expected URL after HTTP method 'GET'.
+
+       The URL can be:
+       - A string literal: "https://api.example.com/users"
+       - A format! expression: format!("https://api.example.com/users/{}", id)
+       - A variable: api_url
+
+       Example:
+       fetch!(GET "https://api.example.com/users")
+       fetch!(GET format!("https://api.example.com/users/{}", user_id))
+
+       Original error: unexpected end of input, expected an expression
+ --> tests/ui/fetch/missing_url.rs:5:16
+  |
+5 |     let _req = fetch!(GET);
+  |                ^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `fetch` (in Nightly builds, run with -Z macro-backtrace for more info)

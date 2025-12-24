@@ -1,0 +1,5 @@
+error: Unknown aggregate function 'total'. Valid: count, count_distinct, sum, avg, min, max
+ --> tests/ui/sql/unknown_aggregate.rs:6:22
+  |
+6 |         aggregate: { total: invalid_func(id) },
+  |                      ^^^^^

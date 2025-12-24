@@ -1,0 +1,15 @@
+error: Expected HTTP method at start of route definition.
+
+       Valid methods: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
+
+       Example:
+       routes! {
+       GET "/users" => list_users,
+       POST "/users" => create_user(body: CreateUser) -> User,
+       }
+
+       Original error: expected identifier
+ --> tests/ui/routes/quoted_handler.rs:7:5
+  |
+7 |     "/users" => "home",
+  |     ^^^^^^^^

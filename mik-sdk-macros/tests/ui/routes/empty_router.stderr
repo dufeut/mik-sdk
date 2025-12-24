@@ -1,0 +1,37 @@
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `bindings`
+ --> tests/ui/routes/empty_router.rs:4:1
+  |
+4 | routes! {}
+  | ^^^^^^^^^^ use of unresolved module or unlinked crate `bindings`
+  |
+  = note: this error originates in the macro `routes` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0405]: cannot find trait `Guest` in this scope
+ --> tests/ui/routes/empty_router.rs:4:1
+  |
+4 | routes! {}
+  | ^^^^^^^^^^ not found in this scope
+  |
+  = note: this error originates in the macro `routes` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `handler`
+ --> tests/ui/routes/empty_router.rs:4:1
+  |
+4 | routes! {}
+  | ^^^^^^^^^^ use of unresolved module or unlinked crate `handler`
+  |
+  = help: if you wanted to use a crate named `handler`, use `cargo add handler` to add it to your `Cargo.toml`
+  = note: this error originates in the macro `routes` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: consider importing this enum
+  |
+1 + use mik_sdk::Method;
+  |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `handler`
+ --> tests/ui/routes/empty_router.rs:4:1
+  |
+4 | routes! {}
+  | ^^^^^^^^^^ use of unresolved module or unlinked crate `handler`
+  |
+  = help: if you wanted to use a crate named `handler`, use `cargo add handler` to add it to your `Cargo.toml`
+  = note: this error originates in the macro `routes` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -1,0 +1,19 @@
+error: Invalid JSON value.
+
+       Expected one of:
+       - String literal: "hello"
+       - Number: 42 or 3.14
+       - Boolean: true or false
+       - null
+       - Object: { "key": value }
+       - Array: [1, 2, 3]
+       - Expression implementing ToJson (String, i32, bool, Vec<T>, etc.)
+       - Type hint: str(expr), int(expr), float(expr), bool(expr)
+
+       Original error: unexpected end of input, expected an expression
+ --> tests/ui/response/ok_empty.rs:5:17
+  |
+5 |     let _resp = ok!();
+  |                 ^^^^^
+  |
+  = note: this error originates in the macro `ok` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -1,0 +1,5 @@
+---
+source: mik-sql/tests/snapshots_sql.rs
+expression: result.sql
+---
+SELECT id, title, created_at FROM posts WHERE (created_at, id) < ($1, $2) ORDER BY created_at DESC, id DESC LIMIT 20

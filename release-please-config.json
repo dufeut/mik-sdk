@@ -1,0 +1,45 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "packages": {
+    "mik-sql-macros": {
+      "release-type": "rust",
+      "component": "mik-sql-macros"
+    },
+    "mik-sql": {
+      "release-type": "rust",
+      "component": "mik-sql"
+    },
+    "mik-sdk-macros": {
+      "release-type": "rust",
+      "component": "mik-sdk-macros"
+    },
+    "mik-sdk": {
+      "release-type": "rust",
+      "component": "mik-sdk"
+    }
+  },
+  "plugins": [
+    {
+      "type": "cargo-workspace",
+      "merge": true,
+      "exclude": [
+        "examples/hello-world",
+        "examples/crud-api",
+        "examples/auth-api",
+        "examples/external-api"
+      ]
+    }
+  ],
+  "group-pull-request-title-pattern": "chore: release ${version}",
+  "changelog-sections": [
+    { "type": "feat", "section": "Features" },
+    { "type": "fix", "section": "Bug Fixes" },
+    { "type": "perf", "section": "Performance" },
+    { "type": "refactor", "section": "Refactoring" },
+    { "type": "docs", "section": "Documentation" },
+    { "type": "chore", "section": "Maintenance", "hidden": true },
+    { "type": "style", "section": "Styles", "hidden": true },
+    { "type": "test", "section": "Tests", "hidden": true },
+    { "type": "ci", "section": "CI", "hidden": true }
+  ]
+}

@@ -1,0 +1,269 @@
+---
+title: Basic Example
+description: A minimal hello-world handler with typed inputs
+---
+
+import { Aside, Tabs, TabItem, Code } from '@astrojs/starlight/components';
+
+# Basic Example
+
+A complete example showing the essential patterns of mik-sdk.
+
+## Project Structure
+
+```
+hello-handler/
+├── Cargo.toml
+├── src/
+│   └── lib.rs
+└── wit/
+    ├── world.wit
+    └── deps/
+        └── core/
+            └── core.wit
+```
+
+## Cargo.toml
+
+```toml
+[package]
+name = "hello-handler"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+mik-sdk = { git = "https://github.com/hlop3z/mik-sdk" }
+
+[package.metadata.component]
+package = "hello:handler"
+
+[package.metadata.component.target.dependencies]
+"mik:core" = { path = "wit/deps/core" }
+```
+
+## Handler Code
+
+```rust
+// src/lib.rs
+#[allow(warnings)]
+mod bindings;
+
+use bindings::exports::mik::core::handler::{self, Guest, Response};
+use mik_sdk::prelude::*;
+
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+/// Response for the home endpoint
+#[derive(Type)]
+pub struct HomeResponse {
+    pub message: String,
+    pub version: String,
+    pub endpoints: Vec<String>,
+}
+
+/// Response for hello greeting
+#[derive(Type)]
+pub struct HelloResponse {
+    pub greeting: String,
+    pub name: String,
+}
+
+/// Path parameter for hello endpoint
+#[derive(Path)]
+pub struct HelloPath {
+    pub name: String,
+}
+
+/// Input for echo endpoint
+#[derive(Type)]
+pub struct EchoInput {
+    #[field(min = 1, docs = "Message to echo back")]
+    pub message: String,
+}
+
+/// Response for echo endpoint
+#[derive(Type)]
+pub struct EchoResponse {
+    pub echo: String,
+    pub length: i64,
+}
+
+/// Query parameters for search
+#[derive(Query)]
+pub struct SearchQuery {
+    /// Search term (optional)
+    pub q: Option<String>,
+
+    /// Page number with default
+    #[field(default = 1)]
+    pub page: u32,
+
+    /// Items per page with default and max
+    #[field(default = 10, max = 100)]
+    pub limit: u32,
+}
+
+/// Response for search endpoint
+#[derive(Type)]
+pub struct SearchResponse {
+    pub query: Option<String>,
+    pub page: i64,
+    pub limit: i64,
+    pub message: String,
+}
+
+// ============================================================================
+// ROUTES
+// ============================================================================
+
+routes! {
+    GET "/" | "" => home -> HomeResponse,
+    GET "/hello/{name}" => hello(path: HelloPath) -> HelloResponse,
+    POST "/echo" => echo(body: EchoInput) -> EchoResponse,
+    GET "/search" => search(query: SearchQuery) -> SearchResponse,
+}
+
+// ============================================================================
+// HANDLERS
+// ============================================================================
+
+fn home(_req: &Request) -> Response {
+    ok!({
+        "message": "Welcome to mik-sdk!",
+        "version": "0.1.0",
+        "endpoints": ["/", "/hello/{name}", "/echo", "/search", "/__schema"]
+    })
+}
+
+fn hello(path: HelloPath, _req: &Request) -> Response {
+    let greeting = format!("Hello, {}!", path.name);
+    ok!({
+        "greeting": greeting,
+        "name": path.name
+    })
+}
+
+fn echo(body: EchoInput, _req: &Request) -> Response {
+    let len = body.message.len();
+    ok!({
+        "echo": body.message,
+        "length": len
+    })
+}
+
+fn search(query: SearchQuery, _req: &Request) -> Response {
+    let message = match &query.q {
+        Some(q) => format!("Searching for '{}' on page {}", q, query.page),
+        None => format!("Listing all items on page {}", query.page),
+    };
+
+    ok!({
+        "query": query.q,
+        "page": query.page,
+        "limit": query.limit,
+        "message": message
+    })
+}
+```
+
+## Building and Running
+
+```bash
+# Build the handler
+cargo component build --release
+
+# Compose with bridge
+wac plug mik-bridge.wasm \
+    --plug target/wasm32-wasip2/release/hello_handler.wasm \
+    -o service.wasm
+
+# Run
+wasmtime serve -S cli=y service.wasm
+```
+
+## Testing
+
+```bash
+# Home endpoint
+curl http://localhost:8080/
+
+# Hello with path parameter
+curl http://localhost:8080/hello/World
+curl http://localhost:8080/hello/Alice
+
+# Echo with POST body
+curl -X POST http://localhost:8080/echo \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello, World!"}'
+
+# Search with query parameters
+curl "http://localhost:8080/search"
+curl "http://localhost:8080/search?q=rust"
+curl "http://localhost:8080/search?q=rust&page=2&limit=50"
+
+# OpenAPI schema
+curl http://localhost:8080/__schema
+```
+
+## Expected Responses
+
+### GET /
+
+```json
+{
+  "message": "Welcome to mik-sdk!",
+  "version": "0.1.0",
+  "endpoints": ["/", "/hello/{name}", "/echo", "/search", "/__schema"]
+}
+```
+
+### GET /hello/World
+
+```json
+{
+  "greeting": "Hello, World!",
+  "name": "World"
+}
+```
+
+### POST /echo
+
+Request:
+```json
+{"message": "Hello, World!"}
+```
+
+Response:
+```json
+{
+  "echo": "Hello, World!",
+  "length": 13
+}
+```
+
+### GET /search?q=rust&page=2
+
+```json
+{
+  "query": "rust",
+  "page": 2,
+  "limit": 10,
+  "message": "Searching for 'rust' on page 2"
+}
+```
+
+## Key Concepts Demonstrated
+
+| Concept | Example |
+|---------|---------|
+| Type-safe paths | `#[derive(Path)]` with `{name}` parameter |
+| JSON bodies | `#[derive(Type)]` for input/output |
+| Query parameters | `#[derive(Query)]` with defaults |
+| Response macros | `ok!({ ... })` for JSON responses |
+| Field constraints | `#[field(min, max, default)]` |
+| Multiple routes | Single handler, alternative paths (`"/" | ""`)|

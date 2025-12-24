@@ -1,0 +1,6 @@
+# WASM runner configuration
+[target.wasm32-wasip2]
+runner = "wasmtime"
+
+# Don't set a default target - let each crate decide
+# WASM crates use cargo-component which sets target automatically

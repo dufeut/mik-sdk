@@ -1,0 +1,246 @@
+---
+title: Random
+description: Cryptographically secure random value generation
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Random
+
+The `random` module provides cryptographically secure random value generation using platform-native sources.
+
+## Platform Support
+
+| Platform | Implementation |
+|----------|----------------|
+| WASM (wasm32-wasip2) | Native `wasi:random/random` |
+| Native (testing) | `getrandom` crate (OS entropy) |
+
+All functions use cryptographically secure randomness suitable for tokens, secrets, and UUIDs.
+
+## UUID Generation
+
+Generate RFC 4122 compliant UUID v4:
+
+```rust
+use mik_sdk::random;
+
+let id = random::uuid();
+// Example: "550e8400-e29b-41d4-a716-446655440000"
+
+assert_eq!(id.len(), 36);
+assert_eq!(id.chars().nth(14), Some('4'));  // Version 4
+```
+
+### Common Patterns
+
+```rust
+// Resource creation
+fn create_user(body: CreateInput, _req: &Request) -> Response {
+    let id = random::uuid();
+
+    created!(format!("/users/{}", id), {
+        "id": id,
+        "name": body.name
+    })
+}
+
+// Session tokens
+let session_id = random::uuid();
+
+// Correlation IDs
+let request_id = random::uuid();
+log!(info, "request received", request_id: &request_id);
+```
+
+## Hex Strings
+
+Generate random hexadecimal strings:
+
+```rust
+let token = random::hex(16);  // 16 bytes = 32 hex chars
+// Example: "a3f7c2e91b4d6f8a0c5e7d3b9a1f4e2c"
+
+let short_token = random::hex(8);  // 8 bytes = 16 hex chars
+// Example: "f7c2e91b4d6f8a0c"
+```
+
+### Common Uses
+
+```rust
+// API tokens
+let api_key = random::hex(32);  // 64 character token
+
+// Verification codes
+let code = random::hex(4);  // 8 character code
+
+// Password reset tokens
+let reset_token = random::hex(24);  // 48 character token
+
+// Short codes (e.g., invite codes)
+let invite_code = random::hex(6).to_uppercase();  // "A3F7C2E91B4D"
+```
+
+## Raw Bytes
+
+Generate random bytes:
+
+```rust
+let bytes = random::bytes(32);  // Vec<u8> of 32 random bytes
+
+assert_eq!(bytes.len(), 32);
+```
+
+### Common Uses
+
+```rust
+// Encryption keys
+let key = random::bytes(32);  // 256-bit key
+
+// Initialization vectors
+let iv = random::bytes(16);   // 128-bit IV
+
+// Salt for hashing
+let salt = random::bytes(16);
+```
+
+## Random Integers
+
+Generate random 64-bit integers:
+
+```rust
+let num = random::u64();  // u64
+
+// Example: 12345678901234567890
+```
+
+### Common Uses
+
+```rust
+// Random selection
+let items = vec!["a", "b", "c", "d"];
+let index = (random::u64() as usize) % items.len();
+let selected = items[index];
+
+// Random delays (for jitter)
+let jitter_ms = random::u64() % 1000;  // 0-999ms
+```
+
+## Complete Examples
+
+### Token-Based Authentication
+
+```rust
+fn create_api_key(body: CreateKeyInput, _req: &Request) -> Response {
+    let key_id = random::uuid();
+    let secret = random::hex(32);
+
+    // Store hash of secret in database
+    let (sql, params) = sql_create!(api_keys {
+        id: &key_id,
+        name: &body.name,
+        secret_hash: hash(&secret),  // Hash before storing
+        created_at: time::now_iso(),
+    });
+
+    // Return secret to user (only time it's visible)
+    created!(format!("/api-keys/{}", key_id), {
+        "id": key_id,
+        "secret": secret,  // User must save this
+        "message": "Save this secret - it won't be shown again"
+    })
+}
+```
+
+### Session Management
+
+```rust
+fn login(body: LoginInput, _req: &Request) -> Response {
+    // Validate credentials...
+
+    let session_id = random::uuid();
+    let session_token = random::hex(32);
+
+    // Store session
+    let (sql, params) = sql_create!(sessions {
+        id: &session_id,
+        user_id: &body.user_id,
+        token_hash: hash(&session_token),
+        created_at: time::now_iso(),
+        expires_at: time::to_iso(time::now() + 86400, 0),  // 24h
+    });
+
+    ok!({
+        "session_id": session_id,
+        "token": session_token
+    })
+}
+```
+
+### Request Tracing
+
+```rust
+fn handler(req: &Request) -> Response {
+    // Use existing trace ID or generate new one
+    let trace_id = req.trace_id()
+        .map(String::from)
+        .unwrap_or_else(|| random::uuid());
+
+    log!(info, "handling request",
+        trace_id: &trace_id,
+        path: req.path_without_query()
+    );
+
+    // Forward to downstream services
+    let response = fetch!(GET "http://api:8080/data")
+        .with_trace_id(Some(&trace_id))
+        .send()?;
+
+    ok!({ "trace_id": trace_id })
+}
+```
+
+## Security Notes
+
+<Aside type="tip">
+All random functions in this module use cryptographically secure randomness. They are suitable for:
+- Session tokens
+- API keys
+- Password reset tokens
+- Encryption keys
+- UUIDs
+- Any security-sensitive random values
+</Aside>
+
+<Aside type="caution">
+The functions will panic if the underlying random number generator fails. This is extremely rare and indicates a critical system issue.
+</Aside>
+
+## API Summary
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `random::uuid()` | `String` | UUID v4 (36 chars) |
+| `random::hex(n)` | `String` | n bytes as hex (2n chars) |
+| `random::bytes(n)` | `Vec<u8>` | n random bytes |
+| `random::u64()` | `u64` | Random 64-bit integer |
+
+## Examples
+
+```rust
+use mik_sdk::random;
+
+// UUIDs
+let user_id = random::uuid();     // "550e8400-e29b-..."
+let order_id = random::uuid();    // "7c9e6679-..."
+
+// Tokens
+let api_key = random::hex(32);    // 64 hex chars
+let short_code = random::hex(4);  // 8 hex chars
+
+// Raw bytes
+let key = random::bytes(32);      // 32 bytes for encryption
+
+// Random number
+let n = random::u64();            // Random u64
+```

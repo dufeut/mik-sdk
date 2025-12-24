@@ -1,0 +1,17 @@
+error: Cannot specify both 'json' and 'body' options.
+
+       Use 'json' for JSON data (automatically sets Content-Type: application/json):
+       fetch!(POST url, json: {{ "key": "value" }})
+
+       Use 'body' for raw bytes:
+       fetch!(POST url, body: raw_bytes)
+ --> tests/ui/fetch/json_and_body_conflict.rs:6:16
+  |
+6 |       let _req = fetch!(POST "https://example.com",
+  |  ________________^
+7 | |         json: { "key": "value" },
+8 | |         body: data
+9 | |     );
+  | |_____^
+  |
+  = note: this error originates in the macro `fetch` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -1,0 +1,5 @@
+---
+source: mik-sql/tests/snapshots_sql.rs
+expression: result.sql
+---
+SELECT id, status FROM users WHERE status != $1

@@ -1,0 +1,15 @@
+error: Expected HTTP status code (integer literal).
+
+       Common status codes:
+       - 400 Bad Request (for invalid input)
+       - 404 Not Found (for missing resources)
+       - 500 Internal Server Error
+
+       Example:
+       let user = ensure!(find_user(id), 404, "User not found");
+
+       Original error: expected integer literal
+ --> tests/ui/dx/ensure_missing_status.rs:7:38
+  |
+7 |     let _user = ensure!(find_user(), "User not found");
+  |                                      ^^^^^^^^^^^^^^^^

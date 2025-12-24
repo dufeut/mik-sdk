@@ -1,0 +1,40 @@
+[package]
+name = "mik-sdk-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+
+[dependencies.mik-sdk]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "fuzz_url_decode"
+path = "fuzz_targets/url_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_json_parse"
+path = "fuzz_targets/json_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_request"
+path = "fuzz_targets/request.rs"
+test = false
+doc = false
+bench = false

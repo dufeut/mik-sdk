@@ -1,0 +1,365 @@
+---
+title: Common Patterns
+description: Reusable patterns for mik-sdk handlers
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Common Patterns
+
+A collection of patterns for common tasks in mik-sdk handlers.
+
+## Service Communication
+
+### Calling External APIs
+
+```rust
+fn fetch_external_data(api_key: &str) -> Response {
+    let response = fetch!(GET "https://api.example.com/data",
+        headers: {
+            "Authorization": format!("Bearer {}", api_key),
+            "Accept": "application/json"
+        },
+        timeout: 5000
+    ).send();
+
+    match response {
+        Ok(resp) if resp.is_success() => {
+            ok!({ "data": json::try_parse(&resp.body()) })
+        }
+        Ok(resp) => {
+            error! {
+                status: 502,
+                title: "Upstream Error",
+                detail: format!("API returned {}", resp.status())
+            }
+        }
+        Err(_) => {
+            error! {
+                status: 503,
+                title: "Service Unavailable",
+                detail: "Could not reach external API"
+            }
+        }
+    }
+}
+```
+
+### Circuit Breaker Pattern
+
+Track failures and short-circuit when service is down:
+
+```rust
+fn call_with_fallback(primary_url: &str, fallback: &str) -> Response {
+    // Try primary
+    let primary = fetch!(GET primary_url, timeout: 2000).send();
+
+    if let Ok(resp) = primary {
+        if resp.is_success() {
+            return ok!({ "source": "primary", "data": json::try_parse(&resp.body()) });
+        }
+    }
+
+    log::warn!("Primary service failed, trying fallback");
+
+    // Try fallback
+    let fallback = fetch!(GET fallback, timeout: 5000).send();
+
+    match fallback {
+        Ok(resp) if resp.is_success() => {
+            ok!({ "source": "fallback", "data": json::try_parse(&resp.body()) })
+        }
+        _ => {
+            error! {
+                status: 503,
+                title: "Service Unavailable",
+                detail: "All services are unavailable"
+            }
+        }
+    }
+}
+```
+
+## Data Transformation
+
+### Map External Response
+
+```rust
+fn transform_api_response(body: &[u8]) -> Option<Response> {
+    let parsed = json::try_parse(body)?;
+
+    // Extract and transform fields
+    let items = parsed.get("results");
+    let total = parsed.path_int(&["meta", "total"]).unwrap_or(0);
+
+    Some(ok!({
+        "items": items,
+        "count": total
+    }))
+}
+```
+
+### Aggregate Data from Multiple Sources
+
+```rust
+fn aggregate_user_data(user_id: &str, req: &Request) -> Response {
+    // Parallel requests to different services
+    let profile = fetch!(GET format!("http://profiles:8080/users/{}", user_id))
+        .with_trace_id(req.trace_id())
+        .send();
+
+    let orders = fetch!(GET format!("http://orders:8080/users/{}/orders", user_id))
+        .with_trace_id(req.trace_id())
+        .send();
+
+    let profile_data = match profile {
+        Ok(r) if r.is_success() => json::try_parse(&r.body()),
+        _ => None,
+    };
+
+    let order_data = match orders {
+        Ok(r) if r.is_success() => json::try_parse(&r.body()),
+        _ => None,
+    };
+
+    ok!({
+        "profile": profile_data,
+        "orders": order_data
+    })
+}
+```
+
+## Caching Patterns
+
+### Cache-Aside
+
+```rust
+fn get_with_cache(key: &str, fetch_fn: impl Fn() -> Option<String>) -> Response {
+    // Check cache first
+    let cache_key = format!("http://cache:8080/{}", key);
+    let cached = fetch!(GET &cache_key).send();
+
+    if let Ok(resp) = cached {
+        if resp.is_success() {
+            log::debug!("Cache hit for {}", key);
+            return ok!({ "data": json::try_parse(&resp.body()), "cached": true });
+        }
+    }
+
+    // Cache miss - fetch data
+    log::debug!("Cache miss for {}", key);
+    let data = ensure!(fetch_fn(), 404, "Data not found");
+
+    // Store in cache (fire and forget)
+    let _ = fetch!(PUT &cache_key,
+        headers: { "Content-Type": "application/json" },
+        body: data.as_bytes()
+    ).send();
+
+    ok!({ "data": data, "cached": false })
+}
+```
+
+## Authentication Patterns
+
+### JWT-Style Token Validation
+
+```rust
+fn validate_request(req: &Request) -> Result<UserContext, Response> {
+    let token = req.header("Authorization")
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .ok_or_else(|| error! {
+            status: 401,
+            title: "Unauthorized",
+            detail: "Missing Authorization header"
+        })?;
+
+    // Call auth service to validate token
+    let auth_response = fetch!(GET "http://auth:8080/validate",
+        headers: { "Authorization": format!("Bearer {}", token) }
+    ).send();
+
+    match auth_response {
+        Ok(resp) if resp.is_success() => {
+            let body = resp.body();
+            let parsed = json::try_parse(&body)
+                .ok_or_else(|| error! {
+                    status: 500,
+                    title: "Internal Error",
+                    detail: "Failed to parse auth response"
+                })?;
+
+            Ok(UserContext {
+                user_id: parsed.path_str(&["user_id"]).unwrap_or_default(),
+                role: parsed.path_str(&["role"]).unwrap_or_default(),
+            })
+        }
+        _ => Err(error! {
+            status: 401,
+            title: "Unauthorized",
+            detail: "Invalid token"
+        }),
+    }
+}
+```
+
+### Protected Handler Pattern
+
+```rust
+fn with_auth<F>(req: &Request, handler: F) -> Response
+where
+    F: FnOnce(UserContext, &Request) -> Response,
+{
+    match validate_request(req) {
+        Ok(user) => handler(user, req),
+        Err(response) => response,
+    }
+}
+
+fn protected_endpoint(req: &Request) -> Response {
+    with_auth(req, |user, req| {
+        ok!({ "user_id": user.user_id })
+    })
+}
+```
+
+## Error Handling Patterns
+
+### Result-Based Handlers
+
+```rust
+fn handler_inner(req: &Request) -> Result<Response, HandlerError> {
+    let body = req.body().ok_or(HandlerError::MissingBody)?;
+    let parsed = json::try_parse(body).ok_or(HandlerError::InvalidJson)?;
+    let name = parsed.path_str(&["name"]).ok_or(HandlerError::MissingField("name"))?;
+
+    Ok(ok!({ "name": name }))
+}
+
+fn handler(req: &Request) -> Response {
+    match handler_inner(req) {
+        Ok(response) => response,
+        Err(HandlerError::MissingBody) => bad_request!("Request body required"),
+        Err(HandlerError::InvalidJson) => bad_request!("Invalid JSON"),
+        Err(HandlerError::MissingField(f)) => bad_request!(format!("{} is required", f)),
+    }
+}
+```
+
+## Rate Limiting Pattern
+
+```rust
+fn check_rate_limit(client_id: &str) -> bool {
+    let response = fetch!(POST "http://rate-limiter:8080/check",
+        json: { "client_id": client_id, "limit": 100 }
+    ).send();
+
+    match response {
+        Ok(resp) => {
+            if let Some(parsed) = json::try_parse(&resp.body()) {
+                parsed.path_bool(&["allowed"]).unwrap_or(false)
+            } else {
+                true  // Allow on parse error
+            }
+        }
+        Err(_) => true,  // Allow if rate limiter is down
+    }
+}
+
+fn rate_limited_endpoint(req: &Request) -> Response {
+    let client_id = req.header("X-Client-ID").unwrap_or("anonymous");
+
+    if !check_rate_limit(client_id) {
+        return error! {
+            status: 429,
+            title: "Too Many Requests",
+            detail: "Rate limit exceeded"
+        };
+    }
+
+    ok!({ "allowed": true })
+}
+```
+
+## Webhook Pattern
+
+```rust
+fn handle_webhook(body: WebhookInput, req: &Request) -> Response {
+    // Verify webhook signature
+    let signature = req.header("X-Webhook-Signature");
+    guard!(signature.is_some(), 401, "Missing signature");
+
+    // Process based on event type
+    match body.event_type.as_str() {
+        "user.created" => handle_user_created(&body.data),
+        "user.deleted" => handle_user_deleted(&body.data),
+        "order.completed" => handle_order_completed(&body.data),
+        _ => {
+            log::warn!("Unknown webhook event: {}", body.event_type);
+            accepted!()
+        }
+    }
+}
+
+fn handle_user_created(data: &JsonValue) -> Response {
+    log!(info, "user created webhook", user_id: data.path_str(&["id"]).unwrap_or("unknown"));
+    accepted!()
+}
+```
+
+## Health Check Pattern
+
+```rust
+routes! {
+    GET "/health" => health_check,
+    GET "/health/ready" => readiness_check,
+    GET "/health/live" => liveness_check,
+}
+
+fn health_check(_req: &Request) -> Response {
+    ok!({
+        "status": "healthy",
+        "timestamp": time::now_iso()
+    })
+}
+
+fn readiness_check(_req: &Request) -> Response {
+    // Check dependencies
+    let db_ok = check_database();
+    let cache_ok = check_cache();
+
+    if db_ok && cache_ok {
+        ok!({
+            "status": "ready",
+            "checks": {
+                "database": "ok",
+                "cache": "ok"
+            }
+        })
+    } else {
+        error! {
+            status: 503,
+            title: "Not Ready",
+            detail: "Some dependencies are unavailable"
+        }
+    }
+}
+
+fn liveness_check(_req: &Request) -> Response {
+    ok!({ "status": "alive" })
+}
+
+fn check_database() -> bool {
+    fetch!(GET "http://db-proxy:8080/ping", timeout: 1000)
+        .send()
+        .map(|r| r.is_success())
+        .unwrap_or(false)
+}
+
+fn check_cache() -> bool {
+    fetch!(GET "http://cache:8080/ping", timeout: 1000)
+        .send()
+        .map(|r| r.is_success())
+        .unwrap_or(false)
+}
+```

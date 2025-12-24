@@ -1,0 +1,11 @@
+error: Expected comma after status code.
+
+       Correct syntax: guard!(condition, 400, "message")
+
+       Original error: expected `,`
+ --> tests/ui/dx/guard_missing_message.rs:6:5
+  |
+6 |     guard!(!name.is_empty(), 400);
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `guard` (in Nightly builds, run with -Z macro-backtrace for more info)

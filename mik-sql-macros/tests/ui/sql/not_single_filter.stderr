@@ -1,0 +1,5 @@
+error: expected square brackets
+ --> tests/ui/sql/not_single_filter.rs:7:25
+  |
+7 |         filter: { $not: { a: 1, b: 2 } },
+  |                         ^

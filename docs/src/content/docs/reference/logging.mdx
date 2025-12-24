@@ -1,0 +1,244 @@
+---
+title: Logging
+description: Structured JSON logging to stderr
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Logging
+
+mik-sdk provides structured JSON logging to stderr, compatible with major log aggregation systems.
+
+## Output Format
+
+All logs are JSON objects written to stderr:
+
+```json
+{"level":"info","msg":"user created","id":"123","ts":"2025-01-16T10:30:00.500Z"}
+```
+
+Fields:
+- `level` - Log level (debug, info, warn, error)
+- `msg` - Log message
+- `ts` - ISO 8601 timestamp
+- Additional fields from structured logging
+
+## Simple Logging
+
+Format-string style logging:
+
+```rust
+use mik_sdk::log;
+
+log::info!("Server started on port 8080");
+log::info!("User {} logged in", user_id);
+
+log::warn!("Cache miss for key: {}", key);
+log::warn!("Slow query detected: {}ms", elapsed);
+
+log::error!("Database connection failed: {}", err);
+log::error!("Failed to parse request body");
+
+log::debug!("Request payload: {:?}", payload);
+log::debug!("Cache size: {} entries", cache.len());
+```
+
+Output:
+```json
+{"timestamp":"2025-01-16T10:30:00.500Z","level":"info","message":"Server started on port 8080"}
+{"timestamp":"2025-01-16T10:30:00.501Z","level":"warn","message":"Cache miss for key: user:123"}
+```
+
+## Structured Logging
+
+Key-value pairs for better searchability:
+
+```rust
+use mik_sdk::log;
+
+log!(info, "user created", id: user_id, email: &email);
+log!(warn, "rate limit approaching", remaining: count);
+log!(error, "failed to fetch", url: &url, status: resp.status());
+log!(debug, "request parsed", method: req.method(), path: req.path());
+```
+
+Output:
+```json
+{"level":"info","msg":"user created","id":"123","email":"alice@example.com","ts":"2025-01-16T10:30:00.500Z"}
+{"level":"warn","msg":"rate limit approaching","remaining":"5","ts":"2025-01-16T10:30:01.000Z"}
+{"level":"error","msg":"failed to fetch","url":"https://api.example.com","status":"500","ts":"2025-01-16T10:30:02.000Z"}
+```
+
+## Log Levels
+
+| Level | Macro | Use Case |
+|-------|-------|----------|
+| debug | `log::debug!()` | Development info (compiled out in release) |
+| info | `log::info!()` | Normal operations |
+| warn | `log::warn!()` | Unexpected but handled situations |
+| error | `log::error!()` | Errors requiring attention |
+
+## Debug Logging
+
+`log::debug!()` is compiled out in release builds:
+
+```rust
+// Only appears in debug builds
+log::debug!("Detailed debugging info: {:?}", data);
+
+// In release builds, this generates no code
+// Arguments are not evaluated
+```
+
+<Aside type="note">
+The structured `log!(debug, ...)` is NOT compiled out in release builds. Use `log::debug!()` for debug-only logs.
+</Aside>
+
+## Common Patterns
+
+### Request Logging
+
+```rust
+fn handler(req: &Request) -> Response {
+    let trace_id = req.trace_id().unwrap_or("unknown");
+    let path = req.path_without_query();
+
+    log!(info, "request received",
+        trace_id: trace_id,
+        method: format!("{:?}", req.method()),
+        path: path
+    );
+
+    // ... handle request ...
+
+    log!(info, "request completed",
+        trace_id: trace_id,
+        status: 200
+    );
+
+    ok!({})
+}
+```
+
+### Error Logging
+
+```rust
+fn handler(req: &Request) -> Response {
+    let result = process_request(req);
+
+    match result {
+        Ok(data) => {
+            log!(info, "request succeeded", id: &data.id);
+            ok!({ "data": data })
+        }
+        Err(err) => {
+            log!(error, "request failed",
+                error: format!("{}", err),
+                path: req.path_without_query()
+            );
+            error! {
+                status: 500,
+                title: "Internal Error",
+                detail: "Processing failed"
+            }
+        }
+    }
+}
+```
+
+### Performance Logging
+
+```rust
+fn handler(_req: &Request) -> Response {
+    let start = time::now_millis();
+
+    // ... do work ...
+
+    let elapsed = time::now_millis() - start;
+    log!(info, "operation completed", duration_ms: elapsed);
+
+    if elapsed > 1000 {
+        log::warn!("Slow operation detected: {}ms", elapsed);
+    }
+
+    ok!({})
+}
+```
+
+### Distributed Tracing
+
+```rust
+fn handler(req: &Request) -> Response {
+    let trace_id = req.trace_id()
+        .map(String::from)
+        .unwrap_or_else(|| random::uuid());
+
+    log!(info, "starting request", trace_id: &trace_id);
+
+    // Forward trace ID to downstream
+    let response = fetch!(GET "http://api:8080/data")
+        .with_trace_id(Some(&trace_id))
+        .send()?;
+
+    log!(info, "downstream response",
+        trace_id: &trace_id,
+        status: response.status()
+    );
+
+    ok!({ "trace_id": trace_id })
+}
+```
+
+## Compatibility
+
+The JSON format is compatible with major log aggregation systems:
+
+| System | Notes |
+|--------|-------|
+| ELK Stack | Auto-parses JSON, maps fields |
+| Datadog | Auto-detects JSON, extracts standard fields |
+| CloudWatch Logs Insights | Query with parsed JSON fields |
+| Splunk | Auto-extracts JSON fields |
+| Grafana Loki | Label extraction from JSON |
+
+## API Summary
+
+### Format-String Macros
+
+| Macro | Level | Release Build |
+|-------|-------|---------------|
+| `log::info!(fmt, ...)` | info | Included |
+| `log::warn!(fmt, ...)` | warn | Included |
+| `log::error!(fmt, ...)` | error | Included |
+| `log::debug!(fmt, ...)` | debug | **Compiled out** |
+
+### Structured Macro
+
+```rust
+log!(level, "message", key: value, ...);
+```
+
+All structured logs are included in release builds.
+
+## Examples
+
+```rust
+use mik_sdk::log;
+
+// Simple logging
+log::info!("Starting handler");
+log::warn!("Connection pool at 80%");
+log::error!("Failed to connect: {}", err);
+log::debug!("Debug: {:?}", data);
+
+// Structured logging
+log!(info, "user created", id: "123", email: "alice@example.com");
+log!(warn, "rate limit", user: &user_id, remaining: 5);
+log!(error, "api failed", url: &url, status: 500);
+```
+
+Output (stderr):
+```json
+{"timestamp":"2025-01-16T10:30:00.500Z","level":"info","message":"Starting handler"}
+{"level":"info","msg":"user created","id":"123","email":"alice@example.com","ts":"2025-01-16T10:30:00.501Z"}
+```

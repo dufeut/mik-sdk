@@ -1,0 +1,5 @@
+---
+source: mik-sql/tests/snapshots_sql.rs
+expression: result.sql
+---
+SELECT id, name, price FROM products WHERE category = $1 ORDER BY price ASC LIMIT 20 OFFSET 40

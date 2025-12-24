@@ -1,0 +1,365 @@
+---
+title: CRUD API Example
+description: A complete REST API with SQL query generation
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# CRUD API Example
+
+A complete REST API demonstrating CRUD operations with the SQL query builder.
+
+## Overview
+
+This example shows how to build a typical REST API with:
+- CRUD endpoints for a `users` resource
+- Type-safe inputs with validation
+- SQL query generation with filters and pagination
+- Proper error handling
+
+## Types
+
+```rust
+#[allow(warnings)]
+mod bindings;
+
+use bindings::exports::mik::core::handler::{self, Guest, Response};
+use mik_sdk::prelude::*;
+
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
+
+/// User resource
+#[derive(Type)]
+pub struct User {
+    pub id: String,
+    pub name: String,
+    pub email: String,
+    pub active: bool,
+    pub created_at: String,
+}
+
+/// Input for creating a user
+#[derive(Type)]
+pub struct CreateUserInput {
+    #[field(min = 1, max = 100)]
+    pub name: String,
+
+    #[field(format = "email")]
+    pub email: String,
+}
+
+/// Input for updating a user
+#[derive(Type)]
+pub struct UpdateUserInput {
+    #[field(min = 1, max = 100)]
+    pub name: Option<String>,
+
+    #[field(format = "email")]
+    pub email: Option<String>,
+
+    pub active: Option<bool>,
+}
+
+/// Query parameters for listing users
+#[derive(Query)]
+pub struct ListUsersQuery {
+    /// Search by name or email
+    pub search: Option<String>,
+
+    /// Filter by active status
+    pub active: Option<bool>,
+
+    /// Page number
+    #[field(default = 1)]
+    pub page: u32,
+
+    /// Items per page
+    #[field(default = 20, max = 100)]
+    pub limit: u32,
+}
+
+/// Paginated list response
+#[derive(Type)]
+pub struct UserListResponse {
+    pub items: Vec<User>,
+    pub page: i64,
+    pub limit: i64,
+    pub total: Option<i64>,
+}
+```
+
+## Routes
+
+```rust
+routes! {
+    // List users with filtering and pagination
+    GET "/users" => list_users(query: ListUsersQuery) -> UserListResponse,
+
+    // Create a new user
+    POST "/users" => create_user(body: CreateUserInput) -> User,
+
+    // Get a single user
+    GET "/users/{id}" => get_user(path: Id) -> User,
+
+    // Update a user
+    PUT "/users/{id}" => update_user(path: Id, body: UpdateUserInput) -> User,
+
+    // Delete a user
+    DELETE "/users/{id}" => delete_user(path: Id),
+}
+```
+
+## Handlers
+
+### List Users
+
+```rust
+fn list_users(query: ListUsersQuery, _req: &Request) -> Response {
+    // Build SQL query based on filters
+    let (sql, params) = if let Some(ref search) = query.search {
+        sql_read!(users {
+            select: [id, name, email, active, created_at],
+            filter: {
+                $or: [
+                    { name: { $contains: search } },
+                    { email: { $contains: search } }
+                ]
+            },
+            order: [name],
+            page: query.page,
+            limit: query.limit,
+        })
+    } else if let Some(active) = query.active {
+        sql_read!(users {
+            select: [id, name, email, active, created_at],
+            filter: { active: active },
+            order: [name],
+            page: query.page,
+            limit: query.limit,
+        })
+    } else {
+        sql_read!(users {
+            select: [id, name, email, active, created_at],
+            order: [name],
+            page: query.page,
+            limit: query.limit,
+        })
+    };
+
+    // In a real app, execute the query via sidecar:
+    // let users = db_proxy.query(sql, params);
+
+    log!(info, "list users",
+        search: query.search.as_deref().unwrap_or("none"),
+        page: query.page,
+        limit: query.limit
+    );
+
+    ok!({
+        "items": [],  // Would be populated from DB
+        "page": query.page,
+        "limit": query.limit,
+        "sql": sql  // For demonstration
+    })
+}
+```
+
+### Create User
+
+```rust
+fn create_user(body: CreateUserInput, _req: &Request) -> Response {
+    let id = random::uuid();
+    let created_at = time::now_iso();
+
+    let (sql, params) = sql_create!(users {
+        id: &id,
+        name: &body.name,
+        email: &body.email,
+        active: true,
+        created_at: &created_at,
+        returning: [id, name, email, active, created_at],
+    });
+
+    log!(info, "create user", id: &id, email: &body.email);
+
+    // Execute via sidecar: db_proxy.execute(sql, params)
+
+    created!(format!("/users/{}", id), {
+        "id": id,
+        "name": body.name,
+        "email": body.email,
+        "active": true,
+        "created_at": created_at
+    })
+}
+```
+
+### Get User
+
+```rust
+fn get_user(path: Id, _req: &Request) -> Response {
+    let user_id = path.as_str();
+
+    let (sql, params) = sql_read!(users {
+        select: [id, name, email, active, created_at],
+        filter: { id: user_id },
+        limit: 1,
+    });
+
+    // Execute via sidecar
+    // let user = db_proxy.query_one(sql, params);
+    //
+    // if user.is_none() {
+    //     return not_found!("User not found");
+    // }
+
+    // For demonstration, return mock data
+    ok!({
+        "id": user_id,
+        "name": "Mock User",
+        "email": "mock@example.com",
+        "active": true,
+        "created_at": time::now_iso(),
+        "sql": sql
+    })
+}
+```
+
+### Update User
+
+```rust
+fn update_user(path: Id, body: UpdateUserInput, _req: &Request) -> Response {
+    let user_id = path.as_str();
+
+    // Check if at least one field is provided
+    guard!(
+        body.name.is_some() || body.email.is_some() || body.active.is_some(),
+        400,
+        "At least one field required"
+    );
+
+    // Build dynamic update
+    // In a real app, you'd build this conditionally
+    let updated_at = time::now_iso();
+
+    let (sql, params) = sql_update!(users {
+        set: {
+            name: body.name.as_deref().unwrap_or("unchanged"),
+            updated_at: &updated_at,
+        },
+        filter: { id: user_id },
+    });
+
+    log!(info, "update user", id: user_id);
+
+    ok!({
+        "id": user_id,
+        "updated_at": updated_at,
+        "sql": sql
+    })
+}
+```
+
+### Delete User
+
+```rust
+fn delete_user(path: Id, _req: &Request) -> Response {
+    let user_id = path.as_str();
+
+    let (sql, params) = sql_delete!(users {
+        filter: { id: user_id },
+    });
+
+    // Execute via sidecar
+    // let deleted = db_proxy.execute(sql, params);
+    //
+    // if deleted == 0 {
+    //     return not_found!("User not found");
+    // }
+
+    log!(info, "delete user", id: user_id);
+
+    no_content!()
+}
+```
+
+## Testing the API
+
+```bash
+# List users
+curl http://localhost:8080/users
+curl "http://localhost:8080/users?search=alice"
+curl "http://localhost:8080/users?active=true&page=2&limit=10"
+
+# Create user
+curl -X POST http://localhost:8080/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice","email":"alice@example.com"}'
+
+# Get user
+curl http://localhost:8080/users/550e8400-e29b-41d4-a716-446655440000
+
+# Update user
+curl -X PUT http://localhost:8080/users/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice Smith","active":false}'
+
+# Delete user
+curl -X DELETE http://localhost:8080/users/550e8400-e29b-41d4-a716-446655440000
+```
+
+## Generated SQL Examples
+
+### List with Search
+
+```sql
+SELECT id, name, email, active, created_at
+FROM users
+WHERE (name LIKE $1) OR (email LIKE $2)
+ORDER BY name
+LIMIT 20 OFFSET 0
+```
+
+### Create
+
+```sql
+INSERT INTO users (id, name, email, active, created_at)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, name, email, active, created_at
+```
+
+### Update
+
+```sql
+UPDATE users
+SET name = $1, updated_at = $2
+WHERE id = $3
+```
+
+### Delete
+
+```sql
+DELETE FROM users
+WHERE id = $1
+```
+
+## Key Patterns
+
+| Pattern | Implementation |
+|---------|----------------|
+| Pagination | `ListUsersQuery` with `page` and `limit` |
+| Search | `$or` with `$contains` on multiple fields |
+| Optional fields | `Option<T>` in `UpdateUserInput` |
+| Resource creation | `created!()` with Location header |
+| Resource deletion | `no_content!()` on success |
+| Input validation | `#[field(min, max, format)]` |
+| Logging | `log!()` for audit trail |
+
+## Next Steps
+
+- Add cursor pagination for better performance with large datasets
+- Implement batch operations for related data
+- Add authentication/authorization logic
+- Connect to actual database sidecar

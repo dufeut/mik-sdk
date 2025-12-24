@@ -1,0 +1,354 @@
+---
+title: Quick Reference
+description: Complete API reference for mik-sdk
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Quick Reference
+
+A comprehensive reference for all mik-sdk APIs.
+
+## Modules
+
+Import everything with the prelude:
+
+```rust
+use mik_sdk::prelude::*;
+```
+
+| Module | Purpose |
+|--------|---------|
+| `json` | JSON building and parsing |
+| `time` | UTC timestamps and ISO 8601 |
+| `random` | UUIDs, tokens, random bytes |
+| `log` | Structured logging to stderr |
+| `env` | Environment variable access |
+| `http_client` | Outbound HTTP requests |
+| `status` | HTTP status code constants |
+| `query` | Cursor, PageInfo, Value (with `sql` feature) |
+
+## Types
+
+| Type | Purpose |
+|------|---------|
+| `Request` | HTTP request wrapper |
+| `Method` | HTTP method enum |
+| `Id` | Built-in single path parameter |
+| `ParseError` | JSON/input parsing errors |
+| `ValidationError` | Field validation errors |
+
+## Derive Macros
+
+| Macro | Purpose |
+|-------|---------|
+| `#[derive(Type)]` | JSON body/response with OpenAPI schema |
+| `#[derive(Query)]` | Query string parameters with defaults |
+| `#[derive(Path)]` | URL path parameters |
+
+### Field Attributes
+
+```rust
+#[derive(Type)]
+pub struct Example {
+    #[field(min = 1, max = 100)]
+    pub name: String,
+
+    #[field(format = "email")]
+    pub email: String,
+
+    #[field(rename = "userName")]
+    pub user_name: String,
+
+    #[field(docs = "Description for OpenAPI")]
+    pub field: String,
+}
+
+#[derive(Query)]
+pub struct QueryExample {
+    #[field(default = 1)]
+    pub page: u32,
+
+    #[field(default = 20, max = 100)]
+    pub limit: u32,
+}
+```
+
+## Response Macros
+
+| Macro | Status | Purpose |
+|-------|--------|---------|
+| `ok!({ ... })` | 200 | JSON response |
+| `created!(location, { ... })` | 201 | Created with Location |
+| `accepted!()` | 202 | Accepted |
+| `no_content!()` | 204 | No Content |
+| `redirect!(url)` | 302 | Redirect |
+| `bad_request!(msg)` | 400 | Bad Request |
+| `forbidden!(msg)` | 403 | Forbidden |
+| `not_found!(msg)` | 404 | Not Found |
+| `conflict!(msg)` | 409 | Conflict |
+| `error! { ... }` | any | RFC 7807 Problem Details |
+
+## DX Macros
+
+| Macro | Purpose |
+|-------|---------|
+| `guard!(cond, status, msg)` | Early return if false |
+| `ensure!(expr, status, msg)` | Unwrap or return error |
+| `fetch!(METHOD url, ...)` | Build HTTP request |
+| `routes! { ... }` | Define routes |
+| `json!({ ... })` | Build JSON value |
+
+## SQL Macros
+
+| Macro | Purpose |
+|-------|---------|
+| `sql_read!(table { ... })` | SELECT query |
+| `sql_create!(table { ... })` | INSERT query |
+| `sql_update!(table { ... })` | UPDATE query |
+| `sql_delete!(table { ... })` | DELETE query |
+| `ids!(collection)` | Extract IDs for batching |
+
+## Request Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `method()` | `Method` | HTTP method |
+| `path()` | `&str` | Full path with query |
+| `path_without_query()` | `&str` | Path only |
+| `param(name)` | `Option<&str>` | Path parameter |
+| `query(name)` | `Option<&str>` | Query parameter |
+| `query_all(name)` | `&[String]` | All query values |
+| `header(name)` | `Option<&str>` | Header (case-insensitive) |
+| `header_all(name)` | `Vec<&str>` | All header values |
+| `trace_id()` | `Option<&str>` | x-trace-id header |
+| `body()` | `Option<&[u8]>` | Raw body bytes |
+| `text()` | `Option<&str>` | Body as UTF-8 |
+| `json_with(parser)` | `Option<T>` | Parse body |
+| `has_body()` | `bool` | True if non-empty |
+| `content_type()` | `Option<&str>` | Content-Type header |
+| `is_json()` | `bool` | Content-Type is JSON |
+| `is_form()` | `bool` | Content-Type is form |
+| `form(name)` | `Option<&str>` | Form field value |
+| `form_all(name)` | `&[String]` | All form values |
+
+## JSON Module
+
+### Building
+
+```rust
+json::obj()                    // Empty object {}
+json::arr()                    // Empty array []
+json::str("text")              // String value
+json::int(42)                  // Integer value
+json::float(3.14)              // Float value
+json::bool(true)               // Boolean value
+json::null()                   // Null value
+
+// Chaining
+json::obj()
+    .set("name", json::str("Alice"))
+    .set("age", json::int(30))
+
+json::arr()
+    .push(json::int(1))
+    .push(json::int(2))
+```
+
+### Parsing (Lazy)
+
+```rust
+let parsed = json::try_parse(bytes)?;
+
+// Path accessors (lazy - fast)
+parsed.path_str(&["user", "name"])     // Option<String>
+parsed.path_int(&["user", "age"])      // Option<i64>
+parsed.path_float(&["metrics", "score"]) // Option<f64>
+parsed.path_bool(&["user", "active"])  // Option<bool>
+parsed.path_exists(&["field"])         // bool
+parsed.path_is_null(&["field"])        // bool
+
+// With defaults
+parsed.path_str_or(&["name"], "Anonymous")
+parsed.path_int_or(&["age"], 0)
+
+// Tree access (triggers full parse)
+parsed.get("key")             // JsonValue
+parsed.at(0)                  // JsonValue (array index)
+parsed.keys()                 // Vec<String>
+parsed.len()                  // Option<usize>
+```
+
+## Time Module
+
+```rust
+time::now()              // u64 - Unix seconds
+time::now_millis()       // u64 - Unix milliseconds
+time::now_iso()          // String - ISO 8601
+
+// Convert raw values
+time::to_millis(secs, nanos)
+time::to_iso(secs, nanos)
+```
+
+## Random Module
+
+```rust
+random::uuid()           // String - UUID v4
+random::hex(n)           // String - n bytes as hex
+random::bytes(n)         // Vec<u8> - n random bytes
+random::u64()            // u64 - random integer
+```
+
+## Log Module
+
+```rust
+// Format-string style
+log::info!("User {} logged in", user_id);
+log::warn!("Cache miss: {}", key);
+log::error!("Failed: {}", err);
+log::debug!("Debug: {:?}", data);  // Release: compiled out
+
+// Structured style
+log!(info, "user created", id: user_id, email: &email);
+log!(warn, "rate limit", remaining: count);
+log!(error, "fetch failed", url: &url, status: code);
+```
+
+## Environment Module
+
+```rust
+env::get("KEY")              // Option<String>
+env::get_or("KEY", "default") // String
+env::require("KEY")          // String (panics if missing)
+```
+
+## Status Constants
+
+```rust
+status::OK                   // 200
+status::CREATED              // 201
+status::ACCEPTED             // 202
+status::NO_CONTENT           // 204
+status::MOVED_PERMANENTLY    // 301
+status::FOUND                // 302
+status::BAD_REQUEST          // 400
+status::UNAUTHORIZED         // 401
+status::FORBIDDEN            // 403
+status::NOT_FOUND            // 404
+status::CONFLICT             // 409
+status::UNPROCESSABLE_ENTITY // 422
+status::TOO_MANY_REQUESTS    // 429
+status::INTERNAL_SERVER_ERROR // 500
+status::BAD_GATEWAY          // 502
+status::SERVICE_UNAVAILABLE  // 503
+status::GATEWAY_TIMEOUT      // 504
+```
+
+## HTTP Client
+
+```rust
+// GET request
+fetch!(GET "https://api.example.com/data").send()?;
+
+// POST with JSON
+fetch!(POST "https://api.example.com/users", json: {
+    "name": "Alice"
+}).send()?;
+
+// With options
+fetch!(GET "https://api.example.com",
+    headers: { "Authorization": format!("Bearer {}", token) },
+    timeout: 5000
+).send()?;
+
+// SSRF protection
+fetch!(GET &user_url)
+    .deny_private_ips()
+    .send()?;
+
+// Trace propagation
+fetch!(GET "https://api.example.com")
+    .with_trace_id(req.trace_id())
+    .send()?;
+
+// Response handling
+let resp = fetch!(GET "https://api.example.com").send()?;
+resp.is_success()   // bool
+resp.status()       // u16
+resp.body()         // Vec<u8>
+resp.header("name") // Option<&str>
+```
+
+## SQL Query Builder
+
+```rust
+// SELECT
+sql_read!(users {
+    select: [id, name, email],
+    filter: { active: true, age: { $gte: 18 } },
+    order: [-created_at, name],
+    limit: 20,
+})
+
+// INSERT
+sql_create!(users {
+    name: "Alice",
+    email: "alice@example.com",
+    returning: [id],
+})
+
+// UPDATE
+sql_update!(users {
+    set: { name: "Bob", updated_at: time::now_iso() },
+    filter: { id: 123 },
+})
+
+// DELETE
+sql_delete!(users {
+    filter: { id: 123 },
+})
+
+// SQLite dialect
+sql_read!(sqlite, users { ... })
+```
+
+### Filter Operators
+
+| Operator | Description |
+|----------|-------------|
+| `$eq` | Equal |
+| `$ne` | Not equal |
+| `$gt` | Greater than |
+| `$gte` | Greater or equal |
+| `$lt` | Less than |
+| `$lte` | Less or equal |
+| `$in` | In list |
+| `$nin` | Not in list |
+| `$like` | LIKE pattern |
+| `$starts_with` | Starts with |
+| `$ends_with` | Ends with |
+| `$contains` | Contains |
+| `$between` | Between range |
+| `$and` | Logical AND |
+| `$or` | Logical OR |
+| `$not` | Logical NOT |
+
+## Cursor Pagination
+
+```rust
+use mik_sdk::query::Cursor;
+
+// Encode cursor
+let cursor = Cursor::new()
+    .string("created_at", &last.created_at)
+    .int("id", last.id)
+    .encode();
+
+// Use in query
+sql_read!(posts {
+    order: [-created_at, -id],
+    after: Some(&cursor),
+    limit: 20,
+})
+```

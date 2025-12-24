@@ -1,0 +1,5 @@
+---
+source: mik-sql/tests/snapshots_sql.rs
+expression: result.sql
+---
+SELECT id, title FROM posts WHERE id > $1 ORDER BY id ASC LIMIT 20

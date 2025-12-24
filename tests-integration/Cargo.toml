@@ -1,0 +1,16 @@
+[package]
+name = "mik-sdk-integration-tests"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+wasmtime = { version = "29", features = ["component-model"] }
+anyhow = "1"
+
+[[test]]
+name = "wasm_component"
+path = "tests/wasm_component.rs"
+
+# Not part of parent workspace - run separately
+[workspace]

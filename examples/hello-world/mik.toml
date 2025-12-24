@@ -1,0 +1,20 @@
+[project]
+name = "hello-world"
+version = "0.1.0"
+backend = "2"
+description = "A WASI app component"
+license = "MIT"
+keywords = []
+type = "app"
+
+[[project.authors]]
+name = "hlop3z"
+email = "23062270+hlop3z@users.noreply.github.com"
+
+[features]
+default = []
+
+[dependencies]
+router = { path = "../../modules/router.wasm" }
+
+[dev-dependencies]

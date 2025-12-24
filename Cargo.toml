@@ -1,0 +1,44 @@
+[workspace]
+resolver = "2"
+members = [
+    "mik-sdk",
+    "mik-sdk-macros",
+    "mik-sql",
+    "mik-sql-macros",
+    "examples/hello-world",
+    "examples/crud-api",
+    "examples/auth-api",
+    "examples/external-api",
+]
+exclude = ["test-project"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/dufeut/mik-sdk"
+documentation = "https://docs.rs/mik-sdk"
+rust-version = "1.89"
+
+[workspace.dependencies]
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+wit-bindgen = "0.50.0"
+clap = { version = "4.5", features = ["derive"] }
+toml = "0.9.8"
+anyhow = "1.0"
+
+# Testing dependencies
+proptest = "1.5"
+criterion = { version = "0.8", default-features = false }
+insta = "1.41"
+
+# Optimize WASM builds for size
+[profile.release]
+lto = true
+opt-level = "z"
+codegen-units = 1
+strip = true
+panic = "abort"
+
+# cargo-component runs wasm-opt automatically in release builds

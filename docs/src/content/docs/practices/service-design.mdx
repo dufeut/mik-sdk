@@ -1,0 +1,361 @@
+---
+title: Service Design
+description: Best practices for designing mik-sdk services
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Service Design
+
+Guidelines for designing effective WASI HTTP handlers with mik-sdk.
+
+## Architecture Principles
+
+### Handlers Are Stateless
+
+WASM handlers don't maintain state between requests. Design accordingly:
+
+```rust
+// BAD: Trying to cache in memory
+static mut CACHE: Option<HashMap<String, User>> = None;
+
+// GOOD: Use external services for state
+fn get_user(path: Id, _req: &Request) -> Response {
+    // Check cache service
+    let cached = fetch!(GET format!("http://cache:8080/users/{}", path.as_str()))
+        .send();
+
+    if let Ok(resp) = cached {
+        if resp.is_success() {
+            return ok!({ "data": json::try_parse(&resp.body()) });
+        }
+    }
+
+    // Fetch from database
+    // ...
+}
+```
+
+### Single Responsibility
+
+Each handler should do one thing well:
+
+```rust
+// GOOD: Clear, focused handlers
+routes! {
+    GET "/users" => list_users(query: ListQuery),
+    GET "/users/{id}" => get_user(path: Id),
+    POST "/users" => create_user(body: CreateInput),
+    PUT "/users/{id}" => update_user(path: Id, body: UpdateInput),
+    DELETE "/users/{id}" => delete_user(path: Id),
+}
+
+// BAD: One handler doing too much
+routes! {
+    POST "/api" => handle_everything(body: GenericInput),
+}
+```
+
+### Thin Handlers, Rich Domain
+
+Keep handlers thin; move logic to pure functions:
+
+```rust
+// Business logic (testable, reusable)
+mod domain {
+    pub fn validate_email(email: &str) -> bool {
+        email.contains('@') && email.contains('.')
+    }
+
+    pub fn format_user_name(first: &str, last: &str) -> String {
+        format!("{} {}", first.trim(), last.trim())
+    }
+
+    pub fn calculate_age(birth_year: i32, current_year: i32) -> i32 {
+        current_year - birth_year
+    }
+}
+
+// Handler (thin orchestration layer)
+fn create_user(body: CreateUserInput, _req: &Request) -> Response {
+    guard!(domain::validate_email(&body.email), 400, "Invalid email");
+
+    let name = domain::format_user_name(&body.first_name, &body.last_name);
+    let id = random::uuid();
+
+    // ... create user
+    created!(format!("/users/{}", id), { "id": id, "name": name })
+}
+```
+
+## Request Handling
+
+### Validate Early
+
+Validate inputs at the start of handlers:
+
+```rust
+fn create_order(body: OrderInput, req: &Request) -> Response {
+    // Validate first
+    guard!(body.items.len() > 0, 400, "Order must have items");
+    guard!(body.items.len() <= 100, 400, "Too many items");
+
+    for item in &body.items {
+        guard!(item.quantity > 0, 400, "Quantity must be positive");
+        guard!(item.quantity <= 1000, 400, "Quantity too large");
+    }
+
+    // Then process
+    // ...
+}
+```
+
+### Use Typed Inputs
+
+Prefer typed inputs over manual parsing:
+
+```rust
+// GOOD: Typed, validated inputs
+#[derive(Type)]
+pub struct CreateUserInput {
+    #[field(min = 1, max = 100)]
+    pub name: String,
+    #[field(format = "email")]
+    pub email: String,
+}
+
+fn create_user(body: CreateUserInput, _req: &Request) -> Response {
+    // body is already parsed and validated
+    ok!({ "name": body.name })
+}
+
+// AVOID: Manual parsing
+fn create_user_manual(req: &Request) -> Response {
+    let body = ensure!(req.body(), 400, "Body required");
+    let json = ensure!(json::try_parse(body), 400, "Invalid JSON");
+    let name = ensure!(json.path_str(&["name"]), 400, "name required");
+    // ... more manual validation
+}
+```
+
+### Handle Missing Data Gracefully
+
+```rust
+fn get_user(path: Id, _req: &Request) -> Response {
+    // Query database
+    let (sql, params) = sql_read!(users {
+        filter: { id: path.as_str() },
+        limit: 1,
+    });
+
+    // Handle not found
+    // let user = db.query_one(sql, params);
+    // let user = ensure!(user, 404, "User not found");
+
+    ok!({ "id": path.as_str() })
+}
+```
+
+## Response Patterns
+
+### Consistent Response Structure
+
+Use consistent response formats:
+
+```rust
+// Success responses
+fn get_item(path: Id, _req: &Request) -> Response {
+    ok!({
+        "data": { "id": path.as_str(), "name": "Item" }
+    })
+}
+
+fn list_items(query: ListQuery, _req: &Request) -> Response {
+    ok!({
+        "data": [],
+        "meta": {
+            "page": query.page,
+            "limit": query.limit,
+            "total": 0
+        }
+    })
+}
+
+// Error responses use RFC 7807 automatically
+fn handler(_req: &Request) -> Response {
+    error! {
+        status: 400,
+        title: "Validation Error",
+        detail: "Field 'name' is required"
+    }
+}
+```
+
+### Use Appropriate Status Codes
+
+```rust
+// 200 OK - Success with data
+ok!({ "data": result })
+
+// 201 Created - Resource created
+created!("/items/123", { "id": "123" })
+
+// 202 Accepted - Async operation started
+accepted!()
+
+// 204 No Content - Success, no data
+no_content!()
+
+// 400 Bad Request - Client error
+bad_request!("Invalid input")
+
+// 404 Not Found - Resource doesn't exist
+not_found!("Item not found")
+
+// 409 Conflict - State conflict
+conflict!("Item already exists")
+
+// 500+ - Server errors (use sparingly)
+error! { status: 503, title: "Service Unavailable", detail: "..." }
+```
+
+## Database Patterns
+
+### One Query Per Table
+
+Avoid N+1 queries:
+
+```rust
+// BAD: N+1 queries
+fn list_posts(_req: &Request) -> Response {
+    // let posts = get_posts();
+    // for post in &posts {
+    //     let author = get_user(post.author_id);  // N queries!
+    // }
+}
+
+// GOOD: Batched loading
+fn list_posts(_req: &Request) -> Response {
+    let (sql, params) = sql_read!(posts {
+        select: [id, title, author_id],
+        limit: 20,
+    });
+    // let posts = db.query(sql, params);
+
+    // Batch load authors
+    // let author_ids = ids!(posts, author_id);
+    // let (sql, params) = sql_read!(users {
+    //     filter: { id: { $in: author_ids } },
+    // });
+    // let authors = db.query(sql, params);
+
+    ok!({})
+}
+```
+
+### Use Cursor Pagination for Large Datasets
+
+```rust
+// Offset pagination - OK for small datasets
+fn list_items_offset(query: PageQuery, _req: &Request) -> Response {
+    let (sql, params) = sql_read!(items {
+        order: [id],
+        page: query.page,
+        limit: query.limit,
+    });
+    ok!({})
+}
+
+// Cursor pagination - better for large datasets
+fn list_items_cursor(query: CursorQuery, _req: &Request) -> Response {
+    let (sql, params) = sql_read!(items {
+        order: [-created_at, -id],
+        after: query.cursor.as_deref(),
+        limit: query.limit,
+    });
+    ok!({})
+}
+```
+
+## Error Handling
+
+### Use Guard and Ensure
+
+```rust
+fn process_order(body: OrderInput, _req: &Request) -> Response {
+    // Guard for validation
+    guard!(body.items.len() > 0, 400, "No items in order");
+    guard!(body.total > 0.0, 400, "Invalid total");
+
+    // Ensure for unwrapping
+    let user = ensure!(find_user(&body.user_id), 404, "User not found");
+    let inventory = ensure!(check_inventory(&body.items), 409, "Items unavailable");
+
+    ok!({ "status": "processed" })
+}
+```
+
+### Log Errors
+
+```rust
+fn handler(req: &Request) -> Response {
+    let result = process_request(req);
+
+    match result {
+        Ok(data) => ok!({ "data": data }),
+        Err(err) => {
+            log!(error, "request failed",
+                error: format!("{:?}", err),
+                path: req.path_without_query()
+            );
+
+            error! {
+                status: 500,
+                title: "Internal Error",
+                detail: "An unexpected error occurred"
+            }
+        }
+    }
+}
+```
+
+## Observability
+
+### Structured Logging
+
+```rust
+fn handler(req: &Request) -> Response {
+    let trace_id = req.trace_id().unwrap_or("unknown");
+    let start = time::now_millis();
+
+    log!(info, "request started",
+        trace_id: trace_id,
+        method: format!("{:?}", req.method()),
+        path: req.path_without_query()
+    );
+
+    // ... process request
+
+    let elapsed = time::now_millis() - start;
+
+    log!(info, "request completed",
+        trace_id: trace_id,
+        duration_ms: elapsed,
+        status: 200
+    );
+
+    ok!({})
+}
+```
+
+### Propagate Trace IDs
+
+```rust
+fn call_downstream(req: &Request) -> Response {
+    let response = fetch!(GET "http://service:8080/data")
+        .with_trace_id(req.trace_id())
+        .send()?;
+
+    ok!({ "status": response.status() })
+}
+```
