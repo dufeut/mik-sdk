@@ -27,4 +27,4 @@ node_modules/
 
 # Local config
 .claude/
-
+CLAUDE.md
