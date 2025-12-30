@@ -49,3 +49,6 @@ harness = false
 [[bench]]
 name = "request"
 harness = false
+
+[lints]
+workspace = true

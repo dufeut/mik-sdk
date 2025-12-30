@@ -124,14 +124,13 @@ impl Parse for FetchInput {
             return Err(syn::Error::new_spanned(
                 &method,
                 format!(
-                    "Unknown HTTP method '{}'.\n\
+                    "Unknown HTTP method '{method}'.\n\
                      \n\
                      Valid methods: GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS\n\
                      \n\
                      Example:\n\
                      fetch!(GET \"https://api.example.com/users\")\n\
-                     fetch!(POST \"https://api.example.com/users\", json: {{ \"name\": \"Alice\" }})",
-                    method
+                     fetch!(POST \"https://api.example.com/users\", json: {{ \"name\": \"Alice\" }})"
                 ),
             ));
         }
@@ -141,7 +140,7 @@ impl Parse for FetchInput {
             syn::Error::new(
                 e.span(),
                 format!(
-                    "Expected URL after HTTP method '{}'.\n\
+                    "Expected URL after HTTP method '{method_str}'.\n\
                      \n\
                      The URL can be:\n\
                      - A string literal: \"https://api.example.com/users\"\n\
@@ -149,11 +148,10 @@ impl Parse for FetchInput {
                      - A variable: api_url\n\
                      \n\
                      Example:\n\
-                     fetch!({} \"https://api.example.com/users\")\n\
-                     fetch!({} format!(\"https://api.example.com/users/{{}}\", user_id))\n\
+                     fetch!({method_str} \"https://api.example.com/users\")\n\
+                     fetch!({method_str} format!(\"https://api.example.com/users/{{}}\", user_id))\n\
                      \n\
-                     Original error: {e}",
-                    method_str, method_str, method_str
+                     Original error: {e}"
                 ),
             )
         })?;
@@ -192,12 +190,11 @@ impl Parse for FetchInput {
                 syn::Error::new(
                     e.span(),
                     format!(
-                        "Expected ':' after option name '{}'.\n\
+                        "Expected ':' after option name '{key}'.\n\
                          \n\
-                         Correct syntax: {}: value\n\
+                         Correct syntax: {key}: value\n\
                          \n\
-                         Original error: {e}",
-                        key, key
+                         Original error: {e}"
                     ),
                 )
             })?;
@@ -315,7 +312,7 @@ impl Parse for FetchInput {
                     return Err(syn::Error::new_spanned(
                         &key,
                         format!(
-                            "Unknown option '{}'.\n\
+                            "Unknown option '{other}'.\n\
                              \n\
                              Valid options:\n\
                              - headers: {{ \"Name\": \"value\" }}  - Request headers\n\
@@ -328,8 +325,7 @@ impl Parse for FetchInput {
                                  headers: {{ \"Authorization\": \"Bearer token\" }},\n\
                                  json: {{ \"name\": \"Alice\" }},\n\
                                  timeout: 5000\n\
-                             )",
-                            other
+                             )"
                         ),
                     ));
                 },
@@ -350,7 +346,7 @@ impl Parse for FetchInput {
             ));
         }
 
-        Ok(FetchInput {
+        Ok(Self {
             method,
             url,
             headers,
@@ -416,7 +412,7 @@ impl Parse for HeaderPair {
             )
         })?;
 
-        Ok(HeaderPair { key, value })
+        Ok(Self { key, value })
     }
 }
 
@@ -444,34 +440,31 @@ pub fn fetch_impl(input: TokenStream) -> TokenStream {
     };
 
     // Build header chain
-    let header_chain = if let Some(pairs) = headers {
-        let header_calls: Vec<_> = pairs
-            .into_iter()
-            .map(|(k, v)| {
-                quote! { .header(&#k, &#v) }
-            })
-            .collect();
-        quote! { #(#header_calls)* }
-    } else {
-        quote! {}
-    };
+    let header_chain = headers.map_or_else(
+        || quote! {},
+        |pairs| {
+            let header_calls: Vec<_> = pairs
+                .into_iter()
+                .map(|(k, v)| {
+                    quote! { .header(&#k, &#v) }
+                })
+                .collect();
+            quote! { #(#header_calls)* }
+        },
+    );
 
     // Build body chain
-    let body_chain = if let Some(json_val) = json_body {
-        let json_expr = json_value_to_tokens(&json_val);
-        quote! { .json(&#json_expr.to_bytes()) }
-    } else if let Some(raw) = raw_body {
-        quote! { .body(#raw) }
-    } else {
-        quote! {}
-    };
+    let body_chain = json_body.map_or_else(
+        || raw_body.map_or_else(|| quote! {}, |raw| quote! { .body(#raw) }),
+        |json_val| {
+            let json_expr = json_value_to_tokens(&json_val);
+            quote! { .json(&#json_expr.to_bytes()) }
+        },
+    );
 
     // Build timeout chain
-    let timeout_chain = if let Some(ms) = timeout_ms {
-        quote! { .timeout_ms(#ms as u64) }
-    } else {
-        quote! {}
-    };
+    let timeout_chain =
+        timeout_ms.map_or_else(|| quote! {}, |ms| quote! { .timeout_ms(#ms as u64) });
 
     let tokens = quote! {
         {

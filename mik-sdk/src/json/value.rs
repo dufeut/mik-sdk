@@ -7,6 +7,7 @@ use std::rc::Rc;
 /// Internal representation of a JSON value.
 /// Supports both lazy (byte scanning) and parsed (tree) modes.
 #[derive(Clone)]
+#[allow(clippy::redundant_pub_crate)]
 pub(crate) enum JsonInner {
     /// Lazy mode: stores raw bytes, uses scanning for path_* methods.
     Lazy { bytes: Rc<[u8]> },
@@ -102,14 +103,10 @@ impl JsonValue {
     /// specific fields, prefer `path_str()`, `path_int()`, etc. which use
     /// lazy scanning.
     #[must_use]
-    pub fn get(&self, key: &str) -> JsonValue {
+    pub fn get(&self, key: &str) -> Self {
         match self.get_value_for_tree() {
-            Value::Object(obj) => obj
-                .get(key)
-                .cloned()
-                .map(JsonValue::new)
-                .unwrap_or_else(JsonValue::null),
-            _ => JsonValue::null(),
+            Value::Object(obj) => obj.get(key).cloned().map_or_else(Self::null, Self::new),
+            _ => Self::null(),
         }
     }
 
@@ -119,14 +116,10 @@ impl JsonValue {
     /// underlying Value. For parsing large arrays, use `map_array()` or
     /// `try_map_array()` instead for better performance.
     #[must_use]
-    pub fn at(&self, index: usize) -> JsonValue {
+    pub fn at(&self, index: usize) -> Self {
         match self.get_value_for_tree() {
-            Value::Array(arr) => arr
-                .get(index)
-                .cloned()
-                .map(JsonValue::new)
-                .unwrap_or_else(JsonValue::null),
-            _ => JsonValue::null(),
+            Value::Array(arr) => arr.get(index).cloned().map_or_else(Self::null, Self::new),
+            _ => Self::null(),
         }
     }
 
@@ -196,8 +189,8 @@ impl JsonValue {
     ///
     /// Note: The returned JsonValue clones the Value, so use sparingly.
     #[must_use]
-    pub fn from_raw(value: &Value) -> JsonValue {
-        JsonValue::new(value.clone())
+    pub fn from_raw(value: &Value) -> Self {
+        Self::new(value.clone())
     }
 
     /// As string, None if not a string.
@@ -251,13 +244,14 @@ impl JsonValue {
     ///
     /// Non-finite values (NaN, Infinity) return `None`.
     #[must_use]
+    #[allow(clippy::cast_precision_loss)] // Documented: large i64/u64 may lose precision
     pub fn float(&self) -> Option<f64> {
         match self.get_value_for_tree() {
             Value::Number(n) => match n {
                 Number::F64(f) if f.is_finite() => Some(f),
                 Number::I64(i) => Some(i as f64),
                 Number::U64(u) => Some(u as f64),
-                _ => None,
+                Number::F64(_) => None, // Non-finite f64
             },
             _ => None,
         }
@@ -409,6 +403,7 @@ impl JsonValue {
     ///
     /// When in lazy mode, this scans the raw bytes without parsing the full tree.
     #[must_use]
+    #[allow(clippy::cast_precision_loss)] // Documented: large i64/u64 may lose precision
     pub fn path_float(&self, path: &[&str]) -> Option<f64> {
         // Fast path: lazy scanning
         if let Some(bytes) = self.bytes() {
@@ -421,7 +416,7 @@ impl JsonValue {
                 Number::F64(f) if f.is_finite() => Some(*f),
                 Number::I64(i) => Some(*i as f64),
                 Number::U64(u) => Some(*u as f64),
-                _ => None,
+                Number::F64(_) => None, // Non-finite f64
             },
             _ => None,
         }
@@ -507,7 +502,8 @@ impl JsonValue {
     /// there are multiple references. For typical builder patterns like
     /// `obj().set("a", v1).set("b", v2)`, this is O(1) per set, not O(n).
     #[must_use]
-    pub fn set(mut self, key: &str, value: JsonValue) -> JsonValue {
+    #[allow(clippy::needless_pass_by_value)] // API design: take ownership for builder pattern
+    pub fn set(mut self, key: &str, value: Self) -> Self {
         let inner_val = value.value().clone();
         let rc = self.get_parsed_mut();
         let val_mut = Rc::make_mut(rc);
@@ -530,7 +526,8 @@ impl JsonValue {
     /// there are multiple references. For typical builder patterns like
     /// `arr().push(v1).push(v2)`, this is O(1) per push, not O(n).
     #[must_use]
-    pub fn push(mut self, value: JsonValue) -> JsonValue {
+    #[allow(clippy::needless_pass_by_value)] // API design: take ownership for builder pattern
+    pub fn push(mut self, value: Self) -> Self {
         let inner_val = value.value().clone();
         let rc = self.get_parsed_mut();
         let val_mut = Rc::make_mut(rc);

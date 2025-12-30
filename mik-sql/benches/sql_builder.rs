@@ -24,7 +24,7 @@ fn bench_sql_validation(c: &mut Criterion) {
 
     for (name, ident) in identifiers {
         group.bench_with_input(BenchmarkId::new("identifier", name), ident, |b, s| {
-            b.iter(|| is_valid_sql_identifier(black_box(s)))
+            b.iter(|| is_valid_sql_identifier(black_box(s)));
         });
     }
 
@@ -38,7 +38,7 @@ fn bench_sql_validation(c: &mut Criterion) {
 
     for (name, expr) in expressions {
         group.bench_with_input(BenchmarkId::new("expression", name), expr, |b, s| {
-            b.iter(|| is_valid_sql_expression(black_box(s)))
+            b.iter(|| is_valid_sql_expression(black_box(s)));
         });
     }
 
@@ -58,7 +58,7 @@ fn bench_query_builder(c: &mut Criterion) {
             postgres(black_box("users"))
                 .fields(&["id", "name", "email"])
                 .build()
-        })
+        });
     });
 
     // SELECT with WHERE
@@ -69,7 +69,7 @@ fn bench_query_builder(c: &mut Criterion) {
                 .filter("active", Operator::Eq, Value::Bool(true))
                 .filter("role", Operator::Eq, Value::String("admin".to_string()))
                 .build()
-        })
+        });
     });
 
     // SELECT with multiple clauses
@@ -82,7 +82,7 @@ fn bench_query_builder(c: &mut Criterion) {
                 .sort("id", SortDir::Asc)
                 .limit(50)
                 .build()
-        })
+        });
     });
 
     group.finish();
@@ -103,7 +103,7 @@ fn bench_dialects(c: &mut Criterion) {
                 .filter("active", Operator::Eq, Value::Bool(true))
                 .limit(10)
                 .build()
-        })
+        });
     });
 
     group.bench_function("sqlite", |b| {
@@ -113,7 +113,7 @@ fn bench_dialects(c: &mut Criterion) {
                 .filter("active", Operator::Eq, Value::Bool(true))
                 .limit(10)
                 .build()
-        })
+        });
     });
 
     group.finish();
@@ -132,7 +132,7 @@ fn bench_cursor_pagination(c: &mut Criterion) {
             Cursor::new()
                 .string("created_at", black_box("2024-01-15T10:30:00Z"))
                 .int("id", black_box(12345))
-        })
+        });
     });
 
     // Cursor encoding
@@ -161,7 +161,7 @@ fn bench_cursor_pagination(c: &mut Criterion) {
                 .after_cursor(cursor.clone())
                 .limit(20)
                 .build()
-        })
+        });
     });
 
     group.finish();
@@ -186,7 +186,7 @@ fn bench_filter_validation(c: &mut Criterion) {
                 "created_at",
                 "updated_at",
             ]))
-        })
+        });
     });
 
     // Simple filter validation
@@ -198,7 +198,7 @@ fn bench_filter_validation(c: &mut Criterion) {
         value: Value::String("Alice".to_string()),
     };
     group.bench_function("validate_simple", |b| {
-        b.iter(|| validator.validate(black_box(&simple_filter)))
+        b.iter(|| validator.validate(black_box(&simple_filter)));
     });
 
     // Invalid field (should fail fast)
@@ -208,7 +208,7 @@ fn bench_filter_validation(c: &mut Criterion) {
         value: Value::String("secret".to_string()),
     };
     group.bench_function("validate_invalid_field", |b| {
-        b.iter(|| validator.validate(black_box(&invalid_filter)))
+        b.iter(|| validator.validate(black_box(&invalid_filter)));
     });
 
     // Filter with IN operator (array)
@@ -222,7 +222,7 @@ fn bench_filter_validation(c: &mut Criterion) {
         ]),
     };
     group.bench_function("validate_in_operator", |b| {
-        b.iter(|| validator.validate(black_box(&in_filter)))
+        b.iter(|| validator.validate(black_box(&in_filter)));
     });
 
     // Filter with deeply nested array values
@@ -238,7 +238,7 @@ fn bench_filter_validation(c: &mut Criterion) {
         ]),
     };
     group.bench_function("validate_array_5_items", |b| {
-        b.iter(|| validator.validate(black_box(&nested_array_filter)))
+        b.iter(|| validator.validate(black_box(&nested_array_filter)));
     });
 
     // Regex operator (denied by default)
@@ -248,7 +248,7 @@ fn bench_filter_validation(c: &mut Criterion) {
         value: Value::String(".*@example\\.com".to_string()),
     };
     group.bench_function("validate_denied_operator", |b| {
-        b.iter(|| validator.validate(black_box(&regex_filter)))
+        b.iter(|| validator.validate(black_box(&regex_filter)));
     });
 
     group.finish();
@@ -280,7 +280,7 @@ fn bench_string_escaping(c: &mut Criterion) {
                         Value::String(black_box(s.to_string())),
                     )
                     .build()
-            })
+            });
         });
     }
 
@@ -309,7 +309,7 @@ fn bench_complex_queries(c: &mut Criterion) {
                 .sort("id", SortDir::Desc)
                 .limit_offset(20, 40)
                 .build()
-        })
+        });
     });
 
     // Search query with multiple conditions
@@ -331,7 +331,7 @@ fn bench_complex_queries(c: &mut Criterion) {
                 .sort("price", SortDir::Asc)
                 .limit(50)
                 .build()
-        })
+        });
     });
 
     // Aggregation-style query
@@ -350,7 +350,7 @@ fn bench_complex_queries(c: &mut Criterion) {
                 .sort("total", SortDir::Desc)
                 .limit(100)
                 .build()
-        })
+        });
     });
 
     group.finish();

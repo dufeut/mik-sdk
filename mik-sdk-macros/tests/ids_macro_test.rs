@@ -451,8 +451,8 @@ fn test_ids_unique_pattern() {
     assert_eq!(user_ids, vec![10, 20, 10, 30, 20]);
 
     // User can dedup if needed
-    let mut unique_ids = user_ids.clone();
-    unique_ids.sort();
+    let mut unique_ids = user_ids;
+    unique_ids.sort_unstable();
     unique_ids.dedup();
     assert_eq!(unique_ids, vec![10, 20, 30]);
 }

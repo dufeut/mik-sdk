@@ -177,10 +177,7 @@ impl ToJson for bool {
 impl<T: ToJson> ToJson for Option<T> {
     #[inline]
     fn to_json(&self) -> JsonValue {
-        match self {
-            Some(v) => v.to_json(),
-            None => null(),
-        }
+        self.as_ref().map_or_else(null, ToJson::to_json)
     }
 }
 

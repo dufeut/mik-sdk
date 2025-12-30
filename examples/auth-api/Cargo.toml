@@ -28,3 +28,6 @@ world = "auth-api"
 "wasi:random" = { path = "wit/deps/random" }
 "wasi:filesystem" = { path = "wit/deps/filesystem" }
 "wasi:sockets" = { path = "wit/deps/sockets" }
+
+[lints]
+workspace = true

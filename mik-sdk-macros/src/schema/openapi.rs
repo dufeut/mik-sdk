@@ -14,9 +14,12 @@ use super::type_schema::{InputSource, RouteDef};
 /// Generate runtime code to build an OpenAPI path entry for a route.
 ///
 /// Returns TokenStream2 that evaluates to a String containing the method entry JSON.
-pub(crate) fn generate_openapi_path_entry_code(route: &RouteDef) -> TokenStream2 {
+pub fn generate_openapi_path_entry_code(route: &RouteDef) -> TokenStream2 {
     let method_name = route.method.as_str();
-    let path = route.patterns.first().map(|s| s.as_str()).unwrap_or("/");
+    let path = route
+        .patterns
+        .first()
+        .map_or("/", std::string::String::as_str);
 
     // Build request body reference if we have a body input (static)
     let request_body_str = route
@@ -26,8 +29,7 @@ pub(crate) fn generate_openapi_path_entry_code(route: &RouteDef) -> TokenStream2
         .map(|i| {
             let type_name = i.type_name.to_string();
             format!(
-                "\"requestBody\":{{\"required\":true,\"content\":{{\"application/json\":{{\"schema\":{{\"$ref\":\"#/components/schemas/{}\"}}}}}}}}",
-                type_name
+                "\"requestBody\":{{\"required\":true,\"content\":{{\"application/json\":{{\"schema\":{{\"$ref\":\"#/components/schemas/{type_name}\"}}}}}}}}"
             )
         })
         .unwrap_or_default();
@@ -37,8 +39,7 @@ pub(crate) fn generate_openapi_path_entry_code(route: &RouteDef) -> TokenStream2
         .into_iter()
         .map(|name| {
             format!(
-                "{{\"name\":\"{}\",\"in\":\"path\",\"required\":true,\"schema\":{{\"type\":\"string\"}}}}",
-                name
+                "{{\"name\":\"{name}\",\"in\":\"path\",\"required\":true,\"schema\":{{\"type\":\"string\"}}}}"
             )
         })
         .collect();
@@ -49,8 +50,7 @@ pub(crate) fn generate_openapi_path_entry_code(route: &RouteDef) -> TokenStream2
         || "\"responses\":{\"200\":{\"description\":\"Success\"}}".to_string(),
         |t| {
             format!(
-                "\"responses\":{{\"200\":{{\"description\":\"Success\",\"content\":{{\"application/json\":{{\"schema\":{{\"$ref\":\"#/components/schemas/{}\"}}}}}}}}}}",
-                t
+                "\"responses\":{{\"200\":{{\"description\":\"Success\",\"content\":{{\"application/json\":{{\"schema\":{{\"$ref\":\"#/components/schemas/{t}\"}}}}}}}}}}"
             )
         },
     );
@@ -107,7 +107,7 @@ pub(crate) fn generate_openapi_path_entry_code(route: &RouteDef) -> TokenStream2
             static_parts.push(request_body_str);
         }
         if !path_params_str.is_empty() {
-            static_parts.push(format!("\"parameters\":[{}]", path_params_str));
+            static_parts.push(format!("\"parameters\":[{path_params_str}]"));
         }
         static_parts.push(response_str);
 
@@ -116,13 +116,16 @@ pub(crate) fn generate_openapi_path_entry_code(route: &RouteDef) -> TokenStream2
     }
 }
 
-pub(crate) fn generate_openapi_json(routes: &[RouteDef]) -> TokenStream2 {
+pub fn generate_openapi_json(routes: &[RouteDef]) -> TokenStream2 {
     use std::collections::HashMap;
 
     // Group routes by path
     let mut paths: HashMap<String, Vec<&RouteDef>> = HashMap::new();
     for route in routes {
-        let path = route.patterns.first().map(|s| s.as_str()).unwrap_or("/");
+        let path = route
+            .patterns
+            .first()
+            .map_or("/", std::string::String::as_str);
         paths.entry(path.to_string()).or_default().push(route);
     }
 

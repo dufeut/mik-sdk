@@ -65,7 +65,7 @@ fn snapshot_cursor_single_field() {
     let result = postgres("posts")
         .fields(&["id", "title"])
         .sort("id", SortDir::Asc)
-        .after_cursor(cursor.clone())
+        .after_cursor(cursor)
         .limit(20)
         .build();
 
@@ -82,7 +82,7 @@ fn snapshot_cursor_multi_field() {
         .fields(&["id", "title", "created_at"])
         .sort("created_at", SortDir::Desc)
         .sort("id", SortDir::Desc)
-        .after_cursor(cursor.clone())
+        .after_cursor(cursor)
         .limit(20)
         .build();
 

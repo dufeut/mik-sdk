@@ -37,15 +37,15 @@ pub enum Method {
 impl Method {
     /// Returns the method as an uppercase string (e.g., "GET", "POST").
     #[must_use]
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
-            Method::Get => "GET",
-            Method::Post => "POST",
-            Method::Put => "PUT",
-            Method::Patch => "PATCH",
-            Method::Delete => "DELETE",
-            Method::Head => "HEAD",
-            Method::Options => "OPTIONS",
+            Self::Get => "GET",
+            Self::Post => "POST",
+            Self::Put => "PUT",
+            Self::Patch => "PATCH",
+            Self::Delete => "DELETE",
+            Self::Head => "HEAD",
+            Self::Options => "OPTIONS",
         }
     }
 }
@@ -105,13 +105,15 @@ pub struct Request {
 
 impl std::fmt::Debug for Request {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Intentionally omits cache fields (query_cache, form_cache, header_index)
+        // since they're internal implementation details
         f.debug_struct("Request")
             .field("method", &self.method)
             .field("path", &self.path)
             .field("headers", &self.headers.len())
-            .field("body", &self.body.as_ref().map(|b| b.len()))
+            .field("body", &self.body.as_ref().map(std::vec::Vec::len))
             .field("params", &self.params)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -188,7 +190,7 @@ impl Request {
 
     /// HTTP method (GET, POST, etc.).
     #[inline]
-    pub fn method(&self) -> Method {
+    pub const fn method(&self) -> Method {
         self.method
     }
 

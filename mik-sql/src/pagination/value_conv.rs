@@ -4,37 +4,37 @@ use crate::builder::Value;
 
 impl From<i64> for Value {
     fn from(v: i64) -> Self {
-        Value::Int(v)
+        Self::Int(v)
     }
 }
 
 impl From<i32> for Value {
     fn from(v: i32) -> Self {
-        Value::Int(i64::from(v))
+        Self::Int(i64::from(v))
     }
 }
 
 impl From<f64> for Value {
     fn from(v: f64) -> Self {
-        Value::Float(v)
+        Self::Float(v)
     }
 }
 
 impl From<String> for Value {
     fn from(v: String) -> Self {
-        Value::String(v)
+        Self::String(v)
     }
 }
 
 impl From<&str> for Value {
     fn from(v: &str) -> Self {
-        Value::String(v.to_string())
+        Self::String(v.to_string())
     }
 }
 
 impl From<bool> for Value {
     fn from(v: bool) -> Self {
-        Value::Bool(v)
+        Self::Bool(v)
     }
 }
 

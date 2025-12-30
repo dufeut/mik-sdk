@@ -1,4 +1,4 @@
-//! sql_read! macro implementation for SELECT queries.
+//! `sql_read!` macro implementation for SELECT queries.
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
@@ -229,7 +229,7 @@ impl Parse for SqlInput {
             }
         }
 
-        Ok(SqlInput {
+        Ok(Self {
             dialect,
             table,
             select_fields,
@@ -333,12 +333,13 @@ pub fn sql_read_impl(input: TokenStream) -> TokenStream {
         })
         .collect();
 
-    let filter_chain = if let Some(expr) = filter_expr {
-        let expr_tokens = sql_filter_expr_to_tokens(&expr);
-        quote! { .filter_expr(#expr_tokens) }
-    } else {
-        quote! {}
-    };
+    let filter_chain = filter_expr.map_or_else(
+        || quote! {},
+        |expr| {
+            let expr_tokens = sql_filter_expr_to_tokens(&expr);
+            quote! { .filter_expr(#expr_tokens) }
+        },
+    );
 
     let group_by_chain = if group_by.is_empty() {
         quote! {}
@@ -350,12 +351,13 @@ pub fn sql_read_impl(input: TokenStream) -> TokenStream {
         quote! { .group_by(&[#(#field_strs),*]) }
     };
 
-    let having_chain = if let Some(expr) = having {
-        let expr_tokens = sql_filter_expr_to_tokens(&expr);
-        quote! { .having(#expr_tokens) }
-    } else {
-        quote! {}
-    };
+    let having_chain = having.map_or_else(
+        || quote! {},
+        |expr| {
+            let expr_tokens = sql_filter_expr_to_tokens(&expr);
+            quote! { .having(#expr_tokens) }
+        },
+    );
 
     let sort_chain: Vec<TokenStream2> = sorts
         .iter()
@@ -370,91 +372,89 @@ pub fn sql_read_impl(input: TokenStream) -> TokenStream {
         })
         .collect();
 
-    let dynamic_sort_setup = if let Some(ref sort_expr) = dynamic_sort {
-        let allow_strs: Vec<String> = allow_sort
-            .iter()
-            .map(std::string::ToString::to_string)
-            .collect();
-        if allow_strs.is_empty() {
-            quote! {
-                let __dynamic_sorts = ::mik_sql::SortField::parse_sort_string(
-                    &#sort_expr,
-                    &[]
-                ).map_err(|e| e)?;
-            }
-        } else {
-            quote! {
-                let __dynamic_sorts = ::mik_sql::SortField::parse_sort_string(
-                    &#sort_expr,
-                    &[#(#allow_strs),*]
-                ).map_err(|e| e)?;
-            }
-        }
-    } else {
-        quote! {}
-    };
-
-    let dynamic_sort_chain = if dynamic_sort.is_some() {
-        quote! { .sorts(&__dynamic_sorts) }
-    } else {
-        quote! {}
-    };
-
-    let (merge_setup, merge_chain) = if let Some(ref merge_expr) = merge_filters {
-        let allow_strs: Vec<String> = allow_fields
-            .iter()
-            .map(std::string::ToString::to_string)
-            .collect();
-        let deny_op_tokens: Vec<TokenStream2> = deny_ops
-            .iter()
-            .map(|op| {
-                let op_str = op.to_string();
-                match op_str.as_str() {
-                    "ne" => quote! { ::mik_sql::Operator::Ne },
-                    "gt" => quote! { ::mik_sql::Operator::Gt },
-                    "gte" => quote! { ::mik_sql::Operator::Gte },
-                    "lt" => quote! { ::mik_sql::Operator::Lt },
-                    "lte" => quote! { ::mik_sql::Operator::Lte },
-                    "in" => quote! { ::mik_sql::Operator::In },
-                    "nin" | "notIn" => quote! { ::mik_sql::Operator::NotIn },
-                    "like" => quote! { ::mik_sql::Operator::Like },
-                    "ilike" => quote! { ::mik_sql::Operator::ILike },
-                    "regex" => quote! { ::mik_sql::Operator::Regex },
-                    "startsWith" | "starts_with" => quote! { ::mik_sql::Operator::StartsWith },
-                    "endsWith" | "ends_with" => quote! { ::mik_sql::Operator::EndsWith },
-                    "contains" => quote! { ::mik_sql::Operator::Contains },
-                    "between" => quote! { ::mik_sql::Operator::Between },
-                    // "eq" and unknown operators default to Eq
-                    _ => quote! { ::mik_sql::Operator::Eq },
+    let dynamic_sort_setup = dynamic_sort.as_ref().map_or_else(
+        || quote! {},
+        |sort_expr| {
+            let allow_strs: Vec<String> = allow_sort
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect();
+            if allow_strs.is_empty() {
+                quote! {
+                    let __dynamic_sorts = ::mik_sql::SortField::parse_sort_string(
+                        &#sort_expr,
+                        &[]
+                    ).map_err(|e| e)?;
                 }
-            })
-            .collect();
-
-        let max_depth_val = max_depth
-            .map(|d| quote! { #d as usize })
-            .unwrap_or(quote! { 5 });
-
-        let setup = quote! {
-            let __validator = ::mik_sql::FilterValidator::new()
-                .allow_fields(&[#(#allow_strs),*])
-                .deny_operators(&[#(#deny_op_tokens),*])
-                .max_depth(#max_depth_val);
-
-            for __user_filter in &#merge_expr {
-                __validator.validate(__user_filter).map_err(|e| e.to_string())?;
+            } else {
+                quote! {
+                    let __dynamic_sorts = ::mik_sql::SortField::parse_sort_string(
+                        &#sort_expr,
+                        &[#(#allow_strs),*]
+                    ).map_err(|e| e)?;
+                }
             }
-        };
+        },
+    );
 
-        let chain = quote! {
-            for __f in &#merge_expr {
-                __builder = __builder.filter(__f.field.clone(), __f.op, __f.value.clone());
-            }
-        };
+    let dynamic_sort_chain = dynamic_sort
+        .as_ref()
+        .map_or_else(|| quote! {}, |_| quote! { .sorts(&__dynamic_sorts) });
 
-        (setup, chain)
-    } else {
-        (quote! {}, quote! {})
-    };
+    let (merge_setup, merge_chain) = merge_filters.as_ref().map_or_else(
+        || (quote! {}, quote! {}),
+        |merge_expr| {
+            let allow_strs: Vec<String> = allow_fields
+                .iter()
+                .map(std::string::ToString::to_string)
+                .collect();
+            let deny_op_tokens: Vec<TokenStream2> = deny_ops
+                .iter()
+                .map(|op| {
+                    let op_str = op.to_string();
+                    match op_str.as_str() {
+                        "ne" => quote! { ::mik_sql::Operator::Ne },
+                        "gt" => quote! { ::mik_sql::Operator::Gt },
+                        "gte" => quote! { ::mik_sql::Operator::Gte },
+                        "lt" => quote! { ::mik_sql::Operator::Lt },
+                        "lte" => quote! { ::mik_sql::Operator::Lte },
+                        "in" => quote! { ::mik_sql::Operator::In },
+                        "nin" | "notIn" => quote! { ::mik_sql::Operator::NotIn },
+                        "like" => quote! { ::mik_sql::Operator::Like },
+                        "ilike" => quote! { ::mik_sql::Operator::ILike },
+                        "regex" => quote! { ::mik_sql::Operator::Regex },
+                        "startsWith" | "starts_with" => quote! { ::mik_sql::Operator::StartsWith },
+                        "endsWith" | "ends_with" => quote! { ::mik_sql::Operator::EndsWith },
+                        "contains" => quote! { ::mik_sql::Operator::Contains },
+                        "between" => quote! { ::mik_sql::Operator::Between },
+                        // "eq" and unknown operators default to Eq
+                        _ => quote! { ::mik_sql::Operator::Eq },
+                    }
+                })
+                .collect();
+
+            let max_depth_val = max_depth.map_or_else(|| quote! { 5 }, |d| quote! { #d as usize });
+
+            let setup = quote! {
+                let __validator = ::mik_sql::FilterValidator::new()
+                    .allow_fields(&[#(#allow_strs),*])
+                    .deny_operators(&[#(#deny_op_tokens),*])
+                    .max_depth(#max_depth_val);
+
+                for __user_filter in &#merge_expr {
+                    __validator.validate(__user_filter).map_err(|e| e.to_string())?;
+                }
+            };
+
+            let chain = quote! {
+                for __f in &#merge_expr {
+                    __builder = __builder.filter(__f.field.clone(), __f.op, __f.value.clone());
+                }
+            };
+
+            (setup, chain)
+        },
+    );
 
     let needs_result = dynamic_sort.is_some() || merge_filters.is_some();
 
@@ -465,17 +465,13 @@ pub fn sql_read_impl(input: TokenStream) -> TokenStream {
         _ => quote! {},
     };
 
-    let after_chain = if let Some(ref expr) = after {
-        quote! { .after_cursor(#expr) }
-    } else {
-        quote! {}
-    };
+    let after_chain = after
+        .as_ref()
+        .map_or_else(|| quote! {}, |expr| quote! { .after_cursor(#expr) });
 
-    let before_chain = if let Some(ref expr) = before {
-        quote! { .before_cursor(#expr) }
-    } else {
-        quote! {}
-    };
+    let before_chain = before
+        .as_ref()
+        .map_or_else(|| quote! {}, |expr| quote! { .before_cursor(#expr) });
 
     let builder_constructor = dialect.builder_tokens(&table_str);
 

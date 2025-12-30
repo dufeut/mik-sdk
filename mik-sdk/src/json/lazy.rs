@@ -5,41 +5,41 @@
 
 /// Find a value at a path in JSON bytes and extract it as a string.
 #[inline]
-pub(crate) fn path_str(bytes: &[u8], path: &[&str]) -> Option<String> {
+pub(super) fn path_str(bytes: &[u8], path: &[&str]) -> Option<String> {
     let (start, end) = find_path_value(bytes, path)?;
     parse_string_value(&bytes[start..end])
 }
 
 /// Find a value at a path in JSON bytes and extract it as an integer.
 #[inline]
-pub(crate) fn path_int(bytes: &[u8], path: &[&str]) -> Option<i64> {
+pub(super) fn path_int(bytes: &[u8], path: &[&str]) -> Option<i64> {
     let (start, end) = find_path_value(bytes, path)?;
     parse_int_value(&bytes[start..end])
 }
 
 /// Find a value at a path in JSON bytes and extract it as a float.
 #[inline]
-pub(crate) fn path_float(bytes: &[u8], path: &[&str]) -> Option<f64> {
+pub(super) fn path_float(bytes: &[u8], path: &[&str]) -> Option<f64> {
     let (start, end) = find_path_value(bytes, path)?;
     parse_float_value(&bytes[start..end])
 }
 
 /// Find a value at a path in JSON bytes and extract it as a boolean.
 #[inline]
-pub(crate) fn path_bool(bytes: &[u8], path: &[&str]) -> Option<bool> {
+pub(super) fn path_bool(bytes: &[u8], path: &[&str]) -> Option<bool> {
     let (start, end) = find_path_value(bytes, path)?;
     parse_bool_value(&bytes[start..end])
 }
 
 /// Check if a path exists in JSON bytes.
 #[inline]
-pub(crate) fn path_exists(bytes: &[u8], path: &[&str]) -> bool {
+pub(super) fn path_exists(bytes: &[u8], path: &[&str]) -> bool {
     find_path_value(bytes, path).is_some()
 }
 
 /// Check if the value at a path is null.
 #[inline]
-pub(crate) fn path_is_null(bytes: &[u8], path: &[&str]) -> bool {
+pub(super) fn path_is_null(bytes: &[u8], path: &[&str]) -> bool {
     if let Some((start, end)) = find_path_value(bytes, path) {
         let value = &bytes[start..end];
         let trimmed = trim_whitespace(value);
@@ -54,12 +54,12 @@ pub(crate) fn path_is_null(bytes: &[u8], path: &[&str]) -> bool {
 fn find_path_value(bytes: &[u8], path: &[&str]) -> Option<(usize, usize)> {
     if path.is_empty() {
         // Return the whole value
-        let start = skip_whitespace(bytes, 0)?;
+        let start = skip_whitespace(bytes, 0);
         let end = find_value_end(bytes, start)?;
         return Some((start, end));
     }
 
-    let mut pos = skip_whitespace(bytes, 0)?;
+    let mut pos = skip_whitespace(bytes, 0);
 
     // Must start with object
     if bytes.get(pos)? != &b'{' {
@@ -68,30 +68,29 @@ fn find_path_value(bytes: &[u8], path: &[&str]) -> Option<(usize, usize)> {
     pos += 1;
 
     for (depth, key) in path.iter().enumerate() {
-        pos = skip_whitespace(bytes, pos)?;
+        pos = skip_whitespace(bytes, pos);
 
         // Find the key in current object
         pos = find_object_key(bytes, pos, key)?;
 
         // Skip the colon
-        pos = skip_whitespace(bytes, pos)?;
+        pos = skip_whitespace(bytes, pos);
         if bytes.get(pos)? != &b':' {
             return None;
         }
         pos += 1;
-        pos = skip_whitespace(bytes, pos)?;
+        pos = skip_whitespace(bytes, pos);
 
         if depth == path.len() - 1 {
             // Last key - return the value range
             let end = find_value_end(bytes, pos)?;
             return Some((pos, end));
-        } else {
-            // Need to descend into nested object
-            if bytes.get(pos)? != &b'{' {
-                return None;
-            }
-            pos += 1;
         }
+        // Need to descend into nested object
+        if bytes.get(pos)? != &b'{' {
+            return None;
+        }
+        pos += 1;
     }
 
     None
@@ -100,7 +99,7 @@ fn find_path_value(bytes: &[u8], path: &[&str]) -> Option<(usize, usize)> {
 /// Find a key in an object starting at pos, return position after the closing quote.
 fn find_object_key(bytes: &[u8], mut pos: usize, target_key: &str) -> Option<usize> {
     loop {
-        pos = skip_whitespace(bytes, pos)?;
+        pos = skip_whitespace(bytes, pos);
 
         match bytes.get(pos)? {
             b'}' => return None, // End of object, key not found
@@ -117,18 +116,18 @@ fn find_object_key(bytes: &[u8], mut pos: usize, target_key: &str) -> Option<usi
                 }
 
                 // Skip to the value
-                pos = skip_whitespace(bytes, pos)?;
+                pos = skip_whitespace(bytes, pos);
                 if bytes.get(pos)? != &b':' {
                     return None;
                 }
                 pos += 1;
-                pos = skip_whitespace(bytes, pos)?;
+                pos = skip_whitespace(bytes, pos);
 
                 // Skip the value
                 pos = find_value_end(bytes, pos)?;
 
                 // Skip comma if present
-                pos = skip_whitespace(bytes, pos)?;
+                pos = skip_whitespace(bytes, pos);
                 if bytes.get(pos) == Some(&b',') {
                     pos += 1;
                 }
@@ -149,11 +148,7 @@ fn key_matches(key_bytes: &[u8], target: &str) -> bool {
     }
 
     // Slow path: unescape and compare
-    if let Some(unescaped) = unescape_string(key_bytes) {
-        unescaped == target
-    } else {
-        false
-    }
+    unescape_string(key_bytes).is_some_and(|unescaped| unescaped == target)
 }
 
 /// Find the end of a string (position of closing quote).
@@ -257,14 +252,14 @@ fn find_balanced_end(bytes: &[u8], mut pos: usize, open: u8, close: u8) -> Optio
 }
 
 /// Skip whitespace, return new position.
-fn skip_whitespace(bytes: &[u8], mut pos: usize) -> Option<usize> {
+fn skip_whitespace(bytes: &[u8], mut pos: usize) -> usize {
     while pos < bytes.len() {
         match bytes[pos] {
             b' ' | b'\t' | b'\n' | b'\r' => pos += 1,
-            _ => return Some(pos),
+            _ => return pos,
         }
     }
-    Some(pos)
+    pos
 }
 
 /// Trim whitespace from a byte slice.
@@ -276,8 +271,7 @@ fn trim_whitespace(bytes: &[u8]) -> &[u8] {
     let end = bytes
         .iter()
         .rposition(|b| !matches!(b, b' ' | b'\t' | b'\n' | b'\r'))
-        .map(|p| p + 1)
-        .unwrap_or(0);
+        .map_or(0, |p| p + 1);
     if start < end { &bytes[start..end] } else { &[] }
 }
 
@@ -319,7 +313,7 @@ fn unescape_string(bytes: &[u8]) -> Option<String> {
                     if i + 5 < bytes.len() {
                         let hex = std::str::from_utf8(&bytes[i + 2..i + 6]).ok()?;
                         let code = u16::from_str_radix(hex, 16).ok()?;
-                        if let Some(c) = char::from_u32(code as u32) {
+                        if let Some(c) = char::from_u32(u32::from(code)) {
                             result.push(c);
                         }
                         i += 4; // Extra skip for \uXXXX

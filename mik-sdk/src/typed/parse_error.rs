@@ -131,18 +131,18 @@ impl ParseError {
     pub fn with_path(self, parent: &str) -> Self {
         match self {
             Self::MissingField { field } => Self::MissingField {
-                field: format!("{}.{}", parent, field),
+                field: format!("{parent}.{field}"),
             },
             Self::InvalidFormat { field, value } => Self::InvalidFormat {
-                field: format!("{}.{}", parent, field),
+                field: format!("{parent}.{field}"),
                 value,
             },
             Self::TypeMismatch { field, expected } => Self::TypeMismatch {
-                field: format!("{}.{}", parent, field),
+                field: format!("{parent}.{field}"),
                 expected,
             },
             Self::Custom { field, message } => Self::Custom {
-                field: format!("{}.{}", parent, field),
+                field: format!("{parent}.{field}"),
                 message,
             },
         }
@@ -153,16 +153,16 @@ impl std::fmt::Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::MissingField { field } => {
-                write!(f, "Missing required field: {}", field)
+                write!(f, "Missing required field: {field}")
             },
             Self::InvalidFormat { field, value } => {
-                write!(f, "Invalid format for '{}': {}", field, value)
+                write!(f, "Invalid format for '{field}': {value}")
             },
             Self::TypeMismatch { field, expected } => {
-                write!(f, "Expected {} for field '{}'", expected, field)
+                write!(f, "Expected {expected} for field '{field}'")
             },
             Self::Custom { message, .. } => {
-                write!(f, "{}", message)
+                write!(f, "{message}")
             },
         }
     }
@@ -176,7 +176,7 @@ impl std::error::Error for ParseError {}
 /// that expect parse errors.
 impl From<ValidationError> for ParseError {
     fn from(err: ValidationError) -> Self {
-        ParseError::Custom {
+        Self::Custom {
             field: err.field().to_string(),
             message: err.to_string(),
         }

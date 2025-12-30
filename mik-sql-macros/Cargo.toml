@@ -20,3 +20,6 @@ syn = { version = "2.0", features = ["full", "parsing", "extra-traits"] }
 # See: https://github.com/googleapis/release-please/issues/1662
 mik_sql = { path = "../mik-sql", package = "mik-sql" }
 trybuild = "1.0"
+
+[lints]
+workspace = true

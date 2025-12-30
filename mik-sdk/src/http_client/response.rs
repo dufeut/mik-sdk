@@ -52,25 +52,25 @@ impl Response {
 
     /// Check if response is successful (2xx).
     #[must_use]
-    pub fn is_success(&self) -> bool {
+    pub const fn is_success(&self) -> bool {
         self.status >= 200 && self.status < 300
     }
 
     /// Check if response is a client error (4xx).
     #[must_use]
-    pub fn is_client_error(&self) -> bool {
+    pub const fn is_client_error(&self) -> bool {
         self.status >= 400 && self.status < 500
     }
 
     /// Check if response is a server error (5xx).
     #[must_use]
-    pub fn is_server_error(&self) -> bool {
+    pub const fn is_server_error(&self) -> bool {
         self.status >= 500 && self.status < 600
     }
 
     /// Get the HTTP status code.
     #[must_use]
-    pub fn status(&self) -> u16 {
+    pub const fn status(&self) -> u16 {
         self.status
     }
 

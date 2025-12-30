@@ -40,7 +40,7 @@ impl PageInfo {
     ///
     /// If `count >= limit`, assumes there are more items.
     #[must_use]
-    pub fn new(count: usize, limit: usize) -> Self {
+    pub const fn new(count: usize, limit: usize) -> Self {
         Self {
             has_next: count >= limit,
             has_prev: false,
@@ -52,7 +52,7 @@ impl PageInfo {
 
     /// Set whether there are previous items.
     #[must_use]
-    pub fn with_has_prev(mut self, has_prev: bool) -> Self {
+    pub const fn with_has_prev(mut self, has_prev: bool) -> Self {
         self.has_prev = has_prev;
         self
     }
@@ -79,12 +79,13 @@ impl PageInfo {
 
     /// Set the total count.
     #[must_use]
-    pub fn with_total(mut self, total: u64) -> Self {
+    pub const fn with_total(mut self, total: u64) -> Self {
         self.total = Some(total);
         self
     }
 
     /// Create cursor from the last item using a builder function.
+    #[allow(clippy::single_option_map)] // Intentional API design
     pub fn cursor_from<T, F>(item: Option<&T>, builder: F) -> Option<String>
     where
         F: FnOnce(&T) -> Cursor,

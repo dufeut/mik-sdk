@@ -1,9 +1,14 @@
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss
+)]
 //! Tests for the derive macros (Type, Query, Path) and their generated code.
 //!
 //! These tests verify:
-//! 1. Type derive generates FromJson, Validate, and OpenApiSchema
-//! 2. Query derive generates FromQuery
-//! 3. Path derive generates FromPath
+//! 1. Type derive generates `FromJson`, Validate, and `OpenApiSchema`
+//! 2. Query derive generates `FromQuery`
+//! 3. Path derive generates `FromPath`
 //! 4. Field attributes work correctly
 
 #![allow(dead_code)]
@@ -27,21 +32,21 @@ mod mik_sdk {
             pub fn missing(field: &str) -> Self {
                 Self {
                     field: field.to_string(),
-                    message: format!("Missing required field: {}", field),
+                    message: format!("Missing required field: {field}"),
                 }
             }
 
             pub fn invalid_format(field: &str, value: &str) -> Self {
                 Self {
                     field: field.to_string(),
-                    message: format!("Invalid format for '{}': {}", field, value),
+                    message: format!("Invalid format for '{field}': {value}"),
                 }
             }
 
             pub fn type_mismatch(field: &str, expected: &str) -> Self {
                 Self {
                     field: field.to_string(),
-                    message: format!("Expected {} for field '{}'", expected, field),
+                    message: format!("Expected {expected} for field '{field}'"),
                 }
             }
         }
@@ -58,7 +63,7 @@ mod mik_sdk {
                 Self {
                     field: field.to_string(),
                     constraint: "min".to_string(),
-                    message: format!("'{}' must be at least {}", field, min),
+                    message: format!("'{field}' must be at least {min}"),
                 }
             }
 
@@ -66,7 +71,7 @@ mod mik_sdk {
                 Self {
                     field: field.to_string(),
                     constraint: "max".to_string(),
-                    message: format!("'{}' must be at most {}", field, max),
+                    message: format!("'{field}' must be at most {max}"),
                 }
             }
         }
@@ -108,7 +113,7 @@ mod mik_sdk {
             fn from_json(value: &crate::mik_sdk::json::JsonValue) -> Result<Self, ParseError> {
                 value
                     .int()
-                    .map(|n| n as i32)
+                    .map(|n| n as Self)
                     .ok_or_else(|| ParseError::type_mismatch("value", "integer"))
             }
         }
@@ -129,12 +134,38 @@ mod mik_sdk {
             }
         }
 
+        impl FromJson for f64 {
+            fn from_json(value: &crate::mik_sdk::json::JsonValue) -> Result<Self, ParseError> {
+                value
+                    .float()
+                    .ok_or_else(|| ParseError::type_mismatch("value", "float"))
+            }
+        }
+
+        impl FromJson for u32 {
+            fn from_json(value: &crate::mik_sdk::json::JsonValue) -> Result<Self, ParseError> {
+                value
+                    .int()
+                    .map(|n| n as Self)
+                    .ok_or_else(|| ParseError::type_mismatch("value", "integer"))
+            }
+        }
+
+        impl FromJson for u64 {
+            fn from_json(value: &crate::mik_sdk::json::JsonValue) -> Result<Self, ParseError> {
+                value
+                    .int()
+                    .map(|n| n as Self)
+                    .ok_or_else(|| ParseError::type_mismatch("value", "integer"))
+            }
+        }
+
         impl<T: FromJson> FromJson for Vec<T> {
             fn from_json(value: &crate::mik_sdk::json::JsonValue) -> Result<Self, ParseError> {
                 let len = value
                     .len()
                     .ok_or_else(|| ParseError::type_mismatch("value", "array"))?;
-                let mut result = Vec::with_capacity(len);
+                let mut result = Self::with_capacity(len);
                 for i in 0..len {
                     let item = value.at(i);
                     result.push(T::from_json(&item)?);
@@ -174,21 +205,27 @@ mod mik_sdk {
         }
 
         impl JsonValue {
-            pub fn null() -> Self {
+            pub const fn null() -> Self {
                 Self {
                     data: JsonData::Null,
                 }
             }
 
-            pub fn from_bool(b: bool) -> Self {
+            pub const fn from_bool(b: bool) -> Self {
                 Self {
                     data: JsonData::Bool(b),
                 }
             }
 
-            pub fn from_int(n: i64) -> Self {
+            pub const fn from_int(n: i64) -> Self {
                 Self {
                     data: JsonData::Int(n),
+                }
+            }
+
+            pub const fn from_float(f: f64) -> Self {
+                Self {
+                    data: JsonData::Float(f),
                 }
             }
 
@@ -198,26 +235,26 @@ mod mik_sdk {
                 }
             }
 
-            pub fn from_array(arr: Vec<JsonValue>) -> Self {
+            pub const fn from_array(arr: Vec<Self>) -> Self {
                 Self {
                     data: JsonData::Array(arr),
                 }
             }
 
-            pub fn from_object(obj: HashMap<String, JsonValue>) -> Self {
+            pub const fn from_object(obj: HashMap<String, Self>) -> Self {
                 Self {
                     data: JsonData::Object(obj),
                 }
             }
 
-            pub fn get(&self, key: &str) -> JsonValue {
+            pub fn get(&self, key: &str) -> Self {
                 match &self.data {
                     JsonData::Object(obj) => obj.get(key).cloned().unwrap_or_else(Self::null),
                     _ => Self::null(),
                 }
             }
 
-            pub fn at(&self, index: usize) -> JsonValue {
+            pub fn at(&self, index: usize) -> Self {
                 match &self.data {
                     JsonData::Array(arr) => arr.get(index).cloned().unwrap_or_else(Self::null),
                     _ => Self::null(),
@@ -231,14 +268,14 @@ mod mik_sdk {
                 }
             }
 
-            pub fn int(&self) -> Option<i64> {
+            pub const fn int(&self) -> Option<i64> {
                 match &self.data {
                     JsonData::Int(n) => Some(*n),
                     _ => None,
                 }
             }
 
-            pub fn float(&self) -> Option<f64> {
+            pub const fn float(&self) -> Option<f64> {
                 match &self.data {
                     JsonData::Float(n) => Some(*n),
                     JsonData::Int(n) => Some(*n as f64),
@@ -246,18 +283,18 @@ mod mik_sdk {
                 }
             }
 
-            pub fn bool(&self) -> Option<bool> {
+            pub const fn bool(&self) -> Option<bool> {
                 match &self.data {
                     JsonData::Bool(b) => Some(*b),
                     _ => None,
                 }
             }
 
-            pub fn is_null(&self) -> bool {
+            pub const fn is_null(&self) -> bool {
                 matches!(&self.data, JsonData::Null)
             }
 
-            pub fn len(&self) -> Option<usize> {
+            pub const fn len(&self) -> Option<usize> {
                 match &self.data {
                     JsonData::Array(arr) => Some(arr.len()),
                     _ => None,
@@ -713,9 +750,9 @@ fn test_query_derive_empty_string_value() {
     }
 
     // Empty string is still Some("")
-    let params = vec![("search".to_string(), "".to_string())];
+    let params = vec![("search".to_string(), String::new())];
     let query = <EmptyQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
-    assert_eq!(query.search, Some("".to_string()));
+    assert_eq!(query.search, Some(String::new()));
 }
 
 #[test]
@@ -726,9 +763,647 @@ fn test_path_derive_empty_string_param() {
     }
 
     let mut params = HashMap::new();
-    params.insert("id".to_string(), "".to_string());
+    params.insert("id".to_string(), String::new());
 
     // Empty string is valid (routing should prevent this, but parsing accepts it)
     let path = <EmptyPath as mik_sdk::typed::FromPath>::from_params(&params).unwrap();
     assert_eq!(path.id, "");
+}
+
+// =============================================================================
+// HTTP METHOD COVERAGE TESTS
+// =============================================================================
+
+#[test]
+fn test_type_derive_with_float_field() {
+    #[derive(Type)]
+    struct MetricsData {
+        score: f64,
+    }
+
+    let mut obj = HashMap::new();
+    obj.insert(
+        "score".to_string(),
+        mik_sdk::json::JsonValue::from_float(98.6),
+    );
+    let json = mik_sdk::json::JsonValue::from_object(obj);
+
+    let metrics = <MetricsData as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
+    assert!((metrics.score - 98.6).abs() < 0.001);
+}
+
+#[test]
+fn test_type_derive_with_u32_field() {
+    #[derive(Type)]
+    struct CountData {
+        count: u32,
+    }
+
+    let mut obj = HashMap::new();
+    obj.insert("count".to_string(), mik_sdk::json::JsonValue::from_int(42));
+    let json = mik_sdk::json::JsonValue::from_object(obj);
+
+    let data = <CountData as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
+    assert_eq!(data.count, 42);
+}
+
+#[test]
+fn test_type_derive_with_i64_field() {
+    #[derive(Type)]
+    struct BigNumber {
+        value: i64,
+    }
+
+    let mut obj = HashMap::new();
+    obj.insert(
+        "value".to_string(),
+        mik_sdk::json::JsonValue::from_int(9_223_372_036_854_775_807),
+    );
+    let json = mik_sdk::json::JsonValue::from_object(obj);
+
+    let data = <BigNumber as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
+    assert_eq!(data.value, 9_223_372_036_854_775_807);
+}
+
+#[test]
+fn test_type_derive_with_u64_field() {
+    #[derive(Type)]
+    struct BigUnsigned {
+        value: u64,
+    }
+
+    let mut obj = HashMap::new();
+    obj.insert(
+        "value".to_string(),
+        mik_sdk::json::JsonValue::from_int(1_000_000),
+    );
+    let json = mik_sdk::json::JsonValue::from_object(obj);
+
+    let data = <BigUnsigned as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
+    assert_eq!(data.value, 1_000_000);
+}
+
+#[test]
+fn test_type_derive_with_optional_vec() {
+    #[derive(Type)]
+    struct OptionalTags {
+        tags: Option<Vec<String>>,
+    }
+
+    // With value
+    let arr = vec![mik_sdk::json::JsonValue::from_str("tag1")];
+    let mut obj = HashMap::new();
+    obj.insert(
+        "tags".to_string(),
+        mik_sdk::json::JsonValue::from_array(arr),
+    );
+    let json = mik_sdk::json::JsonValue::from_object(obj);
+
+    let data = <OptionalTags as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
+    assert_eq!(data.tags, Some(vec!["tag1".to_string()]));
+
+    // Without value (null)
+    let mut obj2 = HashMap::new();
+    obj2.insert("tags".to_string(), mik_sdk::json::JsonValue::null());
+    let json2 = mik_sdk::json::JsonValue::from_object(obj2);
+
+    let data2 = <OptionalTags as mik_sdk::typed::FromJson>::from_json(&json2).unwrap();
+    assert_eq!(data2.tags, None);
+}
+
+#[test]
+fn test_type_derive_nested_vec() {
+    #[derive(Type)]
+    struct Item {
+        name: String,
+    }
+
+    #[derive(Type)]
+    struct ItemList {
+        items: Vec<Item>,
+    }
+
+    let item1_obj = {
+        let mut m = HashMap::new();
+        m.insert(
+            "name".to_string(),
+            mik_sdk::json::JsonValue::from_str("item1"),
+        );
+        mik_sdk::json::JsonValue::from_object(m)
+    };
+    let item2_obj = {
+        let mut m = HashMap::new();
+        m.insert(
+            "name".to_string(),
+            mik_sdk::json::JsonValue::from_str("item2"),
+        );
+        mik_sdk::json::JsonValue::from_object(m)
+    };
+
+    let mut obj = HashMap::new();
+    obj.insert(
+        "items".to_string(),
+        mik_sdk::json::JsonValue::from_array(vec![item1_obj, item2_obj]),
+    );
+    let json = mik_sdk::json::JsonValue::from_object(obj);
+
+    let data = <ItemList as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
+    assert_eq!(data.items.len(), 2);
+    assert_eq!(data.items[0].name, "item1");
+    assert_eq!(data.items[1].name, "item2");
+}
+
+#[test]
+fn test_query_derive_with_bool_field() {
+    #[derive(Query)]
+    struct BoolQuery {
+        active: Option<bool>,
+    }
+
+    // Test true
+    let params = vec![("active".to_string(), "true".to_string())];
+    let query = <BoolQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
+    assert_eq!(query.active, Some(true));
+
+    // Test false
+    let params = vec![("active".to_string(), "false".to_string())];
+    let query = <BoolQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
+    assert_eq!(query.active, Some(false));
+
+    // Test missing
+    let params: Vec<(String, String)> = vec![];
+    let query = <BoolQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
+    assert_eq!(query.active, None);
+}
+
+#[test]
+fn test_query_derive_with_i32_field() {
+    #[derive(Query)]
+    struct OffsetQuery {
+        #[field(default = 0)]
+        offset: i32,
+    }
+
+    // Positive value
+    let params = vec![("offset".to_string(), "100".to_string())];
+    let query = <OffsetQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
+    assert_eq!(query.offset, 100);
+
+    // Negative value
+    let params = vec![("offset".to_string(), "-50".to_string())];
+    let query = <OffsetQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
+    assert_eq!(query.offset, -50);
+
+    // Default value
+    let params: Vec<(String, String)> = vec![];
+    let query = <OffsetQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
+    assert_eq!(query.offset, 0);
+}
+
+#[test]
+fn test_query_derive_with_i64_field() {
+    #[derive(Query)]
+    struct TimestampQuery {
+        since: Option<i64>,
+    }
+
+    let params = vec![("since".to_string(), "1704067200000".to_string())];
+    let query = <TimestampQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
+    assert_eq!(query.since, Some(1_704_067_200_000));
+}
+
+#[test]
+fn test_query_derive_with_u64_field() {
+    #[derive(Query)]
+    struct BigOffsetQuery {
+        cursor: Option<u64>,
+    }
+
+    let params = vec![("cursor".to_string(), "18446744073709551615".to_string())];
+    let query = <BigOffsetQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
+    // Note: This may overflow depending on implementation
+    assert!(query.cursor.is_some());
+}
+
+#[test]
+fn test_path_derive_with_multiple_segments() {
+    #[derive(Path)]
+    struct DeepPath {
+        org: String,
+        team: String,
+        user: String,
+    }
+
+    let mut params = HashMap::new();
+    params.insert("org".to_string(), "acme".to_string());
+    params.insert("team".to_string(), "engineering".to_string());
+    params.insert("user".to_string(), "alice".to_string());
+
+    let path = <DeepPath as mik_sdk::typed::FromPath>::from_params(&params).unwrap();
+    assert_eq!(path.org, "acme");
+    assert_eq!(path.team, "engineering");
+    assert_eq!(path.user, "alice");
+}
+
+#[test]
+fn test_path_derive_with_special_characters() {
+    #[derive(Path)]
+    struct SlugPath {
+        slug: String,
+    }
+
+    let mut params = HashMap::new();
+    params.insert("slug".to_string(), "hello-world_2024".to_string());
+
+    let path = <SlugPath as mik_sdk::typed::FromPath>::from_params(&params).unwrap();
+    assert_eq!(path.slug, "hello-world_2024");
+}
+
+#[test]
+fn test_type_derive_min_only_validation() {
+    #[derive(Type)]
+    struct MinOnly {
+        #[field(min = 5)]
+        value: i32,
+    }
+
+    // Valid (above min)
+    let v = MinOnly { value: 10 };
+    assert!(<MinOnly as mik_sdk::typed::Validate>::validate(&v).is_ok());
+
+    // At boundary
+    let v = MinOnly { value: 5 };
+    assert!(<MinOnly as mik_sdk::typed::Validate>::validate(&v).is_ok());
+
+    // Below min
+    let v = MinOnly { value: 4 };
+    assert!(<MinOnly as mik_sdk::typed::Validate>::validate(&v).is_err());
+}
+
+#[test]
+fn test_type_derive_max_only_validation() {
+    #[derive(Type)]
+    struct MaxOnly {
+        #[field(max = 100)]
+        value: i32,
+    }
+
+    // Valid (below max)
+    let v = MaxOnly { value: 50 };
+    assert!(<MaxOnly as mik_sdk::typed::Validate>::validate(&v).is_ok());
+
+    // At boundary
+    let v = MaxOnly { value: 100 };
+    assert!(<MaxOnly as mik_sdk::typed::Validate>::validate(&v).is_ok());
+
+    // Above max
+    let v = MaxOnly { value: 101 };
+    assert!(<MaxOnly as mik_sdk::typed::Validate>::validate(&v).is_err());
+}
+
+#[test]
+fn test_type_derive_multiple_validated_fields() {
+    #[derive(Type)]
+    struct MultiValidated {
+        #[field(min = 1, max = 10)]
+        a: i32,
+        #[field(min = 0, max = 5)]
+        b: i32,
+    }
+
+    // Both valid
+    let v = MultiValidated { a: 5, b: 3 };
+    assert!(<MultiValidated as mik_sdk::typed::Validate>::validate(&v).is_ok());
+
+    // First invalid
+    let v = MultiValidated { a: 0, b: 3 };
+    assert!(<MultiValidated as mik_sdk::typed::Validate>::validate(&v).is_err());
+
+    // Second invalid
+    let v = MultiValidated { a: 5, b: 6 };
+    assert!(<MultiValidated as mik_sdk::typed::Validate>::validate(&v).is_err());
+}
+
+#[test]
+fn test_openapi_schema_with_optional_fields() {
+    #[derive(Type)]
+    struct OptionalFieldsType {
+        required_field: String,
+        optional_field: Option<String>,
+    }
+
+    let schema = <OptionalFieldsType as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    assert!(schema.contains("required_field"));
+    assert!(schema.contains("optional_field"));
+    assert!(schema.contains("\"type\":\"object\""));
+}
+
+#[test]
+fn test_openapi_schema_with_array_fields() {
+    #[derive(Type)]
+    struct ArrayFieldsType {
+        items: Vec<String>,
+        numbers: Vec<i32>,
+    }
+
+    let schema = <ArrayFieldsType as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    assert!(schema.contains("items"));
+    assert!(schema.contains("numbers"));
+    assert!(schema.contains("\"type\":\"array\""));
+}
+
+#[test]
+fn test_query_openapi_params() {
+    #[derive(Query)]
+    struct PaginationParams {
+        #[field(default = 1)]
+        page: u32,
+        #[field(default = 20)]
+        limit: u32,
+        search: Option<String>,
+    }
+
+    let params = <PaginationParams as mik_sdk::typed::OpenApiSchema>::openapi_query_params();
+    assert!(params.contains("page"));
+    assert!(params.contains("limit"));
+    assert!(params.contains("search"));
+}
+
+#[test]
+fn test_path_openapi_schema() {
+    #[derive(Path)]
+    struct ResourceIdPath {
+        resource_type: String,
+        resource_id: String,
+    }
+
+    let schema = <ResourceIdPath as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    assert!(schema.contains("resource_type"));
+    assert!(schema.contains("resource_id"));
+}
+
+#[test]
+fn test_type_derive_deeply_nested() {
+    #[derive(Type)]
+    struct Inner {
+        value: String,
+    }
+
+    #[derive(Type)]
+    struct Middle {
+        inner: Inner,
+    }
+
+    #[derive(Type)]
+    struct Outer {
+        middle: Middle,
+    }
+
+    let inner_obj = {
+        let mut m = HashMap::new();
+        m.insert(
+            "value".to_string(),
+            mik_sdk::json::JsonValue::from_str("deep"),
+        );
+        mik_sdk::json::JsonValue::from_object(m)
+    };
+
+    let middle_obj = {
+        let mut m = HashMap::new();
+        m.insert("inner".to_string(), inner_obj);
+        mik_sdk::json::JsonValue::from_object(m)
+    };
+
+    let outer_obj = {
+        let mut m = HashMap::new();
+        m.insert("middle".to_string(), middle_obj);
+        mik_sdk::json::JsonValue::from_object(m)
+    };
+
+    let data = <Outer as mik_sdk::typed::FromJson>::from_json(&outer_obj).unwrap();
+    assert_eq!(data.middle.inner.value, "deep");
+}
+
+#[test]
+fn test_type_derive_with_vec_of_nested() {
+    #[derive(Type)]
+    struct Tag {
+        name: String,
+    }
+
+    #[derive(Type)]
+    struct Article {
+        title: String,
+        tags: Vec<Tag>,
+    }
+
+    let tag1 = {
+        let mut m = HashMap::new();
+        m.insert(
+            "name".to_string(),
+            mik_sdk::json::JsonValue::from_str("rust"),
+        );
+        mik_sdk::json::JsonValue::from_object(m)
+    };
+    let tag2 = {
+        let mut m = HashMap::new();
+        m.insert(
+            "name".to_string(),
+            mik_sdk::json::JsonValue::from_str("wasm"),
+        );
+        mik_sdk::json::JsonValue::from_object(m)
+    };
+
+    let mut obj = HashMap::new();
+    obj.insert(
+        "title".to_string(),
+        mik_sdk::json::JsonValue::from_str("My Article"),
+    );
+    obj.insert(
+        "tags".to_string(),
+        mik_sdk::json::JsonValue::from_array(vec![tag1, tag2]),
+    );
+    let json = mik_sdk::json::JsonValue::from_object(obj);
+
+    let article = <Article as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
+    assert_eq!(article.title, "My Article");
+    assert_eq!(article.tags.len(), 2);
+    assert_eq!(article.tags[0].name, "rust");
+    assert_eq!(article.tags[1].name, "wasm");
+}
+
+#[test]
+fn test_type_derive_all_optional_struct() {
+    #[derive(Type)]
+    struct AllOptional {
+        a: Option<String>,
+        b: Option<i32>,
+        c: Option<bool>,
+    }
+
+    // All missing
+    let json = mik_sdk::json::JsonValue::from_object(HashMap::new());
+    let data = <AllOptional as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
+    assert_eq!(data.a, None);
+    assert_eq!(data.b, None);
+    assert_eq!(data.c, None);
+
+    // All present
+    let mut obj = HashMap::new();
+    obj.insert("a".to_string(), mik_sdk::json::JsonValue::from_str("test"));
+    obj.insert("b".to_string(), mik_sdk::json::JsonValue::from_int(42));
+    obj.insert("c".to_string(), mik_sdk::json::JsonValue::from_bool(true));
+    let json = mik_sdk::json::JsonValue::from_object(obj);
+    let data = <AllOptional as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
+    assert_eq!(data.a, Some("test".to_string()));
+    assert_eq!(data.b, Some(42));
+    assert_eq!(data.c, Some(true));
+}
+
+#[test]
+fn test_query_derive_multiple_values_same_key() {
+    #[derive(Query)]
+    struct MultiQuery {
+        tag: Option<String>,
+    }
+
+    // When multiple values for same key, take last (overwrite behavior)
+    let params = vec![
+        ("tag".to_string(), "first".to_string()),
+        ("tag".to_string(), "second".to_string()),
+    ];
+    let query = <MultiQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
+    assert_eq!(query.tag, Some("second".to_string()));
+}
+
+#[test]
+fn test_type_derive_validation_error_contains_field_name() {
+    #[derive(Type)]
+    struct ValidatedField {
+        #[field(min = 10)]
+        age: i32,
+    }
+
+    let v = ValidatedField { age: 5 };
+    let result = <ValidatedField as mik_sdk::typed::Validate>::validate(&v);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.field, "age");
+    assert_eq!(err.constraint, "min");
+}
+
+#[test]
+fn test_path_derive_partial_params_fails() {
+    #[derive(Path, Debug)]
+    struct TwoParams {
+        id: String,
+        name: String,
+    }
+
+    // Only one param provided
+    let mut params = HashMap::new();
+    params.insert("id".to_string(), "123".to_string());
+
+    let result = <TwoParams as mik_sdk::typed::FromPath>::from_params(&params);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.field, "name");
+}
+
+#[test]
+fn test_type_derive_mixed_required_optional() {
+    #[derive(Type)]
+    struct MixedFields {
+        required: String,
+        optional1: Option<String>,
+        also_required: i32,
+        optional2: Option<bool>,
+    }
+
+    // With all required and some optional
+    let mut obj = HashMap::new();
+    obj.insert(
+        "required".to_string(),
+        mik_sdk::json::JsonValue::from_str("yes"),
+    );
+    obj.insert(
+        "also_required".to_string(),
+        mik_sdk::json::JsonValue::from_int(42),
+    );
+    obj.insert(
+        "optional1".to_string(),
+        mik_sdk::json::JsonValue::from_str("present"),
+    );
+    let json = mik_sdk::json::JsonValue::from_object(obj);
+
+    let data = <MixedFields as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
+    assert_eq!(data.required, "yes");
+    assert_eq!(data.also_required, 42);
+    assert_eq!(data.optional1, Some("present".to_string()));
+    assert_eq!(data.optional2, None);
+}
+
+#[test]
+fn test_type_with_int_vec() {
+    #[derive(Type)]
+    struct IntVecType {
+        numbers: Vec<i32>,
+    }
+
+    let arr = vec![
+        mik_sdk::json::JsonValue::from_int(1),
+        mik_sdk::json::JsonValue::from_int(2),
+        mik_sdk::json::JsonValue::from_int(3),
+    ];
+    let mut obj = HashMap::new();
+    obj.insert(
+        "numbers".to_string(),
+        mik_sdk::json::JsonValue::from_array(arr),
+    );
+    let json = mik_sdk::json::JsonValue::from_object(obj);
+
+    let data = <IntVecType as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
+    assert_eq!(data.numbers, vec![1, 2, 3]);
+}
+
+#[test]
+fn test_type_with_bool_vec() {
+    #[derive(Type)]
+    struct BoolVecType {
+        flags: Vec<bool>,
+    }
+
+    let arr = vec![
+        mik_sdk::json::JsonValue::from_bool(true),
+        mik_sdk::json::JsonValue::from_bool(false),
+        mik_sdk::json::JsonValue::from_bool(true),
+    ];
+    let mut obj = HashMap::new();
+    obj.insert(
+        "flags".to_string(),
+        mik_sdk::json::JsonValue::from_array(arr),
+    );
+    let json = mik_sdk::json::JsonValue::from_object(obj);
+
+    let data = <BoolVecType as mik_sdk::typed::FromJson>::from_json(&json).unwrap();
+    assert_eq!(data.flags, vec![true, false, true]);
+}
+
+#[test]
+fn test_query_bool_default() {
+    #[derive(Query)]
+    struct BoolDefaultQuery {
+        #[field(default = true)]
+        enabled: bool,
+    }
+
+    // Without value uses default
+    let params: Vec<(String, String)> = vec![];
+    let query = <BoolDefaultQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
+    assert!(query.enabled);
+
+    // With value overrides default
+    let params = vec![("enabled".to_string(), "false".to_string())];
+    let query = <BoolDefaultQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
+    assert!(!query.enabled);
 }

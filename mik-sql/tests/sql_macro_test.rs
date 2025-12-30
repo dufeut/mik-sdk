@@ -1,4 +1,5 @@
-//! Tests for the sql_read!/sql_create!/sql_update!/sql_delete! macros.
+#![allow(clippy::struct_field_names)]
+//! Tests for the `sql_read!/sql_create!/sql_update!/sql_delete`! macros.
 
 use mik_sql::Value;
 use mik_sql_macros::{sql_create, sql_delete, sql_read, sql_update};
@@ -1487,7 +1488,7 @@ fn test_sql_read_with_after_cursor() {
     let (sql, params) = sql_read!(users {
         select: [id, name],
         order: id,
-        after: cursor.clone(),
+        after: cursor,
         limit: 20,
     });
 
@@ -1506,7 +1507,7 @@ fn test_sql_read_with_before_cursor() {
     let (sql, params) = sql_read!(users {
         select: [id, name],
         order: id,
-        before: cursor.clone(),
+        before: cursor,
         limit: 20,
     });
 
@@ -1524,7 +1525,7 @@ fn test_sql_read_cursor_with_desc_sort() {
     let (sql, params) = sql_read!(posts {
         select: [id, title],
         order: -id,
-        after: cursor.clone(),
+        after: cursor,
         limit: 10,
     });
 
@@ -1544,7 +1545,7 @@ fn test_sql_read_cursor_with_filter() {
         select: [id, name],
         filter: { active: true },
         order: id,
-        after: cursor.clone(),
+        after: cursor,
         limit: 20,
     });
 
@@ -1565,7 +1566,7 @@ fn test_sql_read_cursor_multi_field() {
     let (sql, params) = sql_read!(posts {
         select: [id, title, created_at],
         order: [-created_at, -id],
-        after: cursor.clone(),
+        after: cursor,
         limit: 20,
     });
 
@@ -1637,7 +1638,7 @@ fn test_sql_read_cursor_sqlite() {
         users {
             select: [id, name],
             order: id,
-            after: cursor.clone(),
+            after: cursor,
             limit: 20,
         }
     );

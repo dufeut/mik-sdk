@@ -169,19 +169,19 @@ impl ValidationError {
     pub fn with_path(self, parent: &str) -> Self {
         match self {
             Self::Min { field, min } => Self::Min {
-                field: format!("{}.{}", parent, field),
+                field: format!("{parent}.{field}"),
                 min,
             },
             Self::Max { field, max } => Self::Max {
-                field: format!("{}.{}", parent, field),
+                field: format!("{parent}.{field}"),
                 max,
             },
             Self::Pattern { field, pattern } => Self::Pattern {
-                field: format!("{}.{}", parent, field),
+                field: format!("{parent}.{field}"),
                 pattern,
             },
             Self::Format { field, expected } => Self::Format {
-                field: format!("{}.{}", parent, field),
+                field: format!("{parent}.{field}"),
                 expected,
             },
             Self::Custom {
@@ -189,7 +189,7 @@ impl ValidationError {
                 constraint,
                 message,
             } => Self::Custom {
-                field: format!("{}.{}", parent, field),
+                field: format!("{parent}.{field}"),
                 constraint,
                 message,
             },
@@ -201,19 +201,19 @@ impl std::fmt::Display for ValidationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Min { field, min } => {
-                write!(f, "'{}' must be at least {}", field, min)
+                write!(f, "'{field}' must be at least {min}")
             },
             Self::Max { field, max } => {
-                write!(f, "'{}' must be at most {}", field, max)
+                write!(f, "'{field}' must be at most {max}")
             },
             Self::Pattern { field, pattern } => {
-                write!(f, "'{}' must match pattern: {}", field, pattern)
+                write!(f, "'{field}' must match pattern: {pattern}")
             },
             Self::Format { field, expected } => {
-                write!(f, "'{}' must be a valid {}", field, expected)
+                write!(f, "'{field}' must be a valid {expected}")
             },
             Self::Custom { message, .. } => {
-                write!(f, "{}", message)
+                write!(f, "{message}")
             },
         }
     }

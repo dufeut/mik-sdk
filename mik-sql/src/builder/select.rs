@@ -198,21 +198,21 @@ impl<D: Dialect> QueryBuilder<D> {
     }
 
     /// Set pagination with page number (1-indexed) and limit.
-    pub fn page(mut self, page: u32, limit: u32) -> Self {
+    pub const fn page(mut self, page: u32, limit: u32) -> Self {
         self.limit = Some(limit);
         self.offset = Some(page.saturating_sub(1).saturating_mul(limit));
         self
     }
 
     /// Set explicit limit and offset.
-    pub fn limit_offset(mut self, limit: u32, offset: u32) -> Self {
+    pub const fn limit_offset(mut self, limit: u32, offset: u32) -> Self {
         self.limit = Some(limit);
         self.offset = Some(offset);
         self
     }
 
     /// Set a limit without offset.
-    pub fn limit(mut self, limit: u32) -> Self {
+    pub const fn limit(mut self, limit: u32) -> Self {
         self.limit = Some(limit);
         self
     }

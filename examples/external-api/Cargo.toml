@@ -29,3 +29,6 @@ world = "external-api"
 "wasi:filesystem" = { path = "wit/deps/filesystem" }
 "wasi:sockets" = { path = "wit/deps/sockets" }
 "wasi:http" = { path = "wit/deps/wasi-http" }
+
+[lints]
+workspace = true

@@ -67,7 +67,7 @@ pub struct CompoundFilter {
 impl CompoundFilter {
     /// Create an AND compound filter.
     #[must_use]
-    pub fn and(filters: Vec<FilterExpr>) -> Self {
+    pub const fn and(filters: Vec<FilterExpr>) -> Self {
         Self {
             op: LogicalOp::And,
             filters,
@@ -76,7 +76,7 @@ impl CompoundFilter {
 
     /// Create an OR compound filter.
     #[must_use]
-    pub fn or(filters: Vec<FilterExpr>) -> Self {
+    pub const fn or(filters: Vec<FilterExpr>) -> Self {
         Self {
             op: LogicalOp::Or,
             filters,
@@ -297,7 +297,7 @@ impl SortField {
     ///
     /// If `allowed` is empty, ALL fields are allowed. For user input, always
     /// provide an explicit whitelist to prevent sorting by sensitive columns.
-    pub fn parse_sort_string(sort: &str, allowed: &[&str]) -> Result<Vec<SortField>, String> {
+    pub fn parse_sort_string(sort: &str, allowed: &[&str]) -> Result<Vec<Self>, String> {
         let mut result = Vec::new();
 
         for part in sort.split(',') {
@@ -306,11 +306,9 @@ impl SortField {
                 continue;
             }
 
-            let (field, dir) = if let Some(stripped) = part.strip_prefix('-') {
-                (stripped, SortDir::Desc)
-            } else {
-                (part, SortDir::Asc)
-            };
+            let (field, dir) = part
+                .strip_prefix('-')
+                .map_or((part, SortDir::Asc), |stripped| (stripped, SortDir::Desc));
 
             // Validate against whitelist (empty = allow all, consistent with FilterValidator)
             if !allowed.is_empty() && !allowed.contains(&field) {
@@ -319,7 +317,7 @@ impl SortField {
                 ));
             }
 
-            result.push(SortField::new(field, dir));
+            result.push(Self::new(field, dir));
         }
 
         Ok(result)
@@ -389,13 +387,13 @@ pub fn simple(field: impl Into<String>, op: Operator, value: Value) -> FilterExp
 
 /// Helper function to create an AND compound filter.
 #[must_use]
-pub fn and(filters: Vec<FilterExpr>) -> FilterExpr {
+pub const fn and(filters: Vec<FilterExpr>) -> FilterExpr {
     FilterExpr::Compound(CompoundFilter::and(filters))
 }
 
 /// Helper function to create an OR compound filter.
 #[must_use]
-pub fn or(filters: Vec<FilterExpr>) -> FilterExpr {
+pub const fn or(filters: Vec<FilterExpr>) -> FilterExpr {
     FilterExpr::Compound(CompoundFilter::or(filters))
 }
 

@@ -1,3 +1,4 @@
+#![allow(clippy::iter_on_single_items)]
 use super::*;
 
 // =========================================================================
@@ -24,7 +25,7 @@ mod proptest_tests {
         /// Test query string parsing with arbitrary encoded strings.
         #[test]
         fn query_parsing_doesnt_panic(query in ".*") {
-            let path = format!("/test?{}", query);
+            let path = format!("/test?{query}");
             let req = Request::new(
                 Method::Get,
                 path,
@@ -43,7 +44,7 @@ mod proptest_tests {
             key in "[a-z]{1,10}",
             value in "[a-zA-Z0-9%]{0,50}"
         ) {
-            let path = format!("/test?{}={}", key, value);
+            let path = format!("/test?{key}={value}");
             let req = Request::new(
                 Method::Get,
                 path,
@@ -96,7 +97,7 @@ mod proptest_tests {
             let req = Request::new(
                 Method::Get,
                 "/".to_string(),
-                vec![(name.clone(), value.clone())],
+                vec![(name.clone(), value)],
                 None,
                 HashMap::new(),
             );
@@ -110,7 +111,7 @@ mod proptest_tests {
         #[test]
         fn query_parsing_handles_many_params(count in 0usize..100) {
             let params: Vec<String> = (0..count)
-                .map(|i| format!("key{}=value{}", i, i))
+                .map(|i| format!("key{i}=value{i}"))
                 .collect();
             let path = if params.is_empty() {
                 "/test".to_string()
@@ -128,8 +129,8 @@ mod proptest_tests {
 
             // All params should be accessible
             for i in 0..count {
-                let result = req.query(&format!("key{}", i));
-                let expected = format!("value{}", i);
+                let result = req.query(&format!("key{i}"));
+                let expected = format!("value{i}");
                 prop_assert_eq!(result, Some(expected.as_str()));
             }
         }
@@ -138,7 +139,7 @@ mod proptest_tests {
         #[test]
         fn header_parsing_handles_many_headers(count in 0usize..100) {
             let headers: Vec<(String, String)> = (0..count)
-                .map(|i| (format!("X-Header-{}", i), format!("value-{}", i)))
+                .map(|i| (format!("X-Header-{i}"), format!("value-{i}")))
                 .collect();
 
             let req = Request::new(
@@ -151,8 +152,8 @@ mod proptest_tests {
 
             // All headers should be accessible
             for i in 0..count {
-                let result = req.header(&format!("x-header-{}", i));
-                let expected = format!("value-{}", i);
+                let result = req.header(&format!("x-header-{i}"));
+                let expected = format!("value-{i}");
                 prop_assert_eq!(result, Some(expected.as_str()));
             }
         }
@@ -181,7 +182,7 @@ mod proptest_tests {
             key in "[a-z]{1,20}",
             value in "[a-zA-Z0-9]{0,50}"
         ) {
-            let body = format!("{}={}", key, value);
+            let body = format!("{key}={value}");
             let req = Request::new(
                 Method::Post,
                 "/submit".to_string(),
@@ -203,7 +204,7 @@ mod proptest_tests {
                 Method::Post,
                 "/upload".to_string(),
                 vec![],
-                Some(body.clone()),
+                Some(body),
                 HashMap::new(),
             );
             // Body access should not panic
@@ -276,7 +277,7 @@ mod proptest_tests {
             prefix in "[a-z]{0,10}",
             suffix in "[0-9a-fA-F]{0,2}"
         ) {
-            let input = format!("{}%{}", prefix, suffix);
+            let input = format!("{prefix}%{suffix}");
             let result = url_decode(&input);
             // Should not panic, returns Ok with best-effort decoding
             prop_assert!(result.is_ok());
@@ -290,7 +291,7 @@ mod proptest_tests {
             hex2 in "[g-zG-Z]{1}",
             suffix in "[a-z]{0,10}"
         ) {
-            let input = format!("{}%{}{}{}", prefix, hex1, hex2, suffix);
+            let input = format!("{prefix}%{hex1}{hex2}{suffix}");
             let result = url_decode(&input);
             // Should not panic, preserves invalid sequences
             prop_assert!(result.is_ok());
@@ -303,7 +304,7 @@ mod proptest_tests {
             count in 1usize..10
         ) {
             let params: Vec<String> = (0..count)
-                .map(|i| format!("{}=value{}", key, i))
+                .map(|i| format!("{key}=value{i}"))
                 .collect();
             let path = format!("/test?{}", params.join("&"));
 
@@ -331,7 +332,7 @@ mod proptest_tests {
             count in 1usize..10
         ) {
             let headers: Vec<(String, String)> = (0..count)
-                .map(|i| (name.clone(), format!("value{}", i)))
+                .map(|i| (name.clone(), format!("value{i}")))
                 .collect();
 
             let req = Request::new(
@@ -599,7 +600,7 @@ fn test_header_empty_value() {
     let req = Request::new(
         Method::Get,
         "/".to_string(),
-        vec![("X-Empty".to_string(), "".to_string())],
+        vec![("X-Empty".to_string(), String::new())],
         None,
         HashMap::new(),
     );
@@ -1078,7 +1079,7 @@ fn test_large_body_1mb() {
         Method::Post,
         "/upload".to_string(),
         vec![("content-length".to_string(), size.to_string())],
-        Some(body.clone()),
+        Some(body),
         HashMap::new(),
     );
 
@@ -1103,7 +1104,7 @@ fn test_large_body_json_text() {
             ("content-type".to_string(), "application/json".to_string()),
             ("content-length".to_string(), body_bytes.len().to_string()),
         ],
-        Some(body_bytes.clone()),
+        Some(body_bytes),
         HashMap::new(),
     );
 
@@ -1178,7 +1179,7 @@ fn test_body_all_byte_values() {
         Method::Post,
         "/binary".to_string(),
         vec![],
-        Some(body.clone()),
+        Some(body),
         HashMap::new(),
     );
 
@@ -1255,7 +1256,7 @@ fn test_header_very_long_value() {
     let req = Request::new(
         Method::Get,
         "/".to_string(),
-        vec![("X-Long".to_string(), long_value.clone())],
+        vec![("X-Long".to_string(), long_value)],
         None,
         HashMap::new(),
     );
@@ -1272,7 +1273,7 @@ fn test_header_value_at_limit() {
     let req = Request::new(
         Method::Get,
         "/".to_string(),
-        vec![("X-AtLimit".to_string(), at_limit_value.clone())],
+        vec![("X-AtLimit".to_string(), at_limit_value)],
         None,
         HashMap::new(),
     );
@@ -1288,7 +1289,7 @@ fn test_header_value_just_over_limit() {
     let req = Request::new(
         Method::Get,
         "/".to_string(),
-        vec![("X-OverLimit".to_string(), over_limit_value.clone())],
+        vec![("X-OverLimit".to_string(), over_limit_value)],
         None,
         HashMap::new(),
     );
@@ -1328,7 +1329,7 @@ fn test_multiple_oversized_headers() {
         vec![
             ("X-Oversized-1".to_string(), oversized_value.clone()),
             ("X-Oversized-2".to_string(), oversized_value.clone()),
-            ("X-Oversized-3".to_string(), oversized_value.clone()),
+            ("X-Oversized-3".to_string(), oversized_value),
         ],
         None,
         HashMap::new(),
@@ -1388,7 +1389,7 @@ fn test_header_empty_name() {
     let req = Request::new(
         Method::Get,
         "/".to_string(),
-        vec![("".to_string(), "value".to_string())],
+        vec![(String::new(), "value".to_string())],
         None,
         HashMap::new(),
     );
@@ -1568,7 +1569,7 @@ fn test_path_very_long() {
     // Very long path (potential DoS)
     let long_path = format!("/{}", "a".repeat(10_000));
 
-    let req = Request::new(Method::Get, long_path.clone(), vec![], None, HashMap::new());
+    let req = Request::new(Method::Get, long_path, vec![], None, HashMap::new());
 
     assert_eq!(req.path().len(), 10_001);
 }
@@ -1631,7 +1632,7 @@ fn test_url_decode_security_edge_cases() {
 #[test]
 fn test_malformed_empty_request() {
     // Completely empty request
-    let req = Request::new(Method::Get, "".to_string(), vec![], None, HashMap::new());
+    let req = Request::new(Method::Get, String::new(), vec![], None, HashMap::new());
 
     assert_eq!(req.path(), "");
     assert_eq!(req.path_without_query(), "");
@@ -1833,7 +1834,7 @@ fn test_garbage_binary_body() {
             "content-type".to_string(),
             "application/octet-stream".to_string(),
         )],
-        Some(garbage.clone()),
+        Some(garbage),
         HashMap::new(),
     );
 
@@ -2114,7 +2115,7 @@ fn test_header_with_empty_value() {
     let req = Request::new(
         Method::Get,
         "/test".to_string(),
-        vec![("X-Empty".to_string(), "".to_string())],
+        vec![("X-Empty".to_string(), String::new())],
         None,
         HashMap::new(),
     );
@@ -2199,8 +2200,8 @@ fn test_body_exactly_at_common_limits() {
             HashMap::new(),
         );
 
-        assert_eq!(req.body().map(|b| b.len()), Some(size));
-        assert_eq!(req.text().map(|s| s.len()), Some(size));
+        assert_eq!(req.body().map(<[u8]>::len), Some(size));
+        assert_eq!(req.text().map(str::len), Some(size));
     }
 }
 
@@ -2219,7 +2220,7 @@ fn test_body_just_under_and_over_limits() {
                 HashMap::new(),
             );
 
-            assert_eq!(req.body().map(|b| b.len()), Some(size));
+            assert_eq!(req.body().map(<[u8]>::len), Some(size));
         }
     }
 }

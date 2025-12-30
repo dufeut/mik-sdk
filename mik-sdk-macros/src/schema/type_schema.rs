@@ -12,7 +12,7 @@ use syn::{
 // =============================================================================
 
 #[derive(Clone)]
-pub(crate) enum HttpMethod {
+pub enum HttpMethod {
     Get,
     Post,
     Put,
@@ -23,34 +23,34 @@ pub(crate) enum HttpMethod {
 }
 
 impl HttpMethod {
-    pub(crate) fn as_str(&self) -> &'static str {
+    pub(crate) const fn as_str(&self) -> &'static str {
         match self {
-            HttpMethod::Get => "get",
-            HttpMethod::Post => "post",
-            HttpMethod::Put => "put",
-            HttpMethod::Patch => "patch",
-            HttpMethod::Delete => "delete",
-            HttpMethod::Head => "head",
-            HttpMethod::Options => "options",
+            Self::Get => "get",
+            Self::Post => "post",
+            Self::Put => "put",
+            Self::Patch => "patch",
+            Self::Delete => "delete",
+            Self::Head => "head",
+            Self::Options => "options",
         }
     }
 
     pub(crate) fn to_method_check(&self) -> TokenStream2 {
         match self {
-            HttpMethod::Get => quote! { mik_sdk::Method::Get },
-            HttpMethod::Post => quote! { mik_sdk::Method::Post },
-            HttpMethod::Put => quote! { mik_sdk::Method::Put },
-            HttpMethod::Patch => quote! { mik_sdk::Method::Patch },
-            HttpMethod::Delete => quote! { mik_sdk::Method::Delete },
-            HttpMethod::Head => quote! { mik_sdk::Method::Head },
-            HttpMethod::Options => quote! { mik_sdk::Method::Options },
+            Self::Get => quote! { mik_sdk::Method::Get },
+            Self::Post => quote! { mik_sdk::Method::Post },
+            Self::Put => quote! { mik_sdk::Method::Put },
+            Self::Patch => quote! { mik_sdk::Method::Patch },
+            Self::Delete => quote! { mik_sdk::Method::Delete },
+            Self::Head => quote! { mik_sdk::Method::Head },
+            Self::Options => quote! { mik_sdk::Method::Options },
         }
     }
 }
 
 /// Input source for typed parameters
 #[derive(Clone)]
-pub(crate) enum InputSource {
+pub enum InputSource {
     Path,  // from URL path params
     Body,  // from JSON body
     Query, // from query string
@@ -58,13 +58,13 @@ pub(crate) enum InputSource {
 
 /// A typed input parameter for a handler
 #[derive(Clone)]
-pub(crate) struct TypedInput {
+pub struct TypedInput {
     pub(crate) source: InputSource,
     pub(crate) type_name: Ident,
 }
 
 /// A route definition
-pub(crate) struct RouteDef {
+pub struct RouteDef {
     pub(crate) method: HttpMethod,
     pub(crate) patterns: Vec<String>,
     pub(crate) handler: Ident,
@@ -73,7 +73,7 @@ pub(crate) struct RouteDef {
 }
 
 /// All routes in the macro
-pub(crate) struct RoutesDef {
+pub struct RoutesDef {
     pub(crate) routes: Vec<RouteDef>,
 }
 
@@ -94,10 +94,11 @@ impl Parse for RoutesDef {
             }
         }
 
-        Ok(RoutesDef { routes })
+        Ok(Self { routes })
     }
 }
 
+#[allow(clippy::too_many_lines)] // Complex route parsing with many input variants
 fn parse_route(input: ParseStream<'_>) -> Result<RouteDef> {
     // Parse method: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
     let method_ident: Ident = input.parse().map_err(|e| {
@@ -132,12 +133,11 @@ fn parse_route(input: ParseStream<'_>) -> Result<RouteDef> {
             return Err(syn::Error::new_spanned(
                 &method_ident,
                 format!(
-                    "Invalid HTTP method '{}'.\n\
+                    "Invalid HTTP method '{method_ident}'.\n\
                      \n\
                      Valid methods: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS\n\
                      \n\
-                     Example: GET \"/users\" => list_users",
-                    method_ident
+                     Example: GET \"/users\" => list_users"
                 ),
             ));
         },
@@ -149,16 +149,15 @@ fn parse_route(input: ParseStream<'_>) -> Result<RouteDef> {
         syn::Error::new(
             e.span(),
             format!(
-                "Expected route path (string literal) after HTTP method '{}'.\n\
+                "Expected route path (string literal) after HTTP method '{method_str}'.\n\
                  \n\
-                 Correct syntax: {} \"/path\" => handler\n\
+                 Correct syntax: {method_str} \"/path\" => handler\n\
                  \n\
                  Common mistakes:\n\
-                 - Path must be a string literal: {} \"/users\" ✓ not {} /users ✗\n\
-                 - Path should start with /: {} \"/users\" ✓ not {} \"users\" ✗\n\
+                 - Path must be a string literal: {method_str} \"/users\" ✓ not {method_str} /users ✗\n\
+                 - Path should start with /: {method_str} \"/users\" ✓ not {method_str} \"users\" ✗\n\
                  \n\
-                 Original error: {e}",
-                method_str, method_str, method_str, method_str, method_str, method_str
+                 Original error: {e}"
             ),
         )
     })?;
@@ -172,10 +171,9 @@ fn parse_route(input: ParseStream<'_>) -> Result<RouteDef> {
                 format!(
                     "Expected alternative route path after '|'.\n\
                      \n\
-                     Correct syntax: {} \"/path\" | \"/alt-path\" => handler\n\
+                     Correct syntax: {method_str} \"/path\" | \"/alt-path\" => handler\n\
                      \n\
-                     Original error: {e}",
-                    method_str
+                     Original error: {e}"
                 ),
             )
         })?;
@@ -197,11 +195,17 @@ fn parse_route(input: ParseStream<'_>) -> Result<RouteDef> {
                  \n\
                  Original error: {e}",
                 method_str,
-                patterns.first().unwrap_or(&String::from("/path")),
+                patterns
+                    .first()
+                    .map_or("/path", std::string::String::as_str),
                 method_str,
-                patterns.first().unwrap_or(&String::from("/path")),
+                patterns
+                    .first()
+                    .map_or("/path", std::string::String::as_str),
                 method_str,
-                patterns.first().unwrap_or(&String::from("/path")),
+                patterns
+                    .first()
+                    .map_or("/path", std::string::String::as_str),
             ),
         )
     })?;
@@ -226,9 +230,13 @@ fn parse_route(input: ParseStream<'_>) -> Result<RouteDef> {
                  \n\
                  Original error: {e}",
                 method_str,
-                patterns.first().unwrap_or(&String::from("/path")),
+                patterns
+                    .first()
+                    .map_or("/path", std::string::String::as_str),
                 method_str,
-                patterns.first().unwrap_or(&String::from("/path")),
+                patterns
+                    .first()
+                    .map_or("/path", std::string::String::as_str),
             ),
         )
     })?;
@@ -261,10 +269,14 @@ fn parse_route(input: ParseStream<'_>) -> Result<RouteDef> {
                      \n\
                      Original error: {e}",
                     method_str,
-                    patterns.first().unwrap_or(&String::from("/path")),
+                    patterns
+                        .first()
+                        .map_or("/path", std::string::String::as_str),
                     handler,
                     method_str,
-                    patterns.first().unwrap_or(&String::from("/path")),
+                    patterns
+                        .first()
+                        .map_or("/path", std::string::String::as_str),
                     handler,
                 ),
             )
@@ -290,7 +302,9 @@ fn parse_typed_inputs(
     handler: &Ident,
 ) -> Result<Vec<TypedInput>> {
     let mut inputs = Vec::new();
-    let path = patterns.first().map(|s| s.as_str()).unwrap_or("/path");
+    let path = patterns
+        .first()
+        .map_or("/path", std::string::String::as_str);
 
     while !input.is_empty() {
         // Parse source: path, body, or query
@@ -306,10 +320,9 @@ fn parse_typed_inputs(
                      - query: Type  - Query string parameters\n\
                      \n\
                      Example:\n\
-                     {} \"{}\" => {}(path: UserId, body: CreateUser, query: Pagination) -> User\n\
+                     {method_str} \"{path}\" => {handler}(path: UserId, body: CreateUser, query: Pagination) -> User\n\
                      \n\
-                     Original error: {e}",
-                    method_str, path, handler
+                     Original error: {e}"
                 ),
             )
         })?;
@@ -322,7 +335,7 @@ fn parse_typed_inputs(
                 return Err(syn::Error::new_spanned(
                     &source_ident,
                     format!(
-                        "Invalid input source '{}'.\n\
+                        "Invalid input source '{other}'.\n\
                          \n\
                          Valid sources:\n\
                          - path  - URL path parameters (e.g., /users/{{id}})\n\
@@ -330,8 +343,7 @@ fn parse_typed_inputs(
                          - query - Query string parameters\n\
                          \n\
                          Example:\n\
-                         {} \"{}\" => {}(path: Id, body: CreateUser) -> User",
-                        other, method_str, path, handler
+                         {method_str} \"{path}\" => {handler}(path: Id, body: CreateUser) -> User"
                     ),
                 ));
             },
@@ -342,15 +354,14 @@ fn parse_typed_inputs(
             syn::Error::new(
                 e.span(),
                 format!(
-                    "Expected ':' after input source '{}'.\n\
+                    "Expected ':' after input source '{source_ident}'.\n\
                      \n\
-                     Correct syntax: {}: TypeName\n\
+                     Correct syntax: {source_ident}: TypeName\n\
                      \n\
                      Example:\n\
-                     {} \"{}\" => {}({}: UserId)\n\
+                     {method_str} \"{path}\" => {handler}({source_ident}: UserId)\n\
                      \n\
-                     Original error: {e}",
-                    source_ident, source_ident, method_str, path, handler, source_ident
+                     Original error: {e}"
                 ),
             )
         })?;
@@ -360,7 +371,7 @@ fn parse_typed_inputs(
             syn::Error::new(
                 e.span(),
                 format!(
-                    "Expected type name after '{}: '.\n\
+                    "Expected type name after '{source_ident}: '.\n\
                      \n\
                      The type must be a struct that derives the appropriate trait:\n\
                      - path: Type   - Type must derive Path\n\
@@ -371,10 +382,9 @@ fn parse_typed_inputs(
                      #[derive(Path)]\n\
                      struct UserId {{ id: String }}\n\
                      \n\
-                     {} \"{}\" => {}({}: UserId)\n\
+                     {method_str} \"{path}\" => {handler}({source_ident}: UserId)\n\
                      \n\
-                     Original error: {e}",
-                    source_ident, method_str, path, handler, source_ident
+                     Original error: {e}"
                 ),
             )
         })?;

@@ -6,9 +6,9 @@
 //! - Request headers and timeouts
 //! - Trace ID propagation for distributed tracing
 //! - Error handling for HTTP failures
-//! - SSRF protection with deny_private_ips()
+//! - SSRF protection with `deny_private_ips()`
 
-#[allow(warnings)]
+#[allow(warnings, unsafe_code)]
 mod bindings;
 
 use bindings::exports::mik::core::handler::{self, Guest, Response};
@@ -183,7 +183,7 @@ fn github_user(path: UsernamePath, req: &Request) -> Response {
 /// Proxy external URL with SSRF protection.
 ///
 /// Demonstrates:
-/// - deny_private_ips() for SSRF protection
+/// - `deny_private_ips()` for SSRF protection
 /// - Passing through response status and body
 fn proxy(query: ProxyQuery, req: &Request) -> Response {
     log!(info, "proxying url", url: &query.url);
@@ -227,7 +227,7 @@ fn proxy(query: ProxyQuery, req: &Request) -> Response {
     let headers: Vec<String> = response_headers
         .iter()
         .take(5)
-        .map(|(k, v)| format!("{}: {}", k, v))
+        .map(|(k, v)| format!("{k}: {v}"))
         .collect();
 
     let body = response.body();

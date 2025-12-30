@@ -23,8 +23,8 @@ impl SqlDialect {
     /// Parse dialect from identifier, returns None if not a dialect keyword.
     pub fn from_ident(ident: &syn::Ident) -> Option<Self> {
         match ident.to_string().as_str() {
-            "postgres" | "pg" => Some(SqlDialect::Postgres),
-            "sqlite" => Some(SqlDialect::Sqlite),
+            "postgres" | "pg" => Some(Self::Postgres),
+            "sqlite" => Some(Self::Sqlite),
             _ => None,
         }
     }
@@ -32,32 +32,32 @@ impl SqlDialect {
     /// Generate the query builder constructor call.
     pub fn builder_tokens(self, table: &str) -> TokenStream2 {
         match self {
-            SqlDialect::Postgres => quote! { ::mik_sql::postgres(#table) },
-            SqlDialect::Sqlite => quote! { ::mik_sql::sqlite(#table) },
+            Self::Postgres => quote! { ::mik_sql::postgres(#table) },
+            Self::Sqlite => quote! { ::mik_sql::sqlite(#table) },
         }
     }
 
     /// Generate the insert builder constructor call.
     pub fn insert_tokens(self, table: &str) -> TokenStream2 {
         match self {
-            SqlDialect::Postgres => quote! { ::mik_sql::insert(#table) },
-            SqlDialect::Sqlite => quote! { ::mik_sql::insert_sqlite(#table) },
+            Self::Postgres => quote! { ::mik_sql::insert(#table) },
+            Self::Sqlite => quote! { ::mik_sql::insert_sqlite(#table) },
         }
     }
 
     /// Generate the update builder constructor call.
     pub fn update_tokens(self, table: &str) -> TokenStream2 {
         match self {
-            SqlDialect::Postgres => quote! { ::mik_sql::update(#table) },
-            SqlDialect::Sqlite => quote! { ::mik_sql::update_sqlite(#table) },
+            Self::Postgres => quote! { ::mik_sql::update(#table) },
+            Self::Sqlite => quote! { ::mik_sql::update_sqlite(#table) },
         }
     }
 
     /// Generate the delete builder constructor call.
     pub fn delete_tokens(self, table: &str) -> TokenStream2 {
         match self {
-            SqlDialect::Postgres => quote! { ::mik_sql::delete(#table) },
-            SqlDialect::Sqlite => quote! { ::mik_sql::delete_sqlite(#table) },
+            Self::Postgres => quote! { ::mik_sql::delete(#table) },
+            Self::Sqlite => quote! { ::mik_sql::delete_sqlite(#table) },
         }
     }
 }
@@ -180,7 +180,7 @@ impl syn::parse::Parse for SqlSort {
             false
         };
         let field: syn::Ident = input.parse()?;
-        Ok(SqlSort { field, desc })
+        Ok(Self { field, desc })
     }
 }
 

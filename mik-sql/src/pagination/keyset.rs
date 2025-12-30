@@ -145,7 +145,7 @@ impl KeysetCondition {
         }
     }
 
-    fn get_operator(&self, dir: SortDir) -> Operator {
+    const fn get_operator(&self, dir: SortDir) -> Operator {
         match (self.forward, dir) {
             (true, SortDir::Asc) => Operator::Gt,
             (true, SortDir::Desc) => Operator::Lt,
@@ -156,6 +156,7 @@ impl KeysetCondition {
 }
 
 #[cfg(test)]
+#[allow(clippy::match_wildcard_for_single_variants)]
 mod tests {
     use super::*;
 

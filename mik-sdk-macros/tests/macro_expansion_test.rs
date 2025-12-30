@@ -1,8 +1,9 @@
+#![allow(clippy::too_many_lines)]
 //! Verify that the routes! macro generates the correct code structure.
 //!
 //! This test ensures that the macro:
-//! 1. Generates __match_route() function
-//! 2. Matches against req.path() (not req.route())
+//! 1. Generates __`match_route()` function
+//! 2. Matches against `req.path()` (not `req.route()`)
 //! 3. Extracts path parameters correctly
 //!
 //! # Future: Compile-Error Tests with trybuild
@@ -12,31 +13,31 @@
 //!
 //! ## routes! macro errors (tests/ui/routes/)
 //!
-//! 1. **invalid_method.rs** - Using invalid HTTP method
+//! 1. **`invalid_method.rs`** - Using invalid HTTP method
 //!    ```ignore
 //!    routes! { INVALID "/path" => handler }
 //!    ```
 //!    Expected: "Expected HTTP method: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS"
 //!
-//! 2. **missing_arrow.rs** - Missing => between pattern and handler
+//! 2. **`missing_arrow.rs`** - Missing => between pattern and handler
 //!    ```ignore
 //!    routes! { GET "/path" handler }
 //!    ```
 //!    Expected: "Expected '=>' after route pattern"
 //!
-//! 3. **unquoted_pattern.rs** - Route pattern without quotes
+//! 3. **`unquoted_pattern.rs`** - Route pattern without quotes
 //!    ```ignore
 //!    routes! { GET /users => list_users }
 //!    ```
 //!    Expected: "Invalid route pattern. Expected: string literal"
 //!
-//! 4. **quoted_handler.rs** - Handler name in quotes
+//! 4. **`quoted_handler.rs`** - Handler name in quotes
 //!    ```ignore
 //!    routes! { GET "/users" => "list_users" }
 //!    ```
 //!    Expected: "Invalid handler name... don't quote handler name"
 //!
-//! 5. **duplicate_route.rs** - Same method + pattern twice
+//! 5. **`duplicate_route.rs`** - Same method + pattern twice
 //!    ```ignore
 //!    routes! {
 //!        GET "/users" => list_users,
@@ -45,70 +46,70 @@
 //!    ```
 //!    Expected: "Duplicate route: GET \"/users\" is already defined"
 //!
-//! 6. **invalid_input_source.rs** - Invalid input source (not path/body/query)
+//! 6. **`invalid_input_source.rs`** - Invalid input source (not path/body/query)
 //!    ```ignore
 //!    routes! { GET "/users" => handler(header: MyType) }
 //!    ```
 //!    Expected: "Expected input source: path, body, or query"
 //!
-//! ## Type derive errors (tests/ui/derive_type/)
+//! ## Type derive errors (`tests/ui/derive_type`/)
 //!
-//! 1. **on_enum.rs** - Using #[derive(Type)] on an enum
+//! 1. **`on_enum.rs`** - Using #[derive(Type)] on an enum
 //!    ```ignore
 //!    #[derive(Type)]
 //!    enum MyEnum { A, B }
 //!    ```
 //!    Expected: "Type derive only supports structs"
 //!
-//! 2. **tuple_struct.rs** - Using on tuple struct
+//! 2. **`tuple_struct.rs`** - Using on tuple struct
 //!    ```ignore
 //!    #[derive(Type)]
 //!    struct MyTuple(String, i32);
 //!    ```
 //!    Expected: "Type derive only supports structs with named fields"
 //!
-//! 3. **unit_struct.rs** - Using on unit struct
+//! 3. **`unit_struct.rs`** - Using on unit struct
 //!    ```ignore
 //!    #[derive(Type)]
 //!    struct MyUnit;
 //!    ```
 //!    Expected: "Type derive only supports structs with named fields"
 //!
-//! ## Query derive errors (tests/ui/derive_query/)
+//! ## Query derive errors (`tests/ui/derive_query`/)
 //!
-//! 1. **on_enum.rs** - Using #[derive(Query)] on an enum
+//! 1. **`on_enum.rs`** - Using #[derive(Query)] on an enum
 //!    ```ignore
 //!    #[derive(Query)]
 //!    enum MyQuery { A, B }
 //!    ```
 //!    Expected: "Query derive only supports structs"
 //!
-//! 2. **tuple_struct.rs** - Using on tuple struct
+//! 2. **`tuple_struct.rs`** - Using on tuple struct
 //!    ```ignore
 //!    #[derive(Query)]
 //!    struct MyQuery(String);
 //!    ```
 //!    Expected: "Query derive only supports structs with named fields"
 //!
-//! ## Path derive errors (tests/ui/derive_path/)
+//! ## Path derive errors (`tests/ui/derive_path`/)
 //!
-//! 1. **on_enum.rs** - Using #[derive(Path)] on an enum
+//! 1. **`on_enum.rs`** - Using #[derive(Path)] on an enum
 //!    ```ignore
 //!    #[derive(Path)]
 //!    enum MyPath { A, B }
 //!    ```
 //!    Expected: "Path derive only supports structs"
 //!
-//! 2. **tuple_struct.rs** - Using on tuple struct
+//! 2. **`tuple_struct.rs`** - Using on tuple struct
 //!    ```ignore
 //!    #[derive(Path)]
 //!    struct MyPath(String);
 //!    ```
 //!    Expected: "Path derive only supports structs with named fields"
 //!
-//! ## Field attribute errors (tests/ui/field_attrs/)
+//! ## Field attribute errors (`tests/ui/field_attrs`/)
 //!
-//! 1. **invalid_min_type.rs** - min attribute with non-integer value
+//! 1. **`invalid_min_type.rs`** - min attribute with non-integer value
 //!    ```ignore
 //!    #[derive(Type)]
 //!    struct MyType {
@@ -118,7 +119,7 @@
 //!    ```
 //!    Expected: Parse error for invalid literal
 //!
-//! 2. **invalid_format_type.rs** - format attribute with non-string
+//! 2. **`invalid_format_type.rs`** - format attribute with non-string
 //!    ```ignore
 //!    #[derive(Type)]
 //!    struct MyType {
@@ -130,13 +131,13 @@
 //!
 //! ## routes! macro errors (legacy, tests/ui/router/)
 //!
-//! 1. **empty_router.rs** - Empty router definition
+//! 1. **`empty_router.rs`** - Empty router definition
 //!    ```ignore
 //!    routes! {}
 //!    ```
 //!    Expected: "routes! macro requires at least one route"
 //!
-//! 2. **single_quotes.rs** - Using single quotes for pattern
+//! 2. **`single_quotes.rs`** - Using single quotes for pattern
 //!    ```ignore
 //!    routes! { '/' => home }
 //!    ```
@@ -150,7 +151,7 @@
 //! trybuild = "1.0"
 //! ```
 //!
-//! Then create tests/compile_fail_test.rs:
+//! Then create `tests/compile_fail_test.rs`:
 //! ```ignore
 //! #[test]
 //! fn compile_fail() {

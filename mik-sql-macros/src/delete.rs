@@ -1,4 +1,4 @@
-//! sql_delete! macro implementation for DELETE queries.
+//! `sql_delete!` macro implementation for DELETE queries.
 
 use proc_macro::TokenStream;
 use quote::quote;
@@ -62,7 +62,7 @@ impl Parse for DeleteInput {
             }
         }
 
-        Ok(DeleteInput {
+        Ok(Self {
             dialect,
             table,
             where_expr,
@@ -83,12 +83,13 @@ pub fn sql_delete_impl(input: TokenStream) -> TokenStream {
     let table_str = table.to_string();
     let builder_constructor = dialect.delete_tokens(&table_str);
 
-    let filter_chain = if let Some(expr) = where_expr {
-        let expr_tokens = sql_filter_expr_to_tokens(&expr);
-        quote! { .filter_expr(#expr_tokens) }
-    } else {
-        quote! {}
-    };
+    let filter_chain = where_expr.map_or_else(
+        || quote! {},
+        |expr| {
+            let expr_tokens = sql_filter_expr_to_tokens(&expr);
+            quote! { .filter_expr(#expr_tokens) }
+        },
+    );
 
     let returning_chain = if returning.is_empty() {
         quote! {}

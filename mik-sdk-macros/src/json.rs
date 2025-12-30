@@ -56,15 +56,15 @@ impl Parse for JsonValue {
                             )
                         )
                     })?;
-            Ok(JsonValue::Object(
+            Ok(Self::Object(
                 fields.into_iter().map(|kv| (kv.key, kv.value)).collect(),
             ))
         } else if lookahead.peek(token::Bracket) {
             // Array: [value, ...]
             let content;
             bracketed!(content in input);
-            let elements: Punctuated<JsonValue, Token![,]> = content
-                .parse_terminated(JsonValue::parse, Token![,])
+            let elements: Punctuated<Self, Token![,]> = content
+                .parse_terminated(Self::parse, Token![,])
                 .map_err(|e| {
                     syn::Error::new(
                         e.span(),
@@ -80,23 +80,23 @@ impl Parse for JsonValue {
                         ),
                     )
                 })?;
-            Ok(JsonValue::Array(elements.into_iter().collect()))
+            Ok(Self::Array(elements.into_iter().collect()))
         } else if lookahead.peek(LitStr) {
             // String literal
             let lit: LitStr = input.parse()?;
-            Ok(JsonValue::String(lit))
+            Ok(Self::String(lit))
         } else if lookahead.peek(LitInt) {
             // Integer literal
             let lit: LitInt = input.parse()?;
-            Ok(JsonValue::Int(lit))
+            Ok(Self::Int(lit))
         } else if lookahead.peek(LitFloat) {
             // Float literal
             let lit: LitFloat = input.parse()?;
-            Ok(JsonValue::Float(lit))
+            Ok(Self::Float(lit))
         } else if lookahead.peek(LitBool) {
             // Boolean literal
             let lit: LitBool = input.parse()?;
-            Ok(JsonValue::Bool(lit.value))
+            Ok(Self::Bool(lit.value))
         } else if input.peek(syn::Ident) && input.peek2(token::Paren) {
             // Check for type hints: str(expr), int(expr), float(expr), bool(expr)
             let fork = input.fork();
@@ -119,7 +119,7 @@ impl Parse for JsonValue {
                                 )
                             )
                         })?;
-                    Ok(JsonValue::StrHint(expr))
+                    Ok(Self::StrHint(expr))
                 },
                 "int" => {
                     input.parse::<syn::Ident>()?;
@@ -137,7 +137,7 @@ impl Parse for JsonValue {
                             ),
                         )
                     })?;
-                    Ok(JsonValue::IntHint(expr))
+                    Ok(Self::IntHint(expr))
                 },
                 "float" => {
                     input.parse::<syn::Ident>()?;
@@ -155,7 +155,7 @@ impl Parse for JsonValue {
                             ),
                         )
                     })?;
-                    Ok(JsonValue::FloatHint(expr))
+                    Ok(Self::FloatHint(expr))
                 },
                 "bool" => {
                     input.parse::<syn::Ident>()?;
@@ -173,12 +173,12 @@ impl Parse for JsonValue {
                             ),
                         )
                     })?;
-                    Ok(JsonValue::BoolHint(expr))
+                    Ok(Self::BoolHint(expr))
                 },
                 _ => {
                     // Other ident followed by paren - parse as expression (function call)
                     let expr: Expr = input.parse()?;
-                    Ok(JsonValue::Expr(expr))
+                    Ok(Self::Expr(expr))
                 },
             }
         } else if input.peek(syn::Ident) {
@@ -188,15 +188,15 @@ impl Parse for JsonValue {
             match ident.to_string().as_str() {
                 "null" => {
                     input.parse::<syn::Ident>()?; // consume it
-                    Ok(JsonValue::Null)
+                    Ok(Self::Null)
                 },
                 "true" => {
                     input.parse::<syn::Ident>()?;
-                    Ok(JsonValue::Bool(true))
+                    Ok(Self::Bool(true))
                 },
                 "false" => {
                     input.parse::<syn::Ident>()?;
-                    Ok(JsonValue::Bool(false))
+                    Ok(Self::Bool(false))
                 },
                 _ => {
                     // Parse as expression - syn handles comma boundaries
@@ -227,7 +227,7 @@ impl Parse for JsonValue {
                             ),
                         )
                     })?;
-                    Ok(JsonValue::Expr(expr))
+                    Ok(Self::Expr(expr))
                 },
             }
         } else {
@@ -252,7 +252,7 @@ impl Parse for JsonValue {
                     ),
                 )
             })?;
-            Ok(JsonValue::Expr(expr))
+            Ok(Self::Expr(expr))
         }
     }
 }
@@ -322,7 +322,7 @@ impl Parse for KeyValue {
             )
         })?;
 
-        Ok(KeyValue {
+        Ok(Self {
             key: key.value(),
             value,
         })

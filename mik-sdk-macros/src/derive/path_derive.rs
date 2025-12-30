@@ -42,8 +42,7 @@ pub fn derive_path_impl(input: TokenStream) -> TokenStream {
                 .path
                 .segments
                 .last()
-                .map(|s| s.ident == "String")
-                .unwrap_or(false)
+                .is_some_and(|s| s.ident == "String")
         } else {
             false
         };
@@ -66,15 +65,14 @@ pub fn derive_path_impl(input: TokenStream) -> TokenStream {
 
         // Generate schema for this field (path params are always strings in OpenAPI)
         let escaped_path_key = escape_json_string(&path_key);
-        schema_props.push(format!(r#""{}":{{"type":"string"}}"#, escaped_path_key));
-        required_fields.push(format!(r#""{}""#, escaped_path_key));
+        schema_props.push(format!(r#""{escaped_path_key}":{{"type":"string"}}"#));
+        required_fields.push(format!(r#""{escaped_path_key}""#));
     }
 
     let schema_props_str = schema_props.join(",");
     let required_str = required_fields.join(",");
     let schema_json = format!(
-        r#"{{"type":"object","properties":{{{}}},"required":[{}]}}"#,
-        schema_props_str, required_str
+        r#"{{"type":"object","properties":{{{schema_props_str}}},"required":[{required_str}]}}"#
     );
     let name_str = name.to_string();
 

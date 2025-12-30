@@ -96,10 +96,9 @@ impl Parse for GuardInput {
                 format!(
                     "Expected comma after status code.\n\
                      \n\
-                     Correct syntax: guard!(condition, {}, \"message\")\n\
+                     Correct syntax: guard!(condition, {status}, \"message\")\n\
                      \n\
-                     Original error: {e}",
-                    status
+                     Original error: {e}"
                 ),
             )
         })?;
@@ -121,7 +120,7 @@ impl Parse for GuardInput {
             )
         })?;
 
-        Ok(GuardInput {
+        Ok(Self {
             condition,
             status,
             message,
@@ -250,10 +249,9 @@ impl Parse for EnsureInput {
                 format!(
                     "Expected comma after status code.\n\
                      \n\
-                     Correct syntax: ensure!(expr, {}, message)\n\
+                     Correct syntax: ensure!(expr, {status}, message)\n\
                      \n\
-                     Original error: {e}",
-                    status
+                     Original error: {e}"
                 ),
             )
         })?;
@@ -277,7 +275,7 @@ impl Parse for EnsureInput {
             )
         })?;
 
-        Ok(EnsureInput {
+        Ok(Self {
             expr,
             status,
             message,

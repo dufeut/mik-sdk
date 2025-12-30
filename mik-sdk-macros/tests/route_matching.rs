@@ -45,7 +45,7 @@ fn test_match_route_logic() {
         for (pattern_seg, path_seg) in pattern_segments.iter().zip(path_segments.iter()) {
             if pattern_seg.starts_with('{') && pattern_seg.ends_with('}') {
                 let param_name = &pattern_seg[1..pattern_seg.len() - 1];
-                params.push((param_name.to_string(), path_seg.to_string()));
+                params.push((param_name.to_string(), (*path_seg).to_string()));
             } else if pattern_seg != path_seg {
                 return None;
             }

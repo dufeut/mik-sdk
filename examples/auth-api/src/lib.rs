@@ -10,7 +10,7 @@
 //! Note: This is a demo. In production, use proper JWT libraries
 //! and secure token validation.
 
-#[allow(warnings)]
+#[allow(warnings, unsafe_code)]
 mod bindings;
 
 use bindings::exports::mik::core::handler::{self, Guest, Response};
@@ -233,7 +233,7 @@ fn generate_demo_token(username: &str) -> String {
     // Simple demo token: username.timestamp.random
     let timestamp = time::now();
     let random_part = random::hex(8);
-    let payload = format!("{}.{}.{}", username, timestamp, random_part);
+    let payload = format!("{username}.{timestamp}.{random_part}");
 
     // Base64-like encoding (simplified for demo)
     // In production: use proper base64 + HMAC signature
@@ -279,7 +279,7 @@ fn hex_encode(bytes: &[u8]) -> String {
     bytes
         .iter()
         .fold(String::with_capacity(bytes.len() * 2), |mut acc, b| {
-            let _ = write!(acc, "{:02x}", b);
+            let _ = write!(acc, "{b:02x}");
             acc
         })
 }

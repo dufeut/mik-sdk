@@ -223,15 +223,15 @@ pub enum Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::DnsError(msg) => write!(f, "DNS error: {msg}"),
-            Error::ConnectionError(msg) => write!(f, "Connection error: {msg}"),
-            Error::Timeout => write!(f, "Request timeout"),
-            Error::TlsError(msg) => write!(f, "TLS error: {msg}"),
-            Error::InvalidUrl(msg) => write!(f, "Invalid URL: {msg}"),
-            Error::InvalidRequest(msg) => write!(f, "Invalid request: {msg}"),
-            Error::ResponseError(msg) => write!(f, "Response error: {msg}"),
-            Error::SsrfBlocked(msg) => write!(f, "SSRF blocked: {msg}"),
-            Error::Other(msg) => write!(f, "HTTP error: {msg}"),
+            Self::DnsError(msg) => write!(f, "DNS error: {msg}"),
+            Self::ConnectionError(msg) => write!(f, "Connection error: {msg}"),
+            Self::Timeout => write!(f, "Request timeout"),
+            Self::TlsError(msg) => write!(f, "TLS error: {msg}"),
+            Self::InvalidUrl(msg) => write!(f, "Invalid URL: {msg}"),
+            Self::InvalidRequest(msg) => write!(f, "Invalid request: {msg}"),
+            Self::ResponseError(msg) => write!(f, "Response error: {msg}"),
+            Self::SsrfBlocked(msg) => write!(f, "SSRF blocked: {msg}"),
+            Self::Other(msg) => write!(f, "HTTP error: {msg}"),
         }
     }
 }

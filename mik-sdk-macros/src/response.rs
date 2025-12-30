@@ -145,7 +145,7 @@ impl Parse for ProblemField {
             })?)
         };
 
-        Ok(ProblemField { name, value })
+        Ok(Self { name, value })
     }
 }
 
@@ -298,7 +298,7 @@ impl Parse for ProblemDetails {
             )
         })?;
 
-        Ok(ProblemDetails {
+        Ok(Self {
             status,
             title,
             detail,
@@ -351,11 +351,10 @@ pub fn error_impl(input: TokenStream) -> TokenStream {
         .detail
         .as_ref()
         .map(|d| quote! { .set("detail", json::str(#d)) });
-    let problem_type = problem
-        .problem_type
-        .as_ref()
-        .map(|t| quote! { .set("type", json::str(#t)) })
-        .unwrap_or(quote! { .set("type", json::str("about:blank")) });
+    let problem_type = problem.problem_type.as_ref().map_or_else(
+        || quote! { .set("type", json::str("about:blank")) },
+        |t| quote! { .set("type", json::str(#t)) },
+    );
     let instance = problem
         .instance
         .as_ref()
@@ -426,7 +425,7 @@ impl Parse for CreatedInput {
             None
         };
 
-        Ok(CreatedInput { location, body })
+        Ok(Self { location, body })
     }
 }
 
@@ -506,10 +505,10 @@ impl Parse for RedirectInput {
             let status: LitInt = input.parse()?;
             input.parse::<Token![,]>()?;
             let location: Expr = input.parse()?;
-            Ok(RedirectInput::WithStatus(status, location))
+            Ok(Self::WithStatus(status, location))
         } else {
             let location: Expr = input.parse()?;
-            Ok(RedirectInput::Simple(location))
+            Ok(Self::Simple(location))
         }
     }
 }

@@ -19,10 +19,7 @@ pub fn is_private_address(authority: &str) -> bool {
     // Extract host (remove port if present)
     let host = if authority.starts_with('[') {
         // IPv6: [::1]:port or [::1]
-        authority
-            .find(']')
-            .map(|i| &authority[1..i])
-            .unwrap_or(authority)
+        authority.find(']').map_or(authority, |i| &authority[1..i])
     } else if let Some(colon_idx) = authority.rfind(':') {
         // host:port - but only if the part after colon is all digits
         let potential_port = &authority[colon_idx + 1..];
@@ -161,7 +158,7 @@ fn validate_ipv6(addr: &str) -> Result<()> {
 
         // Each segment should be 1-4 hex digits
         if part.len() > 4 || !part.chars().all(|c| c.is_ascii_hexdigit()) {
-            return Err(Error::InvalidUrl(format!("Invalid IPv6 segment: {}", part)));
+            return Err(Error::InvalidUrl(format!("Invalid IPv6 segment: {part}")));
         }
         segments += 1;
     }
@@ -193,12 +190,11 @@ fn validate_port(port: &str) -> Result<()> {
     // Port must be numeric and within valid range (1-65535)
     let port_num: u32 = port
         .parse()
-        .map_err(|_| Error::InvalidUrl(format!("Invalid port number: {}", port)))?;
+        .map_err(|_| Error::InvalidUrl(format!("Invalid port number: {port}")))?;
 
     if port_num == 0 || port_num > 65535 {
         return Err(Error::InvalidUrl(format!(
-            "Port number out of range (1-65535): {}",
-            port_num
+            "Port number out of range (1-65535): {port_num}"
         )));
     }
 

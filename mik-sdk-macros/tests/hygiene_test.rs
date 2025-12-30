@@ -1,3 +1,8 @@
+#![allow(
+    clippy::unnecessary_wraps,
+    clippy::unused_self,
+    clippy::items_after_statements
+)]
 //! Hygiene tests - ensure user code with `__` prefixed variables doesn't conflict with macros.
 //!
 //! These tests verify that the `__mik_sdk_` prefix prevents naming collisions.
@@ -8,21 +13,21 @@ use mik_sdk_macros::{ensure, error, guard, json, ok};
 
 // Mock types for testing
 mod json {
-    pub fn obj() -> MockBuilder {
+    pub const fn obj() -> MockBuilder {
         MockBuilder
     }
-    pub fn str(_s: &str) {}
-    pub fn int(_i: i64) {}
-    pub fn parse(_s: &str) -> Option<MockJson> {
+    pub const fn str(_s: &str) {}
+    pub const fn int(_i: i64) {}
+    pub const fn parse(_s: &str) -> Option<MockJson> {
         Some(MockJson)
     }
 
     pub struct MockBuilder;
     impl MockBuilder {
-        pub fn set(self, _k: &str, _v: ()) -> Self {
+        pub const fn set(self, _k: &str, _v: ()) -> Self {
             self
         }
-        pub fn to_bytes(&self) -> Vec<u8> {
+        pub const fn to_bytes(&self) -> Vec<u8> {
             vec![]
         }
     }
@@ -51,7 +56,7 @@ impl MockRequest {
 
 // Helper for ensure! macro
 mod mik_sdk {
-    pub fn __ensure_helper<T>(opt: Option<T>) -> Option<T> {
+    pub const fn __ensure_helper<T>(opt: Option<T>) -> Option<T> {
         opt
     }
 }

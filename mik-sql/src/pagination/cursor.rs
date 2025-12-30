@@ -38,7 +38,7 @@ pub struct Cursor {
 impl Cursor {
     /// Create a new empty cursor.
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { fields: Vec::new() }
     }
 
@@ -98,7 +98,7 @@ impl Cursor {
 
     /// Parse cursor from JSON string.
     fn from_json(json: &str) -> Result<Self, CursorError> {
-        let mut cursor = Cursor::new();
+        let mut cursor = Self::new();
         let json = json.trim();
 
         if !json.starts_with('{') || !json.ends_with('}') {
@@ -167,7 +167,7 @@ impl Default for Cursor {
 }
 
 /// Errors that can occur when parsing a cursor.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CursorError {
     /// The base64 encoding is invalid.
     InvalidBase64,
@@ -322,7 +322,7 @@ mod tests {
         // Create JSON with more than MAX_CURSOR_FIELDS (16) fields
         let mut fields = Vec::new();
         for i in 0..20 {
-            fields.push(format!("\"f{}\":1", i));
+            fields.push(format!("\"f{i}\":1"));
         }
         let json = format!("{{{}}}", fields.join(","));
         let encoded = base64_encode(&json);
@@ -340,7 +340,7 @@ mod tests {
         // Create JSON with exactly MAX_CURSOR_FIELDS (16) fields - should succeed
         let mut fields = Vec::new();
         for i in 0..16 {
-            fields.push(format!("\"f{}\":1", i));
+            fields.push(format!("\"f{i}\":1"));
         }
         let json = format!("{{{}}}", fields.join(","));
         let encoded = base64_encode(&json);
@@ -358,7 +358,7 @@ mod tests {
         // Create JSON with MAX_CURSOR_FIELDS - 1 (15) fields - should succeed
         let mut fields = Vec::new();
         for i in 0..15 {
-            fields.push(format!("\"f{}\":1", i));
+            fields.push(format!("\"f{i}\":1"));
         }
         let json = format!("{{{}}}", fields.join(","));
         let encoded = base64_encode(&json);
@@ -373,7 +373,7 @@ mod tests {
         // Create JSON with MAX_CURSOR_FIELDS + 1 (17) fields - should fail
         let mut fields = Vec::new();
         for i in 0..17 {
-            fields.push(format!("\"f{}\":1", i));
+            fields.push(format!("\"f{i}\":1"));
         }
         let json = format!("{{{}}}", fields.join(","));
         let encoded = base64_encode(&json);

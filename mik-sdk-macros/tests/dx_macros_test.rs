@@ -1,3 +1,4 @@
+#![allow(clippy::too_many_lines)]
 //! Tests for DX (Developer Experience) macros.
 //!
 //! These tests verify that all DX macros compile correctly and
@@ -187,7 +188,7 @@ fn test_guard_macro_pattern() {
             return Err(400);
         }
 
-        Ok(format!("Hello, {}", name))
+        Ok(format!("Hello, {name}"))
     }
 
     assert!(handler_with_guard("Alice").is_ok());

@@ -126,8 +126,8 @@ proptest! {
             Method::Get,
             "/".to_string(),
             vec![
-                (name.to_lowercase(), v1.clone()),
-                (name.to_lowercase(), v2.clone()),
+                (name.to_lowercase(), v1),
+                (name.to_lowercase(), v2),
             ],
             None,
             HashMap::new(),
@@ -153,7 +153,7 @@ proptest! {
         let full_path = format!("/{path_segment}?{query_key}={query_val}");
         let req = Request::new(
             Method::Get,
-            full_path.clone(),
+            full_path,
             vec![],
             None,
             HashMap::new(),

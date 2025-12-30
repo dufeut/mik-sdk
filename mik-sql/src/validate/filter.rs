@@ -66,7 +66,7 @@ impl FilterValidator {
     /// let validator = FilterValidator::permissive();
     /// ```
     #[must_use]
-    pub fn permissive() -> Self {
+    pub const fn permissive() -> Self {
         Self {
             allowed_fields: Vec::new(),
             denied_operators: Vec::new(),
@@ -99,7 +99,7 @@ impl FilterValidator {
     /// Prevents complex nested queries that could impact performance.
     /// Default is 5.
     #[must_use]
-    pub fn max_depth(mut self, depth: usize) -> Self {
+    pub const fn max_depth(mut self, depth: usize) -> Self {
         self.max_depth = depth;
         self
     }
@@ -189,7 +189,7 @@ impl Default for FilterValidator {
 }
 
 /// Validation error types.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValidationError {
     /// Field is not in the allowed list.
     FieldNotAllowed { field: String, allowed: Vec<String> },
@@ -543,7 +543,7 @@ mod tests {
             field: "password".into(),
             allowed: vec!["name".into(), "email".into()],
         };
-        let msg = format!("{}", err);
+        let msg = format!("{err}");
         assert!(msg.contains("password"));
         assert!(msg.contains("name"));
 
@@ -551,14 +551,14 @@ mod tests {
             operator: Operator::Regex,
             field: "name".into(),
         };
-        let msg = format!("{}", err);
+        let msg = format!("{err}");
         assert!(msg.contains("Regex"));
         assert!(msg.contains("name"));
 
         let err = ValidationError::NestingTooDeep { max: 3, actual: 5 };
-        let msg = format!("{}", err);
-        assert!(msg.contains("3"));
-        assert!(msg.contains("5"));
+        let msg = format!("{err}");
+        assert!(msg.contains('3'));
+        assert!(msg.contains('5'));
     }
 
     #[test]

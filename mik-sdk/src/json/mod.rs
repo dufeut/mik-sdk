@@ -187,13 +187,14 @@ pub fn raw_int(v: &Value) -> Option<i64> {
 /// Extract float from raw Value (for use in map_array callbacks).
 #[inline]
 #[must_use]
-pub fn raw_float(v: &Value) -> Option<f64> {
+#[allow(clippy::cast_precision_loss)] // Documented: large i64/u64 may lose precision
+pub const fn raw_float(v: &Value) -> Option<f64> {
     match v {
         Value::Number(n) => match n {
             Number::F64(f) if f.is_finite() => Some(*f),
             Number::I64(i) => Some(*i as f64),
             Number::U64(u) => Some(*u as f64),
-            _ => None,
+            Number::F64(_) => None, // Non-finite f64
         },
         _ => None,
     }
@@ -202,7 +203,7 @@ pub fn raw_float(v: &Value) -> Option<f64> {
 /// Extract boolean from raw Value (for use in map_array callbacks).
 #[inline]
 #[must_use]
-pub fn raw_bool(v: &Value) -> Option<bool> {
+pub const fn raw_bool(v: &Value) -> Option<bool> {
     match v {
         Value::Bool(b) => Some(*b),
         _ => None,
@@ -212,6 +213,6 @@ pub fn raw_bool(v: &Value) -> Option<bool> {
 /// Check if raw Value is null (for use in map_array callbacks).
 #[inline]
 #[must_use]
-pub fn raw_is_null(v: &Value) -> bool {
+pub const fn raw_is_null(v: &Value) -> bool {
     matches!(v, Value::Null)
 }

@@ -26,3 +26,6 @@ insta = { workspace = true }
 [[bench]]
 name = "sql_builder"
 harness = false
+
+[lints]
+workspace = true

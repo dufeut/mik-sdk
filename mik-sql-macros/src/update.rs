@@ -1,4 +1,4 @@
-//! sql_update! macro implementation for UPDATE queries.
+//! `sql_update!` macro implementation for UPDATE queries.
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
@@ -70,7 +70,7 @@ impl Parse for UpdateInput {
             }
         }
 
-        Ok(UpdateInput {
+        Ok(Self {
             dialect,
             table,
             sets,
@@ -102,12 +102,13 @@ pub fn sql_update_impl(input: TokenStream) -> TokenStream {
         })
         .collect();
 
-    let filter_chain = if let Some(expr) = where_expr {
-        let expr_tokens = sql_filter_expr_to_tokens(&expr);
-        quote! { .filter_expr(#expr_tokens) }
-    } else {
-        quote! {}
-    };
+    let filter_chain = where_expr.map_or_else(
+        || quote! {},
+        |expr| {
+            let expr_tokens = sql_filter_expr_to_tokens(&expr);
+            quote! { .filter_expr(#expr_tokens) }
+        },
+    );
 
     let returning_chain = if returning.is_empty() {
         quote! {}

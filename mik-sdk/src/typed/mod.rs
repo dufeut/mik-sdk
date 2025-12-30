@@ -108,7 +108,7 @@ impl FromPath for Id {
     fn from_params(params: &HashMap<String, String>) -> Result<Self, ParseError> {
         params
             .get("id")
-            .map(|s| Id(s.clone()))
+            .map(|s| Self(s.clone()))
             .ok_or_else(|| ParseError::missing("id"))
     }
 }
@@ -291,7 +291,6 @@ impl FromJson for String {
     fn from_json(value: &JsonValue) -> Result<Self, ParseError> {
         value
             .str()
-            .map(|s| s.to_string())
             .ok_or_else(|| ParseError::type_mismatch("value", "string"))
     }
 }
@@ -300,7 +299,7 @@ impl FromJson for i32 {
     fn from_json(value: &JsonValue) -> Result<Self, ParseError> {
         value
             .int()
-            .map(|n| n as i32)
+            .map(|n| n as Self)
             .ok_or_else(|| ParseError::type_mismatch("value", "integer"))
     }
 }
@@ -350,6 +349,7 @@ impl<T: FromJson> FromJson for Vec<T> {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
     use crate::json;
@@ -520,14 +520,14 @@ mod tests {
     #[test]
     fn test_parse_error_display() {
         let err = ParseError::missing("name");
-        let display = format!("{}", err);
+        let display = format!("{err}");
         assert!(display.contains("Missing required field: name"));
     }
 
     #[test]
     fn test_parse_error_debug() {
         let err = ParseError::missing("name");
-        let debug = format!("{:?}", err);
+        let debug = format!("{err:?}");
         // Enum variant name appears in debug output
         assert!(debug.contains("MissingField"));
         assert!(debug.contains("name"));
@@ -654,14 +654,14 @@ mod tests {
     #[test]
     fn test_validation_error_display() {
         let err = ValidationError::min("name", 1);
-        let display = format!("{}", err);
+        let display = format!("{err}");
         assert!(display.contains("'name' must be at least 1"));
     }
 
     #[test]
     fn test_validation_error_debug() {
         let err = ValidationError::max("age", 120);
-        let debug = format!("{:?}", err);
+        let debug = format!("{err:?}");
         // Enum variant name appears in debug output
         assert!(debug.contains("Max"));
         assert!(debug.contains("age"));
@@ -1070,7 +1070,7 @@ mod tests {
     fn test_validation_error_messages_are_user_friendly() {
         let min = ValidationError::min("name", 3);
         assert!(min.message().contains("at least"));
-        assert!(min.message().contains("3"));
+        assert!(min.message().contains('3'));
 
         let max = ValidationError::max("items", 10);
         assert!(max.message().contains("at most"));

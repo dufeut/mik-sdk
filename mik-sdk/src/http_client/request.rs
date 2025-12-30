@@ -110,14 +110,14 @@ impl ClientRequest {
     ///
     /// Values over ~18 trillion ms are clamped to `u64::MAX` nanoseconds.
     #[must_use]
-    pub fn timeout_ms(mut self, ms: u64) -> Self {
+    pub const fn timeout_ms(mut self, ms: u64) -> Self {
         self.timeout_ns = Some(ms.saturating_mul(1_000_000));
         self
     }
 
     /// Set request timeout in nanoseconds.
     #[must_use]
-    pub fn timeout_ns(mut self, ns: u64) -> Self {
+    pub const fn timeout_ns(mut self, ns: u64) -> Self {
         self.timeout_ns = Some(ns);
         self
     }
@@ -141,20 +141,20 @@ impl ClientRequest {
     ///     .send_with(&outgoing_handler::handle)?;
     /// ```
     #[must_use]
-    pub fn deny_private_ips(mut self) -> Self {
+    pub const fn deny_private_ips(mut self) -> Self {
         self.deny_private_ips = true;
         self
     }
 
     /// Check if private IP denial is enabled.
     #[must_use]
-    pub fn denies_private_ips(&self) -> bool {
+    pub const fn denies_private_ips(&self) -> bool {
         self.deny_private_ips
     }
 
     /// Get the HTTP method.
     #[must_use]
-    pub fn method(&self) -> Method {
+    pub const fn method(&self) -> Method {
         self.method
     }
 
@@ -178,13 +178,13 @@ impl ClientRequest {
 
     /// Get the timeout in nanoseconds.
     #[must_use]
-    pub fn timeout(&self) -> Option<u64> {
+    pub const fn timeout(&self) -> Option<u64> {
         self.timeout_ns
     }
 
     /// Check if private IPs are denied.
     #[must_use]
-    pub fn is_private_ips_denied(&self) -> bool {
+    pub const fn is_private_ips_denied(&self) -> bool {
         self.deny_private_ips
     }
 
@@ -257,10 +257,9 @@ impl ClientRequest {
         };
 
         // Split authority and path
-        let (authority, path) = match rest.find('/') {
-            Some(idx) => (&rest[..idx], &rest[idx..]),
-            None => (rest, "/"),
-        };
+        let (authority, path) = rest
+            .find('/')
+            .map_or((rest, "/"), |idx| (&rest[..idx], &rest[idx..]));
 
         if authority.is_empty() {
             return Err(Error::InvalidUrl("Missing host in URL".to_string()));
@@ -272,8 +271,7 @@ impl ClientRequest {
         // Check for private IPs if SSRF protection is enabled
         if self.deny_private_ips && is_private_address(authority) {
             return Err(Error::InvalidUrl(format!(
-                "Request to private/internal address denied: {}",
-                authority
+                "Request to private/internal address denied: {authority}"
             )));
         }
 

@@ -238,8 +238,7 @@ mod tests {
             let variant = id.chars().nth(19).unwrap();
             assert!(
                 matches!(variant, '8' | '9' | 'a' | 'b'),
-                "Variant char '{}' not in valid set [8,9,a,b]",
-                variant
+                "Variant char '{variant}' not in valid set [8,9,a,b]"
             );
         }
     }
@@ -256,8 +255,7 @@ mod tests {
             let version_char = id.chars().nth(14).unwrap();
             assert_eq!(
                 version_char, '4',
-                "Version nibble must be 4, got {}",
-                version_char
+                "Version nibble must be 4, got {version_char}"
             );
 
             // The high nibble of byte 6 must be exactly 0x4 (binary 0100)
@@ -281,8 +279,7 @@ mod tests {
             // The high 2 bits must be 10 (binary), meaning value is 8-11 (0x8-0xB)
             assert!(
                 (8..=11).contains(&variant_nibble),
-                "Variant nibble must be 8-11 (0x8-0xB), got {}",
-                variant_nibble
+                "Variant nibble must be 8-11 (0x8-0xB), got {variant_nibble}"
             );
 
             // If | was mutated to ^, the high bit pattern would be wrong

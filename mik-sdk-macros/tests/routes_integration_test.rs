@@ -1,3 +1,8 @@
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss
+)]
 //! Integration tests for the routes! macro with typed inputs.
 //!
 //! These tests verify:
@@ -85,21 +90,21 @@ mod mik_sdk {
             pub fn missing(field: &str) -> Self {
                 Self {
                     field: field.to_string(),
-                    message: format!("Missing required field: {}", field),
+                    message: format!("Missing required field: {field}"),
                 }
             }
 
             pub fn invalid_format(field: &str, value: &str) -> Self {
                 Self {
                     field: field.to_string(),
-                    message: format!("Invalid format for '{}': {}", field, value),
+                    message: format!("Invalid format for '{field}': {value}"),
                 }
             }
 
             pub fn type_mismatch(field: &str, expected: &str) -> Self {
                 Self {
                     field: field.to_string(),
-                    message: format!("Expected {} for field '{}'", expected, field),
+                    message: format!("Expected {expected} for field '{field}'"),
                 }
             }
         }
@@ -116,7 +121,7 @@ mod mik_sdk {
                 Self {
                     field: field.to_string(),
                     constraint: "min".to_string(),
-                    message: format!("'{}' must be at least {}", field, min),
+                    message: format!("'{field}' must be at least {min}"),
                 }
             }
 
@@ -124,7 +129,7 @@ mod mik_sdk {
                 Self {
                     field: field.to_string(),
                     constraint: "max".to_string(),
-                    message: format!("'{}' must be at most {}", field, max),
+                    message: format!("'{field}' must be at most {max}"),
                 }
             }
         }
@@ -166,7 +171,7 @@ mod mik_sdk {
             fn from_json(value: &crate::mik_sdk::json::JsonValue) -> Result<Self, ParseError> {
                 value
                     .int()
-                    .map(|n| n as i32)
+                    .map(|n| n as Self)
                     .ok_or_else(|| ParseError::type_mismatch("value", "integer"))
             }
         }
@@ -183,7 +188,7 @@ mod mik_sdk {
             fn from_json(value: &crate::mik_sdk::json::JsonValue) -> Result<Self, ParseError> {
                 value
                     .int()
-                    .map(|n| n as u32)
+                    .map(|n| n as Self)
                     .ok_or_else(|| ParseError::type_mismatch("value", "integer"))
             }
         }
@@ -201,7 +206,7 @@ mod mik_sdk {
                 let len = value
                     .len()
                     .ok_or_else(|| ParseError::type_mismatch("value", "array"))?;
-                let mut result = Vec::with_capacity(len);
+                let mut result = Self::with_capacity(len);
                 for i in 0..len {
                     let item = value.at(i);
                     result.push(T::from_json(&item)?);
@@ -241,19 +246,19 @@ mod mik_sdk {
         }
 
         impl JsonValue {
-            pub fn null() -> Self {
+            pub const fn null() -> Self {
                 Self {
                     data: JsonData::Null,
                 }
             }
 
-            pub fn from_bool(b: bool) -> Self {
+            pub const fn from_bool(b: bool) -> Self {
                 Self {
                     data: JsonData::Bool(b),
                 }
             }
 
-            pub fn from_int(n: i64) -> Self {
+            pub const fn from_int(n: i64) -> Self {
                 Self {
                     data: JsonData::Int(n),
                 }
@@ -265,26 +270,26 @@ mod mik_sdk {
                 }
             }
 
-            pub fn from_array(arr: Vec<JsonValue>) -> Self {
+            pub const fn from_array(arr: Vec<Self>) -> Self {
                 Self {
                     data: JsonData::Array(arr),
                 }
             }
 
-            pub fn from_object(obj: HashMap<String, JsonValue>) -> Self {
+            pub const fn from_object(obj: HashMap<String, Self>) -> Self {
                 Self {
                     data: JsonData::Object(obj),
                 }
             }
 
-            pub fn get(&self, key: &str) -> JsonValue {
+            pub fn get(&self, key: &str) -> Self {
                 match &self.data {
                     JsonData::Object(obj) => obj.get(key).cloned().unwrap_or_else(Self::null),
                     _ => Self::null(),
                 }
             }
 
-            pub fn at(&self, index: usize) -> JsonValue {
+            pub fn at(&self, index: usize) -> Self {
                 match &self.data {
                     JsonData::Array(arr) => arr.get(index).cloned().unwrap_or_else(Self::null),
                     _ => Self::null(),
@@ -298,14 +303,14 @@ mod mik_sdk {
                 }
             }
 
-            pub fn int(&self) -> Option<i64> {
+            pub const fn int(&self) -> Option<i64> {
                 match &self.data {
                     JsonData::Int(n) => Some(*n),
                     _ => None,
                 }
             }
 
-            pub fn float(&self) -> Option<f64> {
+            pub const fn float(&self) -> Option<f64> {
                 match &self.data {
                     JsonData::Float(n) => Some(*n),
                     JsonData::Int(n) => Some(*n as f64),
@@ -313,18 +318,18 @@ mod mik_sdk {
                 }
             }
 
-            pub fn bool(&self) -> Option<bool> {
+            pub const fn bool(&self) -> Option<bool> {
                 match &self.data {
                     JsonData::Bool(b) => Some(*b),
                     _ => None,
                 }
             }
 
-            pub fn is_null(&self) -> bool {
+            pub const fn is_null(&self) -> bool {
                 matches!(&self.data, JsonData::Null)
             }
 
-            pub fn len(&self) -> Option<usize> {
+            pub const fn len(&self) -> Option<usize> {
                 match &self.data {
                     JsonData::Array(arr) => Some(arr.len()),
                     _ => None,
@@ -913,9 +918,9 @@ fn test_empty_string_values_are_valid() {
     }
 
     // Empty string is valid and different from missing
-    let params = vec![("filter".to_string(), "".to_string())];
+    let params = vec![("filter".to_string(), String::new())];
     let query = <EmptyQuery as mik_sdk::typed::FromQuery>::from_query(&params).unwrap();
-    assert_eq!(query.filter, Some("".to_string()));
+    assert_eq!(query.filter, Some(String::new()));
 }
 
 // =============================================================================
@@ -998,7 +1003,7 @@ fn test_schema_endpoint_pattern() {
     assert!(!route_matches("/__schema?version=1"));
 }
 
-/// Test that OpenAPI schema structure is valid JSON-like.
+/// Test that `OpenAPI` schema structure is valid JSON-like.
 #[test]
 fn test_openapi_schema_structure() {
     // The generated schema should include these key parts:

@@ -117,6 +117,6 @@ impl Parse for IdsInput {
             syn::Ident::new("id", proc_macro2::Span::call_site())
         };
 
-        Ok(IdsInput { list, field })
+        Ok(Self { list, field })
     }
 }

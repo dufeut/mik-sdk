@@ -407,11 +407,7 @@ mod tests {
         // The reconstructed timestamp should be within 1 second of the actual time
         assert!(
             reconstructed_secs >= before && reconstructed_secs <= after + 1,
-            "ISO '{}' -> {} should be between {} and {}",
-            iso,
-            reconstructed_secs,
-            before,
-            after
+            "ISO '{iso}' -> {reconstructed_secs} should be between {before} and {after}"
         );
     }
 
@@ -421,6 +417,6 @@ mod tests {
         let t1 = now_millis();
         std::thread::sleep(std::time::Duration::from_millis(10));
         let t2 = now_millis();
-        assert!(t2 > t1, "Time should advance: {} should be > {}", t2, t1);
+        assert!(t2 > t1, "Time should advance: {t2} should be > {t1}");
     }
 }

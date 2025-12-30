@@ -14,6 +14,7 @@ use super::{
 // DERIVE TYPE
 // ============================================================================
 
+#[allow(clippy::too_many_lines)] // Complex derive with many type handling branches
 pub fn derive_type_impl(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
@@ -51,7 +52,7 @@ pub fn derive_type_impl(input: TokenStream) -> TokenStream {
 
             if let Some(getter) = inner_getter {
                 // Simple type inside Option - use getter method
-                let type_name = inner_ty.map(rust_type_to_name).unwrap_or("value");
+                let type_name = inner_ty.map_or("value", rust_type_to_name);
                 from_json_fields.push(quote! {
                     #field_name: {
                         let v = __value.get(#json_key);
@@ -79,7 +80,7 @@ pub fn derive_type_impl(input: TokenStream) -> TokenStream {
                 let field_name_str = field_name.to_string();
                 return syn::Error::new_spanned(
                     field_ty,
-                    format!("Cannot extract inner type from Option for field '{}'. Use a concrete type like Option<String> instead of Option<impl Trait>.", field_name_str)
+                    format!("Cannot extract inner type from Option for field '{field_name_str}'. Use a concrete type like Option<String> instead of Option<impl Trait>.")
                 )
                 .to_compile_error()
                 .into();
@@ -108,20 +109,20 @@ pub fn derive_type_impl(input: TokenStream) -> TokenStream {
         let mut extra_props = Vec::new();
         if let Some(min) = attrs.min {
             if base_schema.contains("string") {
-                extra_props.push(format!(r#""minLength":{}"#, min));
+                extra_props.push(format!(r#""minLength":{min}"#));
             } else if base_schema.contains("integer") || base_schema.contains("number") {
-                extra_props.push(format!(r#""minimum":{}"#, min));
+                extra_props.push(format!(r#""minimum":{min}"#));
             } else if base_schema.contains("array") {
-                extra_props.push(format!(r#""minItems":{}"#, min));
+                extra_props.push(format!(r#""minItems":{min}"#));
             }
         }
         if let Some(max) = attrs.max {
             if base_schema.contains("string") {
-                extra_props.push(format!(r#""maxLength":{}"#, max));
+                extra_props.push(format!(r#""maxLength":{max}"#));
             } else if base_schema.contains("integer") || base_schema.contains("number") {
-                extra_props.push(format!(r#""maximum":{}"#, max));
+                extra_props.push(format!(r#""maximum":{max}"#));
             } else if base_schema.contains("array") {
-                extra_props.push(format!(r#""maxItems":{}"#, max));
+                extra_props.push(format!(r#""maxItems":{max}"#));
             }
         }
         if let Some(ref fmt) = attrs.format {

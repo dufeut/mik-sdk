@@ -365,7 +365,7 @@ mod tests {
 
     #[test]
     fn test_response_header_empty_value() {
-        let response = Response::new(200, vec![("X-Empty".to_string(), "".to_string())], vec![]);
+        let response = Response::new(200, vec![("X-Empty".to_string(), String::new())], vec![]);
         assert_eq!(response.header("x-empty"), Some(""));
     }
 

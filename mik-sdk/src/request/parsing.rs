@@ -15,7 +15,7 @@ pub enum DecodeError {
 impl std::fmt::Display for DecodeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DecodeError::TooLong => write!(f, "URL decoded output exceeds maximum length"),
+            Self::TooLong => write!(f, "URL decoded output exceeds maximum length"),
         }
     }
 }
@@ -24,7 +24,7 @@ impl std::error::Error for DecodeError {}
 
 /// Case-insensitive ASCII substring check (no allocation).
 #[inline]
-pub(crate) fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
+pub(super) fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
     // Edge case: empty needle is always contained, and windows(0) panics
     if needle.is_empty() {
         return true;
@@ -58,7 +58,7 @@ pub(crate) fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
 /// ```
 pub fn url_decode(s: &str) -> Result<String, DecodeError> {
     let mut bytes = Vec::with_capacity(s.len());
-    let mut chars = s.bytes().peekable();
+    let mut chars = s.bytes();
 
     while let Some(b) = chars.next() {
         // Defense-in-depth: limit decoded output size

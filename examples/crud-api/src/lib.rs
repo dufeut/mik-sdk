@@ -20,7 +20,7 @@
 //! Note: WASM handlers are stateless. In production, you'd use
 //! external storage via host capabilities or outbound HTTP.
 
-#[allow(warnings)]
+#[allow(warnings, unsafe_code)]
 mod bindings;
 
 use bindings::exports::mik::core::handler::{self, Guest, Response};
@@ -217,7 +217,7 @@ fn get_user(path: UserPath, _req: &Request) -> Response {
             "_debug": { "sql": sql }
         }),
         _ => {
-            let detail = format!("User '{}' not found", id);
+            let detail = format!("User '{id}' not found");
             error! {
                 status: status::NOT_FOUND,
                 title: "Not Found",
@@ -242,7 +242,7 @@ fn create_user(body: CreateUserInput, _req: &Request) -> Response {
 
     // In production: execute query, get returned id and created_at
     let new_id = "3"; // Mock generated ID
-    let location = format!("/users/{}", new_id);
+    let location = format!("/users/{new_id}");
     let created_at = get_iso_time();
 
     // Return 201 Created with the new resource
@@ -279,7 +279,7 @@ fn update_user(path: UserPath, body: UpdateUserInput, _req: &Request) -> Respons
 
     // Check if user exists (in production: database lookup)
     if id != "1" && id != "2" {
-        let detail = format!("User '{}' not found", id);
+        let detail = format!("User '{id}' not found");
         return error! {
             status: status::NOT_FOUND,
             title: "Not Found",
@@ -342,7 +342,7 @@ fn delete_user(path: UserPath, _req: &Request) -> Response {
 
     // Check if user exists (in production: database lookup)
     if id != "1" && id != "2" {
-        let detail = format!("User '{}' not found", id);
+        let detail = format!("User '{id}' not found");
         return error! {
             status: status::NOT_FOUND,
             title: "Not Found",

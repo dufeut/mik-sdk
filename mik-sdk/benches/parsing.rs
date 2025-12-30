@@ -24,7 +24,7 @@ fn bench_request_creation(c: &mut Criterion) {
                 None,
                 HashMap::new(),
             )
-        })
+        });
     });
 
     // With query string
@@ -37,7 +37,7 @@ fn bench_request_creation(c: &mut Criterion) {
                 None,
                 HashMap::new(),
             )
-        })
+        });
     });
 
     // With headers
@@ -57,7 +57,7 @@ fn bench_request_creation(c: &mut Criterion) {
                 None,
                 HashMap::new(),
             )
-        })
+        });
     });
 
     // With body
@@ -71,11 +71,11 @@ fn bench_request_creation(c: &mut Criterion) {
                 Some(body.clone()),
                 HashMap::new(),
             )
-        })
+        });
     });
 
     // Full request (headers + query + body)
-    let full_body = r#"{"name": "test"}"#.as_bytes().to_vec();
+    let full_body = br#"{"name": "test"}"#.to_vec();
     group.bench_function("full_request", |b| {
         b.iter(|| {
             Request::new(
@@ -88,7 +88,7 @@ fn bench_request_creation(c: &mut Criterion) {
                 Some(full_body.clone()),
                 HashMap::new(),
             )
-        })
+        });
     });
 
     group.finish();
@@ -134,20 +134,20 @@ fn bench_request_access(c: &mut Criterion) {
     group.bench_function("query_hit", |b| b.iter(|| req.query(black_box("include"))));
 
     group.bench_function("query_miss", |b| {
-        b.iter(|| req.query(black_box("nonexistent")))
+        b.iter(|| req.query(black_box("nonexistent")));
     });
 
     // Header access
     group.bench_function("header_hit_lowercase", |b| {
-        b.iter(|| req.header(black_box("content-type")))
+        b.iter(|| req.header(black_box("content-type")));
     });
 
     group.bench_function("header_hit_uppercase", |b| {
-        b.iter(|| req.header(black_box("CONTENT-TYPE")))
+        b.iter(|| req.header(black_box("CONTENT-TYPE")));
     });
 
     group.bench_function("header_miss", |b| {
-        b.iter(|| req.header(black_box("x-nonexistent")))
+        b.iter(|| req.header(black_box("x-nonexistent")));
     });
 
     // Path param access
@@ -190,7 +190,7 @@ fn bench_query_parsing(c: &mut Criterion) {
                     None,
                     HashMap::new(),
                 )
-            })
+            });
         });
     }
 
@@ -207,38 +207,38 @@ fn bench_json_parsing(c: &mut Criterion) {
     // Simple object
     let simple = br#"{"name":"Alice","age":30}"#;
     group.bench_function("simple_object", |b| {
-        b.iter(|| json::try_parse(black_box(simple)))
+        b.iter(|| json::try_parse(black_box(simple)));
     });
 
     // Nested object
     let nested = br#"{"user":{"name":"Alice","profile":{"bio":"Hello","avatar":"url"}}}"#;
     group.bench_function("nested_object", |b| {
-        b.iter(|| json::try_parse(black_box(nested)))
+        b.iter(|| json::try_parse(black_box(nested)));
     });
 
     // Array of primitives
-    let array_primitives = br#"[1,2,3,4,5,6,7,8,9,10]"#;
+    let array_primitives = br"[1,2,3,4,5,6,7,8,9,10]";
     group.bench_function("array_10_ints", |b| {
-        b.iter(|| json::try_parse(black_box(array_primitives)))
+        b.iter(|| json::try_parse(black_box(array_primitives)));
     });
 
     // Array of objects (common API response pattern)
     let array_objects = br#"[{"id":1,"name":"a"},{"id":2,"name":"b"},{"id":3,"name":"c"},{"id":4,"name":"d"},{"id":5,"name":"e"}]"#;
     group.bench_function("array_5_objects", |b| {
-        b.iter(|| json::try_parse(black_box(array_objects)))
+        b.iter(|| json::try_parse(black_box(array_objects)));
     });
 
     // Realistic API response
     let api_response = br#"{"data":{"users":[{"id":"123","name":"Alice","email":"alice@example.com","active":true},{"id":"456","name":"Bob","email":"bob@example.com","active":false}]},"meta":{"total":2,"page":1}}"#;
     group.bench_function("api_response", |b| {
-        b.iter(|| json::try_parse(black_box(api_response)))
+        b.iter(|| json::try_parse(black_box(api_response)));
     });
 
     // Large string value
     let large_string = format!(r#"{{"content":"{}"}}"#, "x".repeat(1000));
     let large_bytes = large_string.as_bytes();
     group.bench_function("large_string_1kb", |b| {
-        b.iter(|| json::try_parse(black_box(large_bytes)))
+        b.iter(|| json::try_parse(black_box(large_bytes)));
     });
 
     group.finish();
@@ -257,7 +257,7 @@ fn bench_json_building(c: &mut Criterion) {
             json::obj()
                 .set("name", json::str(black_box("Alice")))
                 .set("age", json::int(black_box(30)))
-        })
+        });
     });
 
     // Nested object
@@ -272,7 +272,7 @@ fn bench_json_building(c: &mut Criterion) {
                         .set("avatar", json::str("url")),
                 ),
             )
-        })
+        });
     });
 
     // Array building
@@ -289,7 +289,7 @@ fn bench_json_building(c: &mut Criterion) {
                 .push(json::int(8))
                 .push(json::int(9))
                 .push(json::int(10))
-        })
+        });
     });
 
     // API response pattern
@@ -321,7 +321,7 @@ fn bench_json_building(c: &mut Criterion) {
                         .set("total", json::int(2))
                         .set("page", json::int(1)),
                 )
-        })
+        });
     });
 
     group.finish();
@@ -343,37 +343,37 @@ fn bench_json_access(c: &mut Criterion) {
 
     // Chained field access (clones intermediate values)
     group.bench_function("get_nested", |b| {
-        b.iter(|| parsed.get("user").get("profile").get("bio"))
+        b.iter(|| parsed.get("user").get("profile").get("bio"));
     });
 
     // Path-based access (zero intermediate clones)
     group.bench_function("path_str_nested", |b| {
-        b.iter(|| parsed.path_str(black_box(&["user", "profile", "bio"])))
+        b.iter(|| parsed.path_str(black_box(&["user", "profile", "bio"])));
     });
 
     // Compare: chained get().str() vs path_str()
     group.bench_function("get_chain_to_str", |b| {
-        b.iter(|| parsed.get("user").get("name").str())
+        b.iter(|| parsed.get("user").get("name").str());
     });
 
     group.bench_function("path_str_2_levels", |b| {
-        b.iter(|| parsed.path_str(black_box(&["user", "name"])))
+        b.iter(|| parsed.path_str(black_box(&["user", "name"])));
     });
 
     // Array access
     group.bench_function("get_array_element", |b| {
-        b.iter(|| parsed.get("items").at(black_box(2)))
+        b.iter(|| parsed.get("items").at(black_box(2)));
     });
 
     // Value extraction
     let user = parsed.get("user");
     group.bench_function("str_or", |b| {
-        b.iter(|| user.get("name").str_or(black_box("default")))
+        b.iter(|| user.get("name").str_or(black_box("default")));
     });
 
     group.bench_function("int_or", |b| {
         let items = parsed.get("items");
-        b.iter(|| items.at(0).int_or(black_box(0)))
+        b.iter(|| items.at(0).int_or(black_box(0)));
     });
 
     // Array length
@@ -439,7 +439,7 @@ fn bench_form_parsing(c: &mut Criterion) {
                 Some(black_box(simple_form.to_vec())),
                 HashMap::new(),
             )
-        })
+        });
     });
 
     // Realistic form (login)
@@ -457,7 +457,7 @@ fn bench_form_parsing(c: &mut Criterion) {
                 Some(black_box(login_form.to_vec())),
                 HashMap::new(),
             )
-        })
+        });
     });
 
     // Form access after parsing
@@ -473,7 +473,7 @@ fn bench_form_parsing(c: &mut Criterion) {
     );
 
     group.bench_function("form_field_access", |b| {
-        b.iter(|| req.form(black_box("email")))
+        b.iter(|| req.form(black_box("email")));
     });
 
     group.bench_function("is_form_check", |b| b.iter(|| req.is_form()));
@@ -499,7 +499,7 @@ fn bench_url_decoding(c: &mut Criterion) {
                 None,
                 HashMap::new(),
             )
-        })
+        });
     });
 
     // Common URL encoding (spaces as %20)
@@ -513,7 +513,7 @@ fn bench_url_decoding(c: &mut Criterion) {
                 None,
                 HashMap::new(),
             )
-        })
+        });
     });
 
     // Heavy encoding
@@ -528,7 +528,7 @@ fn bench_url_decoding(c: &mut Criterion) {
                 None,
                 HashMap::new(),
             )
-        })
+        });
     });
 
     // Plus as space (form encoding style)
@@ -542,7 +542,7 @@ fn bench_url_decoding(c: &mut Criterion) {
                 None,
                 HashMap::new(),
             )
-        })
+        });
     });
 
     group.finish();

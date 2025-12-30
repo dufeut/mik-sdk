@@ -9,9 +9,9 @@ use super::type_schema::{InputSource, RouteDef, TypedInput};
 // CODE GENERATION - ROUTE MATCHING
 // =============================================================================
 
-pub(crate) fn extract_param_names(pattern: &str) -> Vec<String> {
+pub fn extract_param_names(pattern: &str) -> Vec<String> {
     let mut params = Vec::new();
-    let mut chars = pattern.chars().peekable();
+    let mut chars = pattern.chars();
 
     while let Some(c) = chars.next() {
         if c == '{' {
@@ -31,7 +31,7 @@ pub(crate) fn extract_param_names(pattern: &str) -> Vec<String> {
     params
 }
 
-pub(crate) fn generate_pattern_matcher(pattern: &str) -> TokenStream2 {
+pub fn generate_pattern_matcher(pattern: &str) -> TokenStream2 {
     let params = extract_param_names(pattern);
 
     if params.is_empty() {
@@ -100,9 +100,8 @@ pub(crate) fn generate_pattern_matcher(pattern: &str) -> TokenStream2 {
 // CODE GENERATION - HANDLER WRAPPERS
 // =============================================================================
 
-pub(crate) fn generate_input_parsing(
-    inputs: &[TypedInput],
-) -> (Vec<TokenStream2>, Vec<TokenStream2>) {
+#[allow(clippy::too_many_lines)] // Complex input parsing with many type cases
+pub fn generate_input_parsing(inputs: &[TypedInput]) -> (Vec<TokenStream2>, Vec<TokenStream2>) {
     let mut parsing = Vec::new();
     let mut args = Vec::new();
 
@@ -248,7 +247,7 @@ pub(crate) fn generate_input_parsing(
     (parsing, args)
 }
 
-pub(crate) fn generate_route_block(route: &RouteDef) -> TokenStream2 {
+pub fn generate_route_block(route: &RouteDef) -> TokenStream2 {
     let handler = &route.handler;
     let method_check = route.method.to_method_check();
 

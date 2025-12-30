@@ -1,3 +1,4 @@
+#![allow(clippy::unreadable_literal, clippy::cast_sign_loss)]
 //! Roundtrip property tests for mik-sdk.
 //!
 //! These tests verify that data survives encode -> decode -> encode cycles.
@@ -42,7 +43,7 @@ proptest! {
 
         // Float roundtrip may have precision loss, check within epsilon
         let diff = (result.unwrap() - f).abs();
-        let epsilon = f.abs() * 1e-10 + 1e-10;
+        let epsilon = f.abs().mul_add(1e-10, 1e-10);
         prop_assert!(diff < epsilon, "Float roundtrip precision: {} vs {} (diff: {})", f, result.unwrap(), diff);
     }
 
@@ -133,7 +134,7 @@ proptest! {
         key in "[a-z]{1,10}",
         value in "[a-zA-Z0-9 ]{1,50}"
     ) {
-        let json1 = format!(r#"{{"{}": "{}"}}"#, key, value);
+        let json1 = format!(r#"{{"{key}": "{value}"}}"#);
         let parsed1 = json::try_parse(json1.as_bytes()).unwrap();
         let serialized = parsed1.to_string();
         let parsed2 = json::try_parse(serialized.as_bytes()).unwrap();
@@ -204,8 +205,8 @@ proptest! {
         suffix in "[a-z]{0,5}"
     ) {
         // Incomplete percent sequences - should return Err, not panic
-        let r1 = url_decode(&format!("{}%{}", prefix, suffix));
-        let r2 = url_decode(&format!("{}%X{}", prefix, suffix));
+        let r1 = url_decode(&format!("{prefix}%{suffix}"));
+        let r2 = url_decode(&format!("{prefix}%X{suffix}"));
         // These may be Ok or Err depending on input, but should not panic
         let _ = r1;
         let _ = r2;
@@ -349,13 +350,13 @@ proptest! {
 
         // Cross-validate: convert back to timestamp using inverse algorithm
         let y = if month <= 2 { year - 1 } else { year } as u64;
-        let m = if month <= 2 { month + 12 } else { month } as u64;
+        let m = u64::from(if month <= 2 { month + 12 } else { month });
         let era = y / 400;
         let yoe = y - era * 400;
-        let doy = (153 * (m - 3) + 2) / 5 + day as u64 - 1;
+        let doy = (153 * (m - 3) + 2) / 5 + u64::from(day) - 1;
         let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
         let days = era * 146097 + doe - 719468;
-        let reconstructed = days * 86400 + hour as u64 * 3600 + minute as u64 * 60 + second as u64;
+        let reconstructed = days * 86400 + u64::from(hour) * 3600 + u64::from(minute) * 60 + u64::from(second);
 
         prop_assert_eq!(secs, reconstructed,
             "Timestamp {} -> ISO '{}' -> reconstructed {} mismatch",
@@ -388,7 +389,7 @@ proptest! {
         nanos in 0u32..1_000_000_000u32
     ) {
         let millis = time::to_millis(secs, nanos);
-        let expected = secs * 1000 + (nanos / 1_000_000) as u64;
+        let expected = secs * 1000 + u64::from(nanos / 1_000_000);
 
         prop_assert_eq!(millis, expected, "to_millis calculation mismatch");
     }

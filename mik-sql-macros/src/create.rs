@@ -1,4 +1,4 @@
-//! sql_create! macro implementation for INSERT queries.
+//! `sql_create!` macro implementation for INSERT queries.
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
@@ -52,7 +52,7 @@ impl Parse for InsertInput {
             }
         }
 
-        Ok(InsertInput {
+        Ok(Self {
             dialect,
             table,
             columns,

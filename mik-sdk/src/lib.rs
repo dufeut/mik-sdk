@@ -240,7 +240,7 @@ pub trait EnsureHelper<T> {
 
 impl<T> EnsureHelper<T> for Option<T> {
     #[inline]
-    fn into_option(self) -> Option<T> {
+    fn into_option(self) -> Self {
         self
     }
 }

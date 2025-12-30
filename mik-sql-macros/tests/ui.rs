@@ -12,6 +12,9 @@
 fn ui() {
     let t = trybuild::TestCases::new();
 
+    // Passing test cases - basic valid usage
+    t.pass("tests/ui/pass/*.rs");
+
     // SQL macro errors
     t.compile_fail("tests/ui/sql/*.rs");
 }

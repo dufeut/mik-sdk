@@ -5,7 +5,7 @@
 //! - Only need bridge + handler composition
 //! - Type-safe inputs with derive macros
 
-#[allow(warnings)]
+#[allow(warnings, unsafe_code)]
 mod bindings;
 
 use bindings::exports::mik::core::handler::{self, Guest, Response};

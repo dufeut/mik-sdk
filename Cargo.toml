@@ -41,4 +41,22 @@ codegen-units = 1
 strip = true
 panic = "abort"
 
+# Workspace-wide lint configuration
+[workspace.lints.rust]
+# Deny unsafe_code by default - examples allow it only for generated bindings
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+# Allow noisy lints that don't add value
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+# Allow pass-by-value in handler functions (common API pattern)
+needless_pass_by_value = "allow"
+# Allow match expressions over let...else when clearer
+manual_let_else = "allow"
+
 # cargo-component runs wasm-opt automatically in release builds

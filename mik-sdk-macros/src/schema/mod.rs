@@ -135,7 +135,9 @@ pub fn routes_impl(input: TokenStream) -> TokenStream {
             }
         }
 
-        bindings::export!(Handler with_types_in bindings);
+        // Allow unsafe_code for generated WIT bindings export macro
+        #[allow(unsafe_code)]
+        const _: () = { bindings::export!(Handler with_types_in bindings); };
     };
 
     TokenStream::from(tokens)

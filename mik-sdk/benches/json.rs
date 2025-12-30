@@ -1,3 +1,8 @@
+#![allow(
+    clippy::missing_const_for_fn,
+    clippy::unreadable_literal,
+    clippy::format_push_string
+)]
 //! Benchmarks for JSON parsing and building operations.
 //!
 //! Run with: cargo bench -p mik-sdk -- json
@@ -11,12 +16,12 @@ use std::hint::black_box;
 // =============================================================================
 
 /// Small JSON: Simple user object (~50 bytes)
-fn small_json() -> &'static [u8] {
+const fn small_json() -> &'static [u8] {
     br#"{"name":"Alice","age":30,"active":true}"#
 }
 
 /// Medium JSON: Nested object with array (~500 bytes)
-fn medium_json() -> &'static [u8] {
+const fn medium_json() -> &'static [u8] {
     br#"{"user":{"id":"550e8400-e29b-41d4-a716-446655440000","name":"Alice Johnson","email":"alice@example.com","profile":{"bio":"Software developer","avatar":"https://example.com/avatar.jpg","location":"San Francisco"}},"posts":[{"id":1,"title":"Hello World","published":true},{"id":2,"title":"Second Post","published":false}],"meta":{"created_at":"2025-01-15T10:30:00Z","version":1}}"#
 }
 
@@ -47,8 +52,7 @@ fn very_large_json() -> Vec<u8> {
             json.push(',');
         }
         json.push_str(&format!(
-            r#"{{"id":"{}","name":"User {} with a longer name for more realistic size","email":"user{}@example.com","metadata":{{"created":"2025-01-15","tags":["tag1","tag2","tag3"]}}}}"#,
-            i, i, i
+            r#"{{"id":"{i}","name":"User {i} with a longer name for more realistic size","email":"user{i}@example.com","metadata":{{"created":"2025-01-15","tags":["tag1","tag2","tag3"]}}}}"#
         ));
     }
     json.push_str(r#"]},"pagination":{"page":1,"limit":500,"total":10000}}"#);
@@ -66,7 +70,7 @@ fn bench_json_parse(c: &mut Criterion) {
     let small = small_json();
     group.throughput(Throughput::Bytes(small.len() as u64));
     group.bench_with_input(BenchmarkId::new("size", "small_50B"), &small, |b, data| {
-        b.iter(|| json::try_parse(black_box(*data)))
+        b.iter(|| json::try_parse(black_box(*data)));
     });
 
     // Medium JSON (~500 bytes)
@@ -82,7 +86,7 @@ fn bench_json_parse(c: &mut Criterion) {
     let large = large_json();
     group.throughput(Throughput::Bytes(large.len() as u64));
     group.bench_with_input(BenchmarkId::new("size", "large_5KB"), &large, |b, data| {
-        b.iter(|| json::try_parse(black_box(data.as_slice())))
+        b.iter(|| json::try_parse(black_box(data.as_slice())));
     });
 
     // Very large JSON (~50KB)
@@ -111,7 +115,7 @@ fn bench_json_obj_builder(c: &mut Criterion) {
                 .set("id", json::str(black_box("123")))
                 .set("name", json::str(black_box("Alice")))
                 .set("active", json::bool(black_box(true)))
-        })
+        });
     });
 
     // 5 fields (typical entity)
@@ -123,7 +127,7 @@ fn bench_json_obj_builder(c: &mut Criterion) {
                 .set("email", json::str(black_box("alice@example.com")))
                 .set("age", json::int(black_box(30)))
                 .set("active", json::bool(black_box(true)))
-        })
+        });
     });
 
     // 10 fields (detailed entity)
@@ -140,7 +144,7 @@ fn bench_json_obj_builder(c: &mut Criterion) {
                 .set("department", json::str("Engineering"))
                 .set("salary", json::float(150000.0))
                 .set("verified", json::bool(true))
-        })
+        });
     });
 
     // 20 fields (stress test)
@@ -167,7 +171,7 @@ fn bench_json_obj_builder(c: &mut Criterion) {
                 .set("field18", json::float(1.5))
                 .set("field19", json::float(2.5))
                 .set("field20", json::null())
-        })
+        });
     });
 
     // Nested object (2 levels)
@@ -185,7 +189,7 @@ fn bench_json_obj_builder(c: &mut Criterion) {
                             .set("avatar", json::str("url")),
                     ),
             )
-        })
+        });
     });
 
     // Nested object (4 levels - deep nesting)
@@ -201,7 +205,7 @@ fn bench_json_obj_builder(c: &mut Criterion) {
                     ),
                 ),
             )
-        })
+        });
     });
 
     group.finish();
@@ -223,7 +227,7 @@ fn bench_json_arr_builder(c: &mut Criterion) {
                 .push(json::int(black_box(3)))
                 .push(json::int(black_box(4)))
                 .push(json::int(black_box(5)))
-        })
+        });
     });
 
     // 10 items
@@ -240,7 +244,7 @@ fn bench_json_arr_builder(c: &mut Criterion) {
                 .push(json::int(8))
                 .push(json::int(9))
                 .push(json::int(10))
-        })
+        });
     });
 
     // 20 items
@@ -251,7 +255,7 @@ fn bench_json_arr_builder(c: &mut Criterion) {
                 arr = arr.push(json::int(i));
             }
             arr
-        })
+        });
     });
 
     // 50 items (realistic list)
@@ -262,7 +266,7 @@ fn bench_json_arr_builder(c: &mut Criterion) {
                 arr = arr.push(json::int(i));
             }
             arr
-        })
+        });
     });
 
     // Array of strings
@@ -279,7 +283,7 @@ fn bench_json_arr_builder(c: &mut Criterion) {
                 .push(json::str("item-008"))
                 .push(json::str("item-009"))
                 .push(json::str("item-010"))
-        })
+        });
     });
 
     // Array of objects (common API pattern)
@@ -311,7 +315,7 @@ fn bench_json_arr_builder(c: &mut Criterion) {
                         .set("id", json::int(5))
                         .set("name", json::str("Item 5")),
                 )
-        })
+        });
     });
 
     group.finish();
@@ -330,70 +334,70 @@ fn bench_json_path_extraction(c: &mut Criterion) {
 
     // path_str: 1 level deep
     group.bench_function("path_str_1_level", |b| {
-        b.iter(|| parsed.path_str(black_box(&["user"])))
+        b.iter(|| parsed.path_str(black_box(&["user"])));
     });
 
     // path_str: 2 levels deep
     group.bench_function("path_str_2_levels", |b| {
-        b.iter(|| parsed.path_str(black_box(&["user", "name"])))
+        b.iter(|| parsed.path_str(black_box(&["user", "name"])));
     });
 
     // path_str: 3 levels deep
     group.bench_function("path_str_3_levels", |b| {
-        b.iter(|| parsed.path_str(black_box(&["user", "profile", "bio"])))
+        b.iter(|| parsed.path_str(black_box(&["user", "profile", "bio"])));
     });
 
     // path_str: 4 levels deep
     group.bench_function("path_str_4_levels", |b| {
-        b.iter(|| parsed.path_str(black_box(&["user", "profile", "settings", "theme"])))
+        b.iter(|| parsed.path_str(black_box(&["user", "profile", "settings", "theme"])));
     });
 
     // path_int
     group.bench_function("path_int_2_levels", |b| {
-        b.iter(|| parsed.path_int(black_box(&["meta", "version"])))
+        b.iter(|| parsed.path_int(black_box(&["meta", "version"])));
     });
 
     // path_bool
     group.bench_function("path_bool_4_levels", |b| {
-        b.iter(|| parsed.path_bool(black_box(&["user", "profile", "settings", "notifications"])))
+        b.iter(|| parsed.path_bool(black_box(&["user", "profile", "settings", "notifications"])));
     });
 
     // path_float
     group.bench_function("path_float_2_levels", |b| {
-        b.iter(|| parsed.path_float(black_box(&["meta", "timestamp"])))
+        b.iter(|| parsed.path_float(black_box(&["meta", "timestamp"])));
     });
 
     // path_exists
     group.bench_function("path_exists_hit", |b| {
-        b.iter(|| parsed.path_exists(black_box(&["user", "name"])))
+        b.iter(|| parsed.path_exists(black_box(&["user", "name"])));
     });
 
     group.bench_function("path_exists_miss", |b| {
-        b.iter(|| parsed.path_exists(black_box(&["user", "nonexistent"])))
+        b.iter(|| parsed.path_exists(black_box(&["user", "nonexistent"])));
     });
 
     // path_is_null
     group.bench_function("path_is_null", |b| {
-        b.iter(|| parsed.path_is_null(black_box(&["user", "name"])))
+        b.iter(|| parsed.path_is_null(black_box(&["user", "name"])));
     });
 
     // Compare: get() chain vs path_str() for same extraction
     group.bench_function("get_chain_3_levels", |b| {
-        b.iter(|| parsed.get("user").get("profile").get("bio").str())
+        b.iter(|| parsed.get("user").get("profile").get("bio").str());
     });
 
     // path_str_or (with default)
     group.bench_function("path_str_or_hit", |b| {
-        b.iter(|| parsed.path_str_or(black_box(&["user", "name"]), black_box("default")))
+        b.iter(|| parsed.path_str_or(black_box(&["user", "name"]), black_box("default")));
     });
 
     group.bench_function("path_str_or_miss", |b| {
-        b.iter(|| parsed.path_str_or(black_box(&["user", "missing"]), black_box("default")))
+        b.iter(|| parsed.path_str_or(black_box(&["user", "missing"]), black_box("default")));
     });
 
     // path_int_or (with default)
     group.bench_function("path_int_or", |b| {
-        b.iter(|| parsed.path_int_or(black_box(&["meta", "version"]), black_box(0)))
+        b.iter(|| parsed.path_int_or(black_box(&["meta", "version"]), black_box(0)));
     });
 
     group.finish();
@@ -441,7 +445,7 @@ fn bench_json_serialization(c: &mut Criterion) {
         );
     }
     group.bench_function("to_string_large_100_items", |b| {
-        b.iter(|| large.to_string())
+        b.iter(|| large.to_string());
     });
 
     group.finish();
