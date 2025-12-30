@@ -17,7 +17,7 @@ use super::cursor::Cursor;
 /// assert!(page_info.has_prev);
 /// assert_eq!(page_info.total, Some(100));
 /// ```
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PageInfo {
     /// Whether there are more items after this page.
     pub has_next: bool,

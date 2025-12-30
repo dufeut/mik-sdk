@@ -9,7 +9,7 @@ fn test_fetch_simple_get() {
     assert_eq!(req.method(), Method::Get);
     assert_eq!(req.url(), "https://api.example.com/users");
     assert!(req.headers().is_empty());
-    assert!(req.get_body().is_none());
+    assert!(req.body_bytes().is_none());
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn test_fetch_with_raw_body() {
     );
 
     assert_eq!(req.method(), Method::Post);
-    assert_eq!(req.get_body(), Some(b"raw body content".as_slice()));
+    assert_eq!(req.body_bytes(), Some(b"raw body content".as_slice()));
 }
 
 #[test]
@@ -116,7 +116,7 @@ fn test_fetch_with_all_options() {
     assert_eq!(req.method(), Method::Put);
     assert_eq!(req.url(), "https://api.example.com/resource");
     assert_eq!(req.headers().len(), 2);
-    assert_eq!(req.get_body(), Some(b"some data".as_slice()));
+    assert_eq!(req.body_bytes(), Some(b"some data".as_slice()));
     assert_eq!(req.timeout(), Some(10_000_000_000));
 }
 
@@ -149,5 +149,5 @@ fn test_fetch_post_with_vec_body() {
         body: &body
     );
 
-    assert_eq!(req.get_body(), Some([1, 2, 3, 4, 5].as_slice()));
+    assert_eq!(req.body_bytes(), Some([1, 2, 3, 4, 5].as_slice()));
 }

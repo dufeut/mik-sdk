@@ -16,6 +16,15 @@ pub enum Scheme {
     Https,
 }
 
+impl std::fmt::Display for Scheme {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Http => f.write_str("http"),
+            Self::Https => f.write_str("https"),
+        }
+    }
+}
+
 /// HTTP request builder for outbound requests.
 ///
 /// Build a request and then send it using `send_with()` with your WASI bindings.
@@ -190,9 +199,9 @@ impl ClientRequest {
         &self.headers
     }
 
-    /// Get the body.
+    /// Get the request body bytes.
     #[must_use]
-    pub fn get_body(&self) -> Option<&[u8]> {
+    pub fn body_bytes(&self) -> Option<&[u8]> {
         self.body.as_deref()
     }
 

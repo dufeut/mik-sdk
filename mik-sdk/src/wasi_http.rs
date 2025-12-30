@@ -118,7 +118,7 @@ impl ClientRequest {
             .map_err(|()| Error::InvalidRequest("Failed to set path".into()))?;
 
         // Set body if present
-        if let Some(body_bytes) = self.get_body() {
+        if let Some(body_bytes) = self.body_bytes() {
             let body = outgoing_req
                 .body()
                 .map_err(|()| Error::InvalidRequest("Failed to get body handle".into()))?;

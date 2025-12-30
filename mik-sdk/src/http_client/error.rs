@@ -40,7 +40,7 @@
 /// }
 /// # }
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     /// DNS resolution failed - the hostname could not be resolved to an IP address.
     ///

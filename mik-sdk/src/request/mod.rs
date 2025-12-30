@@ -50,6 +50,12 @@ impl Method {
     }
 }
 
+impl std::fmt::Display for Method {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// HTTP Request wrapper providing convenient access to request data.
 ///
 /// Created by the `routes!` macro from raw `request-data`. Provides:

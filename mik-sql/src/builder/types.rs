@@ -49,7 +49,7 @@ pub enum LogicalOp {
 }
 
 /// A filter expression that can be simple or compound.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum FilterExpr {
     /// A simple field comparison.
     Simple(Filter),
@@ -58,7 +58,7 @@ pub enum FilterExpr {
 }
 
 /// A compound filter combining multiple expressions with a logical operator.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CompoundFilter {
     pub op: LogicalOp,
     pub filters: Vec<FilterExpr>,
@@ -325,7 +325,7 @@ impl SortField {
 }
 
 /// Filter condition.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Filter {
     pub field: String,
     pub op: Operator,
@@ -333,7 +333,7 @@ pub struct Filter {
 }
 
 /// Query result with SQL string and parameters.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 #[must_use = "QueryResult must be used to execute the query"]
 pub struct QueryResult {
     pub sql: String,

@@ -210,7 +210,7 @@ mod tests {
                 .iter()
                 .any(|(k, v)| k == "Content-Type" && v == "application/json")
         );
-        assert_eq!(req.get_body(), Some(b"{\"name\":\"Alice\"}".as_slice()));
+        assert_eq!(req.body_bytes(), Some(b"{\"name\":\"Alice\"}".as_slice()));
     }
 
     #[test]
@@ -375,14 +375,14 @@ mod tests {
     #[test]
     fn test_body_empty() {
         let req = post("https://example.com").body(b"");
-        assert_eq!(req.get_body(), Some(&[][..]));
+        assert_eq!(req.body_bytes(), Some(&[][..]));
     }
 
     #[test]
     fn test_body_binary() {
         let binary_data = vec![0x00, 0xFF, 0x7F, 0x80];
         let req = post("https://example.com").body(&binary_data);
-        assert_eq!(req.get_body(), Some(binary_data.as_slice()));
+        assert_eq!(req.body_bytes(), Some(binary_data.as_slice()));
     }
 
     #[test]
