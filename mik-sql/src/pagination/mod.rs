@@ -12,27 +12,29 @@
 //!
 //! # Cursor Pagination Example
 //!
-//! ```ignore
+//! ```
 //! use mik_sql::{postgres, Cursor, PageInfo, SortDir};
 //!
-//! // Build query with cursor pagination from request query params
-//! // after_cursor accepts: &Cursor, &str, String, Option<&str>, etc.
+//! // Build cursor from last item's values
+//! let cursor = Cursor::new()
+//!     .string("created_at", "2024-01-15T10:00:00Z")
+//!     .int("id", 42);
+//!
+//! // Build query with cursor pagination
 //! let result = postgres("users")
 //!     .fields(&["id", "name", "created_at"])
 //!     .sort("created_at", SortDir::Desc)
 //!     .sort("id", SortDir::Asc)
-//!     .after_cursor(req.query("after"))  // Silently ignored if None or invalid
+//!     .after_cursor(cursor)
 //!     .limit(20)
 //!     .build();
 //!
-//! // Execute query and create response with page info
-//! let items = db.query(&result.sql, &result.params);
-//! let page_info = PageInfo::new(items.len(), 20)
-//!     .with_next_cursor(PageInfo::cursor_from(items.last(), |u| {
-//!         Cursor::new()
-//!             .string("created_at", &u.created_at)
-//!             .int("id", u.id)
-//!     }));
+//! assert!(result.sql.contains("ORDER BY created_at DESC, id ASC"));
+//!
+//! // Create page info for response
+//! let page_info = PageInfo::new(20, 20)
+//!     .with_next_cursor(Some("encoded_cursor".to_string()));
+//! assert!(page_info.has_next);
 //! ```
 //!
 //! # DX Features

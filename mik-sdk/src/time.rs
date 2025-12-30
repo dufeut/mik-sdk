@@ -7,31 +7,32 @@
 //!
 //! # Usage
 //!
-//! ```ignore
-//! use mik_sdk::time;
+//! ```
+//! # use mik_sdk::time;
+//! // Unix timestamp (seconds)
+//! let timestamp = time::now();
+//! assert!(timestamp > 0);
 //!
-//! fn my_handler(req: &Request) -> Response {
-//!     let timestamp = time::now();       // Unix timestamp (seconds)
-//!     let iso = time::now_iso();         // ISO 8601 string
-//!
-//!     ok!({ "timestamp": int(timestamp as i64), "iso": str(&iso) })
-//! }
+//! // ISO 8601 string
+//! let iso = time::now_iso();
+//! assert!(iso.ends_with('Z'));
 //! ```
 //!
 //! # Examples
 //!
-//! ```ignore
-//! use mik_sdk::time;
-//!
+//! ```
+//! # use mik_sdk::time;
 //! // Unix timestamp (seconds)
 //! let secs = time::now();
+//! assert!(secs > 1_700_000_000); // After 2023
 //!
 //! // Milliseconds (for JavaScript interop)
 //! let ms = time::now_millis();
+//! assert!(ms > secs * 1000);
 //!
 //! // ISO 8601 string
 //! let iso = time::now_iso();
-//! // => "2025-01-16T10:30:00Z"
+//! assert!(iso.contains('T')); // "2025-01-16T10:30:00Z"
 //! ```
 
 // Native target: use std::time for testing

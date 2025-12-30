@@ -1,16 +1,19 @@
 //! ValidationError enum and implementations.
 
-/// Error returned when constraint validation fails.
+/// Error type for constraint validation failures.
 ///
 /// This covers constraint violations like min/max length, format, pattern.
 /// Errors are represented as distinct enum variants for pattern matching.
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// # use mik_sdk::typed::ValidationError;
+/// let error = ValidationError::min("count", 1);
 /// match error {
 ///     ValidationError::Min { field, min } => {
-///         println!("{} must be at least {}", field, min)
+///         assert_eq!(field, "count");
+///         assert_eq!(min, 1);
 ///     }
 ///     ValidationError::Max { field, max } => {
 ///         println!("{} must be at most {}", field, max)
@@ -161,7 +164,8 @@ impl ValidationError {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```
+    /// # use mik_sdk::typed::ValidationError;
     /// let err = ValidationError::min("count", 1).with_path("items");
     /// assert_eq!(err.field(), "items.count");
     /// ```

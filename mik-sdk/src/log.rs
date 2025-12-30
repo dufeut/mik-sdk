@@ -19,25 +19,29 @@
 //!
 //! # Structured Logging Usage
 //!
-//! ```ignore
-//! use mik_sdk::log;
+//! ```no_run
+//! # use mik_sdk::log;
+//! let user_id = "123";
+//! let email = "alice@example.com";
+//! let count = 5;
 //!
 //! // Structured logging with key-value pairs
 //! log!(info, "user created", id: user_id, email: &email);
 //! log!(warn, "rate limit approaching", remaining: count);
-//! log!(error, "failed to fetch", url: &url, status: resp.status);
-//! log!(debug, "request parsed", method: req.method(), path: req.path());
 //! ```
 //!
 //! # Simple Logging (format string style)
 //!
-//! ```ignore
-//! use mik_sdk::log;
+//! ```no_run
+//! # use mik_sdk::log;
+//! let user_id = "u123";
+//! let key = "cache_key";
+//! let err = "connection refused";
 //!
 //! log::info!("User {} logged in", user_id);
 //! log::warn!("Cache miss for key: {}", key);
 //! log::error!("Database connection failed: {}", err);
-//! log::debug!("Request payload: {:?}", payload);  // Only in debug builds
+//! log::debug!("Debug message");  // Only in debug builds
 //! ```
 //!
 //! # Debug Logging
@@ -136,9 +140,10 @@ pub fn __escape_json(s: &str) -> String {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```no_run
+/// # use mik_sdk::log;
 /// log::info!("Server started on port 8080");
-/// log::info!("User {} logged in", user_id);
+/// log::info!("User {} logged in", "u123");
 /// ```
 #[macro_export]
 macro_rules! log_info {
@@ -158,9 +163,10 @@ macro_rules! log_info {
 ///
 /// # Examples
 ///
-/// ```ignore
-/// log::warn!("Cache miss for key: {}", key);
-/// log::warn!("Slow query detected: {}ms", elapsed);
+/// ```no_run
+/// # use mik_sdk::log;
+/// log::warn!("Cache miss for key: {}", "user:123");
+/// log::warn!("Slow query detected: {}ms", 150);
 /// ```
 #[macro_export]
 macro_rules! log_warn {
@@ -180,8 +186,9 @@ macro_rules! log_warn {
 ///
 /// # Examples
 ///
-/// ```ignore
-/// log::error!("Database connection failed: {}", err);
+/// ```no_run
+/// # use mik_sdk::log;
+/// log::error!("Database connection failed: {}", "timeout");
 /// log::error!("Failed to parse request body");
 /// ```
 #[macro_export]
@@ -204,9 +211,10 @@ macro_rules! log_error {
 ///
 /// # Examples
 ///
-/// ```ignore
-/// log::debug!("Request payload: {:?}", payload);
-/// log::debug!("Cache size: {} entries", cache.len());
+/// ```no_run
+/// # use mik_sdk::log;
+/// log::debug!("Request payload: {:?}", "test data");
+/// log::debug!("Cache size: {} entries", 42);
 /// ```
 #[macro_export]
 macro_rules! log_debug {
@@ -277,14 +285,14 @@ pub fn __build_structured_log(level: &str, msg: &str, fields: &[(&str, &str)]) -
 ///
 /// # Usage
 ///
-/// ```ignore
-/// use mik_sdk::log;
+/// ```no_run
+/// # use mik_sdk::log;
+/// let user_id = "123";
+/// let email = "alice@example.com";
 ///
 /// // With key-value fields
 /// log!(info, "user created", id: user_id, email: &email);
-/// log!(warn, "rate limit approaching", remaining: count);
-/// log!(error, "failed to fetch", url: &url, status: resp.status);
-/// log!(debug, "request parsed", method: req.method(), path: req.path());
+/// log!(warn, "rate limit approaching", remaining: 5);
 ///
 /// // Without fields (just level and message)
 /// log!(info, "server started");

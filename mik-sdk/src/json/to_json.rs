@@ -3,19 +3,31 @@
 use super::builder::{arr, float, int, null, str};
 use super::value::JsonValue;
 
-/// A trait for types that can be converted to JSON values.
+/// A trait for converting types to JSON values.
 ///
 /// This trait enables type inference in the `json!` and `ok!` macros,
 /// allowing you to write:
 ///
-/// ```ignore
-/// ok!({ "name": name, "age": age })
+/// ```
+/// # use mik_sdk::json::{self, ToJson};
+/// let name = "Alice";
+/// let age = 30i64;
+/// let value = json::obj()
+///     .set("name", name.to_json())
+///     .set("age", age.to_json());
+/// assert!(value.to_string().contains("Alice"));
 /// ```
 ///
 /// Instead of the more verbose:
 ///
-/// ```ignore
-/// ok!({ "name": str(name), "age": int(age) })
+/// ```
+/// # use mik_sdk::json;
+/// let name = "Alice";
+/// let age = 30;
+/// let value = json::obj()
+///     .set("name", json::str(name))
+///     .set("age", json::int(age));
+/// assert!(value.to_string().contains("Alice"));
 /// ```
 ///
 /// # Implementations
@@ -31,11 +43,11 @@ use super::value::JsonValue;
 ///
 /// # Example
 ///
-/// ```ignore
-/// use mik_sdk::json::{ToJson, JsonValue};
+/// ```
+/// use mik_sdk::json::{self, ToJson};
 ///
 /// let name = "Alice".to_string();
-/// let age = 30;
+/// let age = 30i64;
 /// let active = true;
 /// let tags: Vec<&str> = vec!["admin", "user"];
 ///
@@ -45,6 +57,12 @@ use super::value::JsonValue;
 ///     .set("age", age.to_json())
 ///     .set("active", active.to_json())
 ///     .set("tags", tags.to_json());
+///
+/// let s = json.to_string();
+/// assert!(s.contains("Alice"));
+/// assert!(s.contains("30"));
+/// assert!(s.contains("true"));
+/// assert!(s.contains("admin"));
 /// ```
 pub trait ToJson {
     /// Convert this value to a JSON value.

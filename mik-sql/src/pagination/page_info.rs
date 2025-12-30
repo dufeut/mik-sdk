@@ -6,20 +6,16 @@ use super::cursor::Cursor;
 ///
 /// # Example
 ///
-/// ```ignore
-/// let page_info = PageInfo::new(items.len(), limit)
-///     .with_next_cursor(next_cursor)
-///     .with_prev_cursor(prev_cursor);
+/// ```
+/// # use mik_sql::PageInfo;
+/// let page_info = PageInfo::new(20, 20)
+///     .with_next_cursor(Some("abc123".to_string()))
+///     .with_prev_cursor(Some("xyz789".to_string()))
+///     .with_total(100);
 ///
-/// ok!({
-///     "data": items,
-///     "page_info": {
-///         "has_next": page_info.has_next,
-///         "has_prev": page_info.has_prev,
-///         "next_cursor": page_info.next_cursor,
-///         "prev_cursor": page_info.prev_cursor
-///     }
-/// })
+/// assert!(page_info.has_next);
+/// assert!(page_info.has_prev);
+/// assert_eq!(page_info.total, Some(100));
 /// ```
 #[derive(Debug, Clone, Default)]
 pub struct PageInfo {

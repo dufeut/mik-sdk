@@ -9,11 +9,14 @@
 //! scan the raw bytes to find values without building a full tree. This is
 //! **10-40x faster** when you only need a few fields:
 //!
-//! ```ignore
-//! let parsed = json::try_parse(body)?;
+//! ```
+//! # use mik_sdk::json;
+//! let body = br#"{"user":{"name":"Alice","age":30}}"#;
+//! let parsed = json::try_parse(body).unwrap();
 //! let name = parsed.path_str(&["user", "name"]);  // Scans bytes, ~500ns
 //! let age = parsed.path_int(&["user", "age"]);    // Scans bytes, ~500ns
-//! // Total: ~1us vs 76us for full tree parse
+//! assert_eq!(name, Some("Alice".to_string()));
+//! assert_eq!(age, Some(30));
 //! ```
 //!
 //! For operations that need the full tree (iteration, `get()`, `at()`), the tree
@@ -21,8 +24,8 @@
 //!
 //! # Examples
 //!
-//! ```ignore
-//! use mik_sdk::json::{self, JsonValue};
+//! ```
+//! use mik_sdk::json;
 //!
 //! // Build JSON
 //! let value = json::obj()
@@ -34,12 +37,15 @@
 //!
 //! // Serialize to string
 //! let s = value.to_string();
-//! // => {"name":"Alice","age":30,"tags":["rust","wasm"]}
+//! assert!(s.contains("Alice"));
+//! assert!(s.contains("30"));
 //!
 //! // Parse JSON and extract values (lazy - fast path)
-//! let parsed = json::try_parse(b"{\"user\":{\"name\":\"Bob\"}}").unwrap();
+//! let parsed = json::try_parse(br#"{"user":{"name":"Bob"}}"#).unwrap();
 //! let name = parsed.path_str(&["user", "name"]);  // Some("Bob")
 //! let age = parsed.path_int_or(&["user", "age"], 0);  // 0 (default)
+//! assert_eq!(name, Some("Bob".to_string()));
+//! assert_eq!(age, 0);
 //! ```
 
 mod builder;

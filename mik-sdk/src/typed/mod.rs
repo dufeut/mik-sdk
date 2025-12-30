@@ -9,34 +9,26 @@
 //! # Newtypes and Validation
 //!
 //! This SDK provides structural types ([`Id`], derive macros) but intentionally
-//! delegates field validation to external crates like [`garde`](https://docs.rs/garde).
+//! delegates field validation to external crates like `garde`.
 //!
 //! **Why?** Validation requirements vary widely between projects. Some need strict
 //! email validation, others accept any string. By separating concerns:
 //! - SDK handles parsing and type conversion
 //! - Validation crates handle domain-specific rules
 //!
-//! ## Example: Validated Newtypes with `garde`
+//! # Example: ParseError and ValidationError
 //!
-//! ```ignore
-//! use garde::Validate;
-//! use mik_sdk::prelude::*;
+//! ```
+//! use mik_sdk::typed::{ParseError, ValidationError};
 //!
-//! #[derive(Type, Validate)]
-//! pub struct CreateUser {
-//!     #[garde(length(min = 1, max = 100))]
-//!     pub name: String,
-//!     #[garde(email)]
-//!     pub email: String,
-//! }
+//! // Create parse errors
+//! let missing = ParseError::missing("email");
+//! assert_eq!(missing.field(), "email");
 //!
-//! fn create_user(body: CreateUser, _req: &Request) -> Response {
-//!     // Validate after parsing
-//!     if let Err(report) = body.validate() {
-//!         return bad_request!(&report.to_string());
-//!     }
-//!     ok!({ "status": "created" })
-//! }
+//! // Create validation errors
+//! let too_short = ValidationError::min("name", 3);
+//! assert_eq!(too_short.field(), "name");
+//! assert_eq!(too_short.constraint(), "min");
 //! ```
 
 mod parse_error;
@@ -52,19 +44,21 @@ use std::collections::HashMap;
 // BUILT-IN TYPES
 // ============================================================================
 
-/// Single path parameter - String for JavaScript compatibility.
+/// Single path parameter type using String for JS compatibility.
 ///
-/// Use this for simple routes with a single `{id}` parameter:
+/// Use this for simple routes with a single `{id}` parameter.
 ///
-/// ```ignore
-/// routes! {
-///     GET "/users/{id}" => get_user(path: Id) -> User,
-/// }
+/// # Example
 ///
-/// fn get_user(path: Id, req: &Request) -> Response {
-///     let user_id = &path.0;  // String
-///     ok!({ "id": user_id })
-/// }
+/// ```
+/// # use mik_sdk::typed::Id;
+/// let id = Id::new("user_123");
+/// assert_eq!(id.as_str(), "user_123");
+///
+/// // Parse as integer if needed
+/// let numeric_id = Id::new("42");
+/// let parsed: i64 = numeric_id.parse().unwrap();
+/// assert_eq!(parsed, 42);
 /// ```
 ///
 /// # Why String?
@@ -93,8 +87,22 @@ impl Id {
 
     /// Parse the ID as a specific type.
     ///
-    /// ```ignore
-    /// let id: i64 = path.parse()?;
+    /// # Errors
+    ///
+    /// Returns [`ParseError::InvalidFormat`] if parsing fails.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use mik_sdk::typed::Id;
+    /// let id = Id::new("42");
+    /// let num: i64 = id.parse().unwrap();
+    /// assert_eq!(num, 42);
+    ///
+    /// // Invalid format returns error
+    /// let id = Id::new("not_a_number");
+    /// let result: Result<i64, _> = id.parse();
+    /// assert!(result.is_err());
     /// ```
     #[inline]
     pub fn parse<T: std::str::FromStr>(&self) -> Result<T, ParseError> {
@@ -144,26 +152,20 @@ impl std::fmt::Display for Id {
 ///
 /// Implement this for request body types. Usually derived with `#[derive(Type)]`.
 ///
-/// ```ignore
-/// #[derive(Type)]
-/// pub struct CreateUser {
-///     pub name: String,
-///     pub email: String,
-/// }
+/// # Example
 ///
-/// // Generated implementation:
-/// impl FromJson for CreateUser {
-///     fn from_json(v: &JsonValue) -> Result<Self, ParseError> {
-///         Ok(Self {
-///             name: v.get("name").str()
-///                 .ok_or(ParseError::missing("name"))?
-///                 .to_string(),
-///             email: v.get("email").str()
-///                 .ok_or(ParseError::missing("email"))?
-///                 .to_string(),
-///         })
-///     }
-/// }
+/// ```
+/// # use mik_sdk::typed::{FromJson, ParseError};
+/// # use mik_sdk::json::{self, JsonValue};
+/// // Parse a String from JSON
+/// let value = json::str("hello");
+/// let result = String::from_json(&value);
+/// assert_eq!(result.unwrap(), "hello");
+///
+/// // Type mismatch returns error
+/// let value = json::int(42);
+/// let result = String::from_json(&value);
+/// assert!(result.is_err());
 /// ```
 pub trait FromJson: Sized {
     /// Parse this type from a JSON value.
@@ -182,20 +184,32 @@ pub trait FromJson: Sized {
 /// Trait for types that can be parsed from query parameters.
 ///
 /// Implement this for query parameter types. Usually derived with `#[derive(Query)]`.
+/// The derive macro generates implementations that handle type conversion and defaults.
 ///
-/// ```ignore
-/// #[derive(Query)]
-/// pub struct ListQuery {
-///     pub page: u32,
-///     pub limit: u32,
-/// }
+/// # Example
 ///
-/// // Generated implementation:
-/// impl FromQuery for ListQuery {
+/// The trait takes query parameters as key-value pairs:
+///
+/// ```
+/// # use mik_sdk::typed::{FromQuery, ParseError};
+/// // Example of manually implementing FromQuery
+/// struct PageQuery { page: u32 }
+///
+/// impl FromQuery for PageQuery {
 ///     fn from_query(params: &[(String, String)]) -> Result<Self, ParseError> {
-///         // ...
+///         let page = params.iter()
+///             .find(|(k, _)| k == "page")
+///             .map(|(_, v)| v.parse::<u32>())
+///             .transpose()
+///             .map_err(|_| ParseError::invalid_format("page", ""))?
+///             .unwrap_or(1);
+///         Ok(Self { page })
 ///     }
 /// }
+///
+/// let params = vec![("page".to_string(), "5".to_string())];
+/// let query = PageQuery::from_query(&params).unwrap();
+/// assert_eq!(query.page, 5);
 /// ```
 pub trait FromQuery: Sized {
     /// Parse this type from query parameters.
@@ -206,26 +220,27 @@ pub trait FromQuery: Sized {
 ///
 /// Implement this for path parameter types. Usually derived with `#[derive(Path)]`.
 ///
-/// ```ignore
-/// #[derive(Path)]
-/// pub struct UserPath {
-///     pub org_id: String,
-///     pub id: String,
-/// }
+/// # Example
 ///
-/// // Generated implementation:
+/// ```
+/// # use mik_sdk::typed::{FromPath, ParseError};
+/// # use std::collections::HashMap;
+/// // Example of manually implementing FromPath
+/// struct UserPath { id: String }
+///
 /// impl FromPath for UserPath {
 ///     fn from_params(params: &HashMap<String, String>) -> Result<Self, ParseError> {
-///         Ok(Self {
-///             org_id: params.get("org_id")
-///                 .ok_or(ParseError::missing("org_id"))?
-///                 .clone(),
-///             id: params.get("id")
-///                 .ok_or(ParseError::missing("id"))?
-///                 .clone(),
-///         })
+///         let id = params.get("id")
+///             .ok_or_else(|| ParseError::missing("id"))?
+///             .clone();
+///         Ok(Self { id })
 ///     }
 /// }
+///
+/// let mut params = HashMap::new();
+/// params.insert("id".to_string(), "user_123".to_string());
+/// let path = UserPath::from_params(&params).unwrap();
+/// assert_eq!(path.id, "user_123");
 /// ```
 pub trait FromPath: Sized {
     /// Parse this type from path parameters.
@@ -236,17 +251,16 @@ pub trait FromPath: Sized {
 ///
 /// Implement this for types with field constraints. Usually derived with `#[derive(Type)]`.
 ///
-/// ```ignore
-/// #[derive(Type)]
-/// pub struct CreateUser {
-///     #[field(min = 1, max = 100)]
-///     pub name: String,
-/// }
+/// # Example
 ///
-/// // Generated implementation:
+/// ```
+/// # use mik_sdk::typed::{Validate, ValidationError};
+/// // Example of manually implementing Validate
+/// struct CreateUser { name: String }
+///
 /// impl Validate for CreateUser {
 ///     fn validate(&self) -> Result<(), ValidationError> {
-///         if self.name.len() < 1 {
+///         if self.name.is_empty() {
 ///             return Err(ValidationError::min("name", 1));
 ///         }
 ///         if self.name.len() > 100 {
@@ -255,6 +269,13 @@ pub trait FromPath: Sized {
 ///         Ok(())
 ///     }
 /// }
+///
+/// let user = CreateUser { name: String::new() };
+/// let result = user.validate();
+/// assert!(result.is_err());
+///
+/// let user = CreateUser { name: "Alice".to_string() };
+/// assert!(user.validate().is_ok());
 /// ```
 pub trait Validate {
     /// Validate this value against its constraints.

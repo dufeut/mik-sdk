@@ -32,9 +32,10 @@ impl ClientRequest {
     /// # Example
     ///
     /// ```ignore
-    /// use mik_sdk::prelude::*;
+    /// // This example requires a WASI runtime environment
+    /// use mik_sdk::http_client;
     ///
-    /// let response = fetch!(GET "https://api.example.com/users")
+    /// let response = http_client::get("https://api.example.com/users")
     ///     .header("Authorization", "Bearer token")
     ///     .send()?;
     ///
@@ -52,7 +53,7 @@ impl ClientRequest {
     /// - The connection cannot be established
     /// - The request times out
     /// - TLS handshake fails
-    /// - The server returns an error response
+    /// - SSRF protection blocks a private IP address
     pub fn send(self) -> Result<Response> {
         // Validate URL and check for private IPs if configured
         let (scheme, authority, path) = self.parse_url()?;

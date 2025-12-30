@@ -229,8 +229,7 @@ impl std::error::Error for ValidationError {}
 
 /// Merge trusted filters with validated user filters.
 ///
-/// This function combines system/policy filters (trusted, no validation)
-/// with user-provided filters (validated against the validator rules).
+/// Combines system/policy filters with validated user-provided filters.
 ///
 /// # Arguments
 ///
@@ -242,9 +241,14 @@ impl std::error::Error for ValidationError {}
 ///
 /// Combined filter list with trusted filters first, then validated user filters.
 ///
+/// # Errors
+///
+/// Returns `ValidationError` if any user filter violates the validator rules.
+///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// # use mik_sql::{Filter, FilterValidator, merge_filters, Operator, Value};
 /// // System ensures user can only see their org's data
 /// let trusted = vec![
 ///     Filter { field: "org_id".into(), op: Operator::Eq, value: Value::Int(123) },
@@ -256,8 +260,10 @@ impl std::error::Error for ValidationError {}
 /// ];
 ///
 /// let validator = FilterValidator::new().allow_fields(&["status", "name"]);
-/// let all_filters = merge_filters(trusted, user, &validator)?;
-/// // Result: [org_id=123, status='active']
+/// let all_filters = merge_filters(trusted, user, &validator).unwrap();
+/// assert_eq!(all_filters.len(), 2);
+/// assert_eq!(all_filters[0].field, "org_id");
+/// assert_eq!(all_filters[1].field, "status");
 /// ```
 pub fn merge_filters(
     trusted: Vec<Filter>,

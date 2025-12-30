@@ -9,17 +9,14 @@
 //! The HTTP client requires access to your component's WASI bindings. Import them
 //! and use the client functions:
 //!
-//! ```ignore
-//! #[allow(warnings)]
-//! mod bindings;
-//!
-//! use bindings::wasi::http::outgoing_handler;
-//! use bindings::wasi::http::types as http_types;
-//! use mik_sdk::http_client::{self, ClientRequest};
-//!
-//! fn call_external_api() -> Result<http_client::Response, http_client::Error> {
+//! ```no_run
+//! # use mik_sdk::http_client::{self, ClientRequest, Response, Error};
+//! # fn send(_req: &ClientRequest) -> Result<Response, Error> {
+//! #     Ok(Response::new(200, vec![], vec![]))
+//! # }
+//! fn call_external_api() -> Result<Response, Error> {
 //!     http_client::get("https://api.example.com/users")
-//!         .send_with(&outgoing_handler::handle)
+//!         .send_with(send)
 //! }
 //! ```
 //!
@@ -27,55 +24,87 @@
 //!
 //! ## Simple GET request
 //!
-//! ```ignore
-//! use bindings::wasi::http::outgoing_handler;
-//! use mik_sdk::http_client;
-//!
+//! ```no_run
+//! # use mik_sdk::http_client::{self, Response, Error};
+//! # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+//! #     Ok(Response::new(200, vec![], b"Hello".to_vec()))
+//! # }
+//! # fn main() -> Result<(), Error> {
 //! let response = http_client::get("https://api.example.com/data")
-//!     .send_with(&outgoing_handler::handle)?;
+//!     .send_with(send)?;
 //!
 //! if response.is_success() {
 //!     let body = response.text().unwrap_or_default();
 //!     println!("Got: {}", body);
 //! }
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## POST with JSON body
 //!
-//! ```ignore
+//! ```no_run
+//! # use mik_sdk::http_client::{self, Response, Error};
+//! # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+//! #     Ok(Response::new(201, vec![], vec![]))
+//! # }
+//! # fn main() -> Result<(), Error> {
 //! let response = http_client::post("https://api.example.com/users")
 //!     .json(b"{\"name\":\"Alice\",\"email\":\"alice@example.com\"}")
-//!     .send_with(&outgoing_handler::handle)?;
+//!     .send_with(send)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Request with custom headers
 //!
-//! ```ignore
+//! ```no_run
+//! # use mik_sdk::http_client::{self, Response, Error};
+//! # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+//! #     Ok(Response::new(200, vec![], vec![]))
+//! # }
+//! # fn main() -> Result<(), Error> {
 //! let response = http_client::get("https://api.example.com/protected")
 //!     .header("Authorization", "Bearer token123")
 //!     .header("Accept", "application/json")
-//!     .send_with(&outgoing_handler::handle)?;
+//!     .send_with(send)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## PUT and DELETE
 //!
-//! ```ignore
+//! ```no_run
+//! # use mik_sdk::http_client::{self, Response, Error};
+//! # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+//! #     Ok(Response::new(200, vec![], vec![]))
+//! # }
+//! # fn main() -> Result<(), Error> {
 //! // Update a resource
 //! let response = http_client::put("https://api.example.com/users/123")
 //!     .json(b"{\"name\":\"Alice Updated\"}")
-//!     .send_with(&outgoing_handler::handle)?;
+//!     .send_with(send)?;
 //!
 //! // Delete a resource
 //! let response = http_client::delete("https://api.example.com/users/123")
-//!     .send_with(&outgoing_handler::handle)?;
+//!     .send_with(send)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## With timeout
 //!
-//! ```ignore
+//! ```no_run
+//! # use mik_sdk::http_client::{self, Response, Error};
+//! # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+//! #     Ok(Response::new(200, vec![], vec![]))
+//! # }
+//! # fn main() -> Result<(), Error> {
 //! let response = http_client::get("https://slow-api.example.com/data")
 //!     .timeout_ms(5000)  // 5 second timeout
-//!     .send_with(&outgoing_handler::handle)?;
+//!     .send_with(send)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! # Runtime Support

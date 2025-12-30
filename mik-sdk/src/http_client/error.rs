@@ -11,7 +11,7 @@
 /// WASI runtimes (Spin, wasmCloud, wasmtime) return errors as strings or error codes.
 /// Use [`map_wasi_error`] to convert these to typed `Error` variants:
 ///
-/// ```ignore
+/// ```
 /// use mik_sdk::http_client::{Error, map_wasi_error};
 ///
 /// // Convert WASI error string to typed error
@@ -21,11 +21,14 @@
 ///
 /// # Error Handling Example
 ///
-/// ```ignore
-/// use mik_sdk::http_client::{self, Error};
-///
+/// ```no_run
+/// # use mik_sdk::http_client::{self, Error, Response};
+/// # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+/// #     Ok(Response::new(200, vec![], vec![]))
+/// # }
+/// # fn main() {
 /// let result = http_client::get("https://api.example.com/data")
-///     .send_with(&outgoing_handler::handle);
+///     .send_with(send);
 ///
 /// match result {
 ///     Ok(response) => println!("Got response: {}", response.status),
@@ -35,6 +38,7 @@
 ///     Err(Error::TlsError(msg)) => eprintln!("TLS/SSL error: {}", msg),
 ///     Err(e) => eprintln!("Other error: {}", e),
 /// }
+/// # }
 /// ```
 #[derive(Debug, Clone)]
 pub enum Error {
@@ -106,10 +110,17 @@ pub enum Error {
     /// # Timeout Configuration
     ///
     /// Set timeouts using [`super::ClientRequest::timeout_ms`]:
-    /// ```ignore
+    /// ```no_run
+    /// # use mik_sdk::http_client::{self, Response, Error};
+    /// # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+    /// #     Ok(Response::new(200, vec![], vec![]))
+    /// # }
+    /// # fn main() -> Result<(), Error> {
     /// let response = http_client::get("https://slow-api.example.com")
     ///     .timeout_ms(5000)  // 5 second timeout
-    ///     .send_with(&outgoing_handler::handle)?;
+    ///     .send_with(send)?;
+    /// # Ok(())
+    /// # }
     /// ```
     Timeout,
 
@@ -368,16 +379,12 @@ fn matches_any(error_bytes: &[u8], patterns: &[&[u8]]) -> bool {
 /// When integrating with `wasi:http/outgoing-handler`, use this function to
 /// convert error strings to typed errors:
 ///
-/// ```ignore
-/// use mik_sdk::http_client::{map_wasi_error, Error};
+/// ```no_run
+/// use mik_sdk::http_client::{map_wasi_error, Error, Response};
 ///
 /// // In your send_with implementation:
-/// match outgoing_handler::handle(request, options) {
-///     Ok(response) => Ok(parse_response(response)),
-///     Err(wasi_error) => {
-///         let error_string = format!("{:?}", wasi_error);
-///         Err(map_wasi_error(&error_string))
-///     }
+/// fn handle_wasi_error(wasi_error: &str) -> Result<Response, Error> {
+///     Err(map_wasi_error(wasi_error))
 /// }
 /// ```
 #[must_use]

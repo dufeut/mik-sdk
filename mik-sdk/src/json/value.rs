@@ -131,13 +131,19 @@ impl JsonValue {
     /// Note: This triggers a full parse if in lazy mode.
     ///
     /// # Example
-    /// ```ignore
+    ///
+    /// ```
+    /// # use mik_sdk::json::{self, RawValue};
+    /// let value = json::arr()
+    ///     .push(json::str("hello"))
+    ///     .push(json::str("world"));
     /// let strings: Option<Vec<String>> = value.map_array(|v| {
     ///     match v {
-    ///         Value::String(s) => Some(s.clone()),
+    ///         RawValue::String(s) => Some(s.clone()),
     ///         _ => None,
     ///     }
     /// });
+    /// assert_eq!(strings, Some(vec!["hello".to_string(), "world".to_string()]));
     /// ```
     #[must_use]
     pub fn map_array<T, F>(&self, f: F) -> Option<Vec<T>>
@@ -341,9 +347,13 @@ impl JsonValue {
     /// This is **10-40x faster** than full parsing when you only need a few fields.
     ///
     /// # Example
-    /// ```ignore
-    /// let parsed = json::try_parse(body)?;
+    ///
+    /// ```
+    /// # use mik_sdk::json;
+    /// let body = br#"{"user":{"name":"Alice"}}"#;
+    /// let parsed = json::try_parse(body).unwrap();
     /// let name = parsed.path_str(&["user", "name"]);  // Lazy scan: ~500ns
+    /// assert_eq!(name, Some("Alice".to_string()));
     /// ```
     #[must_use]
     pub fn path_str(&self, path: &[&str]) -> Option<String> {

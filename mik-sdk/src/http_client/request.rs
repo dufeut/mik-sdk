@@ -16,19 +16,23 @@ pub enum Scheme {
     Https,
 }
 
-/// HTTP request builder.
+/// HTTP request builder for outbound requests.
 ///
 /// Build a request and then send it using `send_with()` with your WASI bindings.
 ///
 /// # Example
 ///
-/// ```ignore
-/// use bindings::wasi::http::outgoing_handler;
-/// use mik_sdk::http_client;
-///
+/// ```no_run
+/// # use mik_sdk::http_client::{self, Response, Error};
+/// # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+/// #     Ok(Response::new(200, vec![], vec![]))
+/// # }
+/// # fn main() -> Result<(), Error> {
 /// let response = http_client::get("https://api.example.com/data")
 ///     .header("Accept", "application/json")
-///     .send_with(&outgoing_handler::handle)?;
+///     .send_with(send)?;
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug, Clone)]
 pub struct ClientRequest {
@@ -75,10 +79,18 @@ impl ClientRequest {
     /// If `trace_id` is `None`, no header is added.
     /// Use with `Request::trace_id()` to propagate trace context.
     ///
-    /// ```ignore
-    /// let response = fetch!(GET "https://api.example.com/data")
-    ///     .with_trace_id(req.trace_id())
-    ///     .send_with(&handler)?;
+    /// ```no_run
+    /// # use mik_sdk::http_client::{self, Response, Error};
+    /// # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+    /// #     Ok(Response::new(200, vec![], vec![]))
+    /// # }
+    /// # fn main() -> Result<(), Error> {
+    /// # let trace_id: Option<&str> = None;
+    /// let response = http_client::get("https://api.example.com/data")
+    ///     .with_trace_id(trace_id)
+    ///     .send_with(send)?;
+    /// # Ok(())
+    /// # }
     /// ```
     #[must_use]
     pub fn with_trace_id(self, trace_id: Option<&str>) -> Self {
@@ -134,11 +146,19 @@ impl ClientRequest {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```no_run
+    /// # use mik_sdk::http_client::{self, Response, Error};
+    /// # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+    /// #     Ok(Response::new(200, vec![], vec![]))
+    /// # }
+    /// # fn main() -> Result<(), Error> {
+    /// # let user_provided_url = "https://api.example.com/data";
     /// // Protect against SSRF when URL comes from user input
-    /// let response = http_client::get(&user_provided_url)
+    /// let response = http_client::get(user_provided_url)
     ///     .deny_private_ips()
-    ///     .send_with(&outgoing_handler::handle)?;
+    ///     .send_with(send)?;
+    /// # Ok(())
+    /// # }
     /// ```
     #[must_use]
     pub const fn deny_private_ips(mut self) -> Self {
@@ -201,20 +221,25 @@ impl ClientRequest {
     ///
     /// * `F` - A function that sends the request and returns a `Result<Response, Error>`
     ///
+    /// # Errors
+    ///
+    /// Returns an error if URL validation fails or the sender function fails.
+    ///
     /// # Example
     ///
-    /// ```ignore
-    /// use bindings::wasi::http::outgoing_handler;
-    /// use mik_sdk::http_client::{self, Error, Response};
-    ///
+    /// ```no_run
+    /// # use mik_sdk::http_client::{self, Error, Response};
     /// // Define a sender that uses WASI HTTP
     /// fn wasi_send(req: &http_client::ClientRequest) -> Result<Response, Error> {
     ///     // Convert to WASI types and send...
     ///     todo!("Implement WASI HTTP sending")
     /// }
     ///
+    /// # fn main() -> Result<(), Error> {
     /// let response = http_client::get("https://api.example.com/users")
     ///     .send_with(wasi_send)?;
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # For WASI HTTP
@@ -290,9 +315,16 @@ impl ClientRequest {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```no_run
+/// # use mik_sdk::http_client::{self, Response, Error};
+/// # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+/// #     Ok(Response::new(200, vec![], vec![]))
+/// # }
+/// # fn main() -> Result<(), Error> {
 /// let response = http_client::get("https://api.example.com/users")
-///     .send_with(&outgoing_handler::handle)?;
+///     .send_with(send)?;
+/// # Ok(())
+/// # }
 /// ```
 #[must_use]
 pub fn get(url: &str) -> ClientRequest {
@@ -303,10 +335,17 @@ pub fn get(url: &str) -> ClientRequest {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```no_run
+/// # use mik_sdk::http_client::{self, Response, Error};
+/// # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+/// #     Ok(Response::new(201, vec![], vec![]))
+/// # }
+/// # fn main() -> Result<(), Error> {
 /// let response = http_client::post("https://api.example.com/users")
 ///     .json(b"{\"name\":\"Alice\"}")
-///     .send_with(&outgoing_handler::handle)?;
+///     .send_with(send)?;
+/// # Ok(())
+/// # }
 /// ```
 #[must_use]
 pub fn post(url: &str) -> ClientRequest {
@@ -317,10 +356,17 @@ pub fn post(url: &str) -> ClientRequest {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```no_run
+/// # use mik_sdk::http_client::{self, Response, Error};
+/// # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+/// #     Ok(Response::new(200, vec![], vec![]))
+/// # }
+/// # fn main() -> Result<(), Error> {
 /// let response = http_client::put("https://api.example.com/users/123")
 ///     .json(b"{\"name\":\"Alice Updated\"}")
-///     .send_with(&outgoing_handler::handle)?;
+///     .send_with(send)?;
+/// # Ok(())
+/// # }
 /// ```
 #[must_use]
 pub fn put(url: &str) -> ClientRequest {
@@ -331,9 +377,16 @@ pub fn put(url: &str) -> ClientRequest {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```no_run
+/// # use mik_sdk::http_client::{self, Response, Error};
+/// # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+/// #     Ok(Response::new(204, vec![], vec![]))
+/// # }
+/// # fn main() -> Result<(), Error> {
 /// let response = http_client::delete("https://api.example.com/users/123")
-///     .send_with(&outgoing_handler::handle)?;
+///     .send_with(send)?;
+/// # Ok(())
+/// # }
 /// ```
 #[must_use]
 pub fn delete(url: &str) -> ClientRequest {
@@ -344,10 +397,17 @@ pub fn delete(url: &str) -> ClientRequest {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```no_run
+/// # use mik_sdk::http_client::{self, Response, Error};
+/// # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+/// #     Ok(Response::new(200, vec![], vec![]))
+/// # }
+/// # fn main() -> Result<(), Error> {
 /// let response = http_client::patch("https://api.example.com/users/123")
 ///     .json(b"{\"name\":\"Updated Name\"}")
-///     .send_with(&outgoing_handler::handle)?;
+///     .send_with(send)?;
+/// # Ok(())
+/// # }
 /// ```
 #[must_use]
 pub fn patch(url: &str) -> ClientRequest {
@@ -358,11 +418,18 @@ pub fn patch(url: &str) -> ClientRequest {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```no_run
+/// # use mik_sdk::http_client::{self, Response, Error};
+/// # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+/// #     Ok(Response::new(200, vec![("content-length".into(), "1024".into())], vec![]))
+/// # }
+/// # fn main() -> Result<(), Error> {
 /// let response = http_client::head("https://api.example.com/large-file")
-///     .send_with(&outgoing_handler::handle)?;
+///     .send_with(send)?;
 ///
 /// let content_length = response.header("content-length");
+/// # Ok(())
+/// # }
 /// ```
 #[must_use]
 pub fn head(url: &str) -> ClientRequest {
@@ -373,11 +440,18 @@ pub fn head(url: &str) -> ClientRequest {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```no_run
+/// # use mik_sdk::http_client::{self, Response, Error};
+/// # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+/// #     Ok(Response::new(200, vec![("allow".into(), "GET, POST, PUT, DELETE".into())], vec![]))
+/// # }
+/// # fn main() -> Result<(), Error> {
 /// let response = http_client::options("https://api.example.com/users")
-///     .send_with(&outgoing_handler::handle)?;
+///     .send_with(send)?;
 ///
 /// let allowed = response.header("allow");
+/// # Ok(())
+/// # }
 /// ```
 #[must_use]
 pub fn options(url: &str) -> ClientRequest {
@@ -388,11 +462,18 @@ pub fn options(url: &str) -> ClientRequest {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```no_run
+/// # use mik_sdk::http_client::{self, Response, Error};
+/// # fn send(_req: &http_client::ClientRequest) -> Result<Response, Error> {
+/// #     Ok(Response::new(200, vec![], vec![]))
+/// # }
+/// # fn main() -> Result<(), Error> {
 /// let response = http_client::request(http_client::Method::Post, "https://api.example.com/data")
 ///     .header("Content-Type", "text/plain")
 ///     .body(b"Hello, World!")
-///     .send_with(&outgoing_handler::handle)?;
+///     .send_with(send)?;
+/// # Ok(())
+/// # }
 /// ```
 #[must_use]
 pub fn request(method: Method, url: &str) -> ClientRequest {

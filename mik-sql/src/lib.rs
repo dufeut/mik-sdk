@@ -30,46 +30,32 @@
 //!
 //! ## Quick Start
 //!
-//! ```ignore
-//! use mik_sql::prelude::*;
+//! ```
+//! # use mik_sql::prelude::*;
+//! // SELECT - Read data with filters and ordering
+//! let result = postgres("users")
+//!     .fields(&["id", "name", "email"])
+//!     .filter("active", Operator::Eq, Value::Bool(true))
+//!     .sort("name", SortDir::Asc)
+//!     .limit(10)
+//!     .build();
 //!
-//! // SELECT - Read data
-//! let (sql, params) = sql_read!(users {
-//!     select: [id, name, email],
-//!     filter: { active: true },
-//!     order: name,
-//!     limit: 10,
-//! });
-//! // → "SELECT id, name, email FROM users WHERE active = $1 ORDER BY name LIMIT 10"
-//!
-//! // INSERT - Create data
-//! let (sql, params) = sql_create!(users {
-//!     name: str(name),
-//!     email: str(email),
-//!     returning: [id],
-//! });
-//! // → "INSERT INTO users (name, email) VALUES ($1, $2) RETURNING id"
-//!
-//! // UPDATE - Update data
-//! let (sql, params) = sql_update!(users {
-//!     set: { name: str(new_name) },
-//!     filter: { id: int(user_id) },
-//! });
-//! // → "UPDATE users SET name = $1 WHERE id = $2"
-//!
-//! // DELETE - Delete data
-//! let (sql, params) = sql_delete!(users {
-//!     filter: { id: int(user_id) },
-//! });
-//! // → "DELETE FROM users WHERE id = $1"
+//! assert!(result.sql.contains("SELECT id, name, email FROM users"));
+//! assert!(result.sql.contains("ORDER BY name ASC"));
 //! ```
 //!
 //! ## `SQLite` Dialect
 //!
-//! Add `sqlite` as first parameter for `SQLite` syntax (?1, ?2 instead of $1, $2):
+//! Use `sqlite()` for `SQLite` syntax (?1, ?2 instead of $1, $2):
 //!
-//! ```ignore
-//! let (sql, params) = sql_read!(sqlite, users { ... });
+//! ```
+//! # use mik_sql::prelude::*;
+//! let result = sqlite("users")
+//!     .fields(&["id", "name"])
+//!     .filter("active", Operator::Eq, Value::Bool(true))
+//!     .build();
+//!
+//! assert!(result.sql.contains("?1")); // SQLite placeholder
 //! ```
 //!
 //! ## Supported Operators
@@ -93,22 +79,23 @@
 //!
 //! ## Cursor Pagination
 //!
-//! ```ignore
-//! use mik_sql::prelude::*;
+//! ```
+//! # use mik_sql::prelude::*;
+//! // Create a cursor for pagination
+//! let cursor = Cursor::new()
+//!     .string("created_at", "2024-01-15T10:00:00Z")
+//!     .int("id", 42);
 //!
-//! let (sql, params) = sql_read!(posts {
-//!     select: [id, title, created_at],
-//!     filter: { published: true },
-//!     order: [-created_at, -id],
-//!     after: req.query("after"),
-//!     limit: 20,
-//! });
+//! let result = postgres("posts")
+//!     .fields(&["id", "title", "created_at"])
+//!     .filter("published", Operator::Eq, Value::Bool(true))
+//!     .sort("created_at", SortDir::Desc)
+//!     .sort("id", SortDir::Asc)
+//!     .after_cursor(cursor)
+//!     .limit(20)
+//!     .build();
 //!
-//! // Create cursor for next page
-//! let next_cursor = Cursor::new()
-//!     .string("created_at", &last_item.created_at)
-//!     .int("id", last_item.id)
-//!     .encode();
+//! assert!(result.sql.contains("ORDER BY created_at DESC, id ASC"));
 //! ```
 
 mod builder;
@@ -153,8 +140,11 @@ pub fn sqlite(table: &str) -> QueryBuilder<Sqlite> {
 
 /// Prelude module for convenient imports.
 ///
-/// ```ignore
+/// ```
 /// use mik_sql::prelude::*;
+/// // Now Cursor, PageInfo, postgres(), sqlite(), etc. are available
+/// let result = postgres("users").fields(&["id"]).build();
+/// assert!(result.sql.contains("SELECT id FROM users"));
 /// ```
 pub mod prelude {
     pub use crate::{

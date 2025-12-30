@@ -5,55 +5,55 @@
 //!
 //! # Usage
 //!
-//! In your handler component (which has access to WASI bindings):
+//! ```
+//! # use mik_sdk::env;
+//! // Mock environment for demonstration
+//! let env_vars = vec![
+//!     ("PORT".to_string(), "3000".to_string()),
+//!     ("DEBUG".to_string(), "true".to_string()),
+//! ];
 //!
-//! ```ignore
-//! use bindings::wasi::cli::environment;
-//! use mik_sdk::env;
+//! let port = env::get_or(&env_vars, "PORT", "8080");
+//! assert_eq!(port, "3000");
 //!
-//! fn my_handler(req: &Request) -> Response {
-//!     // Get environment variables
-//!     let port = env::get_or(&environment::get_environment(), "PORT", "8080");
-//!     let debug = env::bool(&environment::get_environment(), "DEBUG", false);
-//!
-//!     ok!({ "port": str(port), "debug": bool(debug) })
-//! }
+//! let debug = env::bool(&env_vars, "DEBUG", false);
+//! assert!(debug);
 //! ```
 //!
 //! # Caching
 //!
 //! For better performance, cache the environment on first access:
 //!
-//! ```ignore
-//! use std::sync::OnceLock;
-//! use bindings::wasi::cli::environment;
+//! ```
+//! # use mik_sdk::env::EnvCache;
+//! let env_vars = vec![
+//!     ("PORT".to_string(), "3000".to_string()),
+//! ];
+//! let cache = EnvCache::new(env_vars);
 //!
-//! static ENV: OnceLock<Vec<(String, String)>> = OnceLock::new();
-//!
-//! fn env() -> &'static Vec<(String, String)> {
-//!     ENV.get_or_init(|| environment::get_environment())
-//! }
-//!
-//! fn my_handler(req: &Request) -> Response {
-//!     let port = env::get_or(env(), "PORT", "8080");
-//!     ok!({ "port": str(port) })
-//! }
+//! let port = cache.get_or("PORT", "8080");
+//! assert_eq!(port, "3000");
 //! ```
 
 use std::collections::HashMap;
 
 /// Get an environment variable by name.
 ///
-/// # Example
+/// Returns `None` if the variable is not set.
 ///
-/// ```ignore
-/// use bindings::wasi::cli::environment;
-/// use mik_sdk::env;
+/// # Examples
 ///
-/// let db_url = env::get(&environment::get_environment(), "DATABASE_URL");
-/// if let Some(url) = db_url {
-///     // Connect to database
-/// }
+/// ```
+/// # use mik_sdk::env;
+/// let env_vars = vec![
+///     ("DATABASE_URL".to_string(), "postgres://localhost/db".to_string()),
+/// ];
+///
+/// let db_url = env::get(&env_vars, "DATABASE_URL");
+/// assert_eq!(db_url, Some("postgres://localhost/db".to_string()));
+///
+/// let missing = env::get(&env_vars, "NONEXISTENT");
+/// assert_eq!(missing, None);
 /// ```
 #[must_use]
 pub fn get(env: &[(String, String)], name: &str) -> Option<String> {
@@ -62,14 +62,19 @@ pub fn get(env: &[(String, String)], name: &str) -> Option<String> {
 
 /// Get an environment variable or return a default value.
 ///
-/// # Example
+/// # Examples
 ///
-/// ```ignore
-/// use bindings::wasi::cli::environment;
-/// use mik_sdk::env;
+/// ```
+/// # use mik_sdk::env;
+/// let env_vars = vec![
+///     ("PORT".to_string(), "3000".to_string()),
+/// ];
 ///
-/// let port = env::get_or(&environment::get_environment(), "PORT", "8080");
-/// let host = env::get_or(&environment::get_environment(), "HOST", "0.0.0.0");
+/// let port = env::get_or(&env_vars, "PORT", "8080");
+/// assert_eq!(port, "3000");
+///
+/// let host = env::get_or(&env_vars, "HOST", "0.0.0.0");
+/// assert_eq!(host, "0.0.0.0"); // Uses default
 /// ```
 #[must_use]
 pub fn get_or(env: &[(String, String)], name: &str, default: &str) -> String {
@@ -79,20 +84,22 @@ pub fn get_or(env: &[(String, String)], name: &str, default: &str) -> String {
 /// Get an environment variable as a boolean.
 ///
 /// Returns `true` if the value is "true", "1", or "yes" (case-insensitive).
-/// Returns `false` if the variable is not set or has any other value.
+/// Returns the default if the variable is not set.
 ///
-/// # Example
+/// # Examples
 ///
-/// ```ignore
-/// use bindings::wasi::cli::environment;
-/// use mik_sdk::env;
+/// ```
+/// # use mik_sdk::env;
+/// let env_vars = vec![
+///     ("DEBUG".to_string(), "true".to_string()),
+///     ("VERBOSE".to_string(), "1".to_string()),
+///     ("ENABLED".to_string(), "false".to_string()),
+/// ];
 ///
-/// let debug = env::bool(&environment::get_environment(), "DEBUG", false);
-/// let verbose = env::bool(&environment::get_environment(), "VERBOSE", false);
-///
-/// if debug {
-///     // Enable debug logging
-/// }
+/// assert!(env::bool(&env_vars, "DEBUG", false));
+/// assert!(env::bool(&env_vars, "VERBOSE", false));
+/// assert!(!env::bool(&env_vars, "ENABLED", true)); // "false" is not truthy
+/// assert!(!env::bool(&env_vars, "MISSING", false)); // Uses default
 /// ```
 #[must_use]
 pub fn bool(env: &[(String, String)], name: &str, default: bool) -> bool {
@@ -102,18 +109,19 @@ pub fn bool(env: &[(String, String)], name: &str, default: bool) -> bool {
     })
 }
 
-/// Get all environment variables.
+/// Get all environment variables as a cloned vector.
 ///
-/// # Example
+/// # Examples
 ///
-/// ```ignore
-/// use bindings::wasi::cli::environment;
-/// use mik_sdk::env;
+/// ```
+/// # use mik_sdk::env;
+/// let env_vars = vec![
+///     ("PORT".to_string(), "3000".to_string()),
+///     ("HOST".to_string(), "localhost".to_string()),
+/// ];
 ///
-/// let all = env::all(&environment::get_environment());
-/// for (key, value) in all {
-///     println!("{key}={value}");
-/// }
+/// let all = env::all(&env_vars);
+/// assert_eq!(all.len(), 2);
 /// ```
 #[must_use]
 pub fn all(env: &[(String, String)]) -> Vec<(String, String)> {
@@ -124,24 +132,21 @@ pub fn all(env: &[(String, String)]) -> Vec<(String, String)> {
 ///
 /// Uses a `HashMap` for O(1) lookups instead of linear search.
 ///
-/// # Example
+/// # Examples
 ///
-/// ```ignore
-/// use bindings::wasi::cli::environment;
-/// use mik_sdk::env::EnvCache;
+/// ```
+/// # use mik_sdk::env::EnvCache;
+/// let env_vars = vec![
+///     ("PORT".to_string(), "3000".to_string()),
+///     ("DEBUG".to_string(), "true".to_string()),
+/// ];
+/// let cache = EnvCache::new(env_vars);
 ///
-/// // Initialize once at module level
-/// static ENV_CACHE: std::sync::OnceLock<EnvCache> = std::sync::OnceLock::new();
-///
-/// fn env_cache() -> &'static EnvCache {
-///     ENV_CACHE.get_or_init(|| EnvCache::new(environment::get_environment()))
-/// }
-///
-/// fn my_handler(req: &Request) -> Response {
-///     let port = env_cache().get_or("PORT", "8080");
-///     let debug = env_cache().bool("DEBUG", false);
-///     ok!({ "port": str(port), "debug": bool(debug) })
-/// }
+/// assert_eq!(cache.get("PORT"), Some("3000".to_string()));
+/// assert_eq!(cache.get_or("PORT", "8080"), "3000");
+/// assert_eq!(cache.get_or("MISSING", "default"), "default");
+/// assert!(cache.bool("DEBUG", false));
+/// assert_eq!(cache.all().len(), 2);
 /// ```
 #[derive(Debug)]
 pub struct EnvCache {

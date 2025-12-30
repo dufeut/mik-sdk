@@ -13,11 +13,11 @@
 //!
 //! # Examples
 //!
-//! ```ignore
-//! use mik_sdk::random;
-//!
+//! ```
+//! # use mik_sdk::random;
 //! // Generate random bytes
 //! let secret = random::bytes(32);
+//! assert_eq!(secret.len(), 32);
 //!
 //! // Generate a random u64
 //! let id = random::u64();
@@ -27,7 +27,8 @@
 //! assert_eq!(uuid.len(), 36); // "550e8400-e29b-41d4-a716-446655440000"
 //!
 //! // Generate random hex string
-//! let token = random::hex(16); // 32 hex characters
+//! let token = random::hex(16);
+//! assert_eq!(token.len(), 32); // 16 bytes = 32 hex characters
 //! ```
 
 /// Generate cryptographically secure random bytes.

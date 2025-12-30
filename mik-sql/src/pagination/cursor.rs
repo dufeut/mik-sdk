@@ -194,19 +194,24 @@ impl std::error::Error for CursorError {}
 
 /// Trait for types that can be converted into a cursor.
 ///
-/// This provides flexible DX for cursor pagination methods:
-/// - `Cursor` - zero-cost move when you own the cursor
-/// - `&str` - automatically decodes, returns None if invalid
-/// - `Option<&str>` - perfect for `req.query("after")` results
+/// Provides flexible DX for cursor pagination methods.
 ///
 /// # Example
 ///
-/// ```ignore
-/// // All of these work:
-/// .after_cursor(cursor)            // Cursor (zero-cost move)
-/// .after_cursor(cursor.clone())    // explicit clone if you need to keep it
-/// .after_cursor("eyJpZCI6MTAwfQ") // &str (base64 encoded)
-/// .after_cursor(req.query("after")) // Option<&str>
+/// ```
+/// # use mik_sql::{Cursor, IntoCursor};
+/// // Cursor directly
+/// let cursor = Cursor::new().int("id", 100);
+/// assert!(cursor.into_cursor().is_some());
+///
+/// // Base64 encoded string
+/// let encoded = Cursor::new().int("id", 42).encode();
+/// let decoded: Option<Cursor> = encoded.as_str().into_cursor();
+/// assert!(decoded.is_some());
+///
+/// // Option<&str> - None returns None
+/// let none: Option<&str> = None;
+/// assert!(none.into_cursor().is_none());
 /// ```
 pub trait IntoCursor {
     /// Convert into an optional cursor.

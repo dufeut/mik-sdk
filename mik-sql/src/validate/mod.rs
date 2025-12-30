@@ -7,7 +7,7 @@
 //!
 //! # Example
 //!
-//! ```ignore
+//! ```
 //! use mik_sql::{FilterValidator, merge_filters, Filter, Operator, Value};
 //!
 //! // Create validator with security rules
@@ -28,7 +28,8 @@
 //! ];
 //!
 //! // Merge with validation
-//! let filters = merge_filters(trusted, user, &validator)?;
+//! let filters = merge_filters(trusted, user, &validator).unwrap();
+//! assert_eq!(filters.len(), 3);
 //! ```
 
 mod column;

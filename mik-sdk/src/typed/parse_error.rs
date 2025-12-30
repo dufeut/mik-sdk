@@ -2,16 +2,18 @@
 
 use super::ValidationError;
 
-/// Error returned when parsing input fails.
+/// Error type for parsing failures.
 ///
 /// This covers structural errors like missing required fields or type mismatches.
 /// Errors are represented as distinct enum variants for pattern matching.
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```
+/// # use mik_sdk::typed::ParseError;
+/// let error = ParseError::missing("email");
 /// match error {
-///     ParseError::MissingField { field } => println!("Missing: {}", field),
+///     ParseError::MissingField { field } => assert_eq!(field, "email"),
 ///     ParseError::TypeMismatch { field, expected } => {
 ///         println!("Expected {} for {}", expected, field)
 ///     }
@@ -123,7 +125,8 @@ impl ParseError {
     ///
     /// # Example
     ///
-    /// ```ignore
+    /// ```
+    /// # use mik_sdk::typed::ParseError;
     /// let err = ParseError::missing("city").with_path("address");
     /// assert_eq!(err.field(), "address.city");
     /// ```

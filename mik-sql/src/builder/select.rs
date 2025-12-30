@@ -72,9 +72,13 @@ impl<D: Dialect> QueryBuilder<D> {
     /// Add a computed field to the SELECT clause.
     ///
     /// # Example
-    /// ```ignore
-    /// .computed("full_name", "first_name || ' ' || last_name")
-    /// .computed("line_total", "quantity * price")
+    ///
+    /// ```
+    /// # use mik_sql::prelude::*;
+    /// let result = postgres("orders")
+    ///     .computed("line_total", "quantity * price")
+    ///     .build();
+    /// assert!(result.sql.contains("(quantity * price) AS line_total"));
     /// ```
     ///
     /// # Panics
