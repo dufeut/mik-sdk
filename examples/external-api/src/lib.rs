@@ -1,3 +1,6 @@
+#![allow(missing_docs)] // Example crate - documentation not required
+#![allow(clippy::doc_markdown)] // Example code doesn't need backticks everywhere
+#![allow(clippy::exhaustive_structs)] // Example types are internal, not published APIs
 //! External API Example - Fetching data from external HTTP APIs.
 //!
 //! Demonstrates real-world patterns for external HTTP calls:

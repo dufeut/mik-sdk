@@ -14,6 +14,7 @@ const MAX_VALUE_NODES: usize = 10000;
 /// 3. Nesting depth limit - prevent complex nested queries
 /// 4. Total node count limit - prevent DoS via large arrays
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct FilterValidator {
     /// Allowed field names (whitelist). Empty = allow all fields.
     pub allowed_fields: Vec<String>,
@@ -190,15 +191,34 @@ impl Default for FilterValidator {
 
 /// Validation error types.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ValidationError {
     /// Field is not in the allowed list.
-    FieldNotAllowed { field: String, allowed: Vec<String> },
+    FieldNotAllowed {
+        /// The field that was not allowed.
+        field: String,
+        /// The list of allowed fields.
+        allowed: Vec<String>,
+    },
     /// Operator is denied for this field.
-    OperatorDenied { operator: Operator, field: String },
+    OperatorDenied {
+        /// The operator that was denied.
+        operator: Operator,
+        /// The field the operator was used on.
+        field: String,
+    },
     /// Nesting depth exceeds maximum.
-    NestingTooDeep { max: usize, actual: usize },
+    NestingTooDeep {
+        /// The maximum allowed nesting depth.
+        max: usize,
+        /// The actual nesting depth encountered.
+        actual: usize,
+    },
     /// Too many value nodes (DoS prevention).
-    TooManyNodes { max: usize },
+    TooManyNodes {
+        /// The maximum allowed node count.
+        max: usize,
+    },
 }
 
 impl fmt::Display for ValidationError {
@@ -207,19 +227,19 @@ impl fmt::Display for ValidationError {
             Self::FieldNotAllowed { field, allowed } => {
                 write!(
                     f,
-                    "Field '{}' is not allowed. Allowed fields: {}",
+                    "field `{}` is not allowed, allowed fields: {}",
                     field,
                     allowed.join(", ")
                 )
             },
             Self::OperatorDenied { operator, field } => {
-                write!(f, "Operator '{operator:?}' is denied for field '{field}'")
+                write!(f, "operator `{operator:?}` is denied for field `{field}`")
             },
             Self::NestingTooDeep { max, actual } => {
-                write!(f, "Filter nesting depth {actual} exceeds maximum {max}")
+                write!(f, "filter nesting depth {actual} exceeds maximum {max}")
             },
             Self::TooManyNodes { max } => {
-                write!(f, "Filter contains too many value nodes (max {max})")
+                write!(f, "filter contains too many value nodes (max {max})")
             },
         }
     }
@@ -251,12 +271,12 @@ impl std::error::Error for ValidationError {}
 /// # use mik_sql::{Filter, FilterValidator, merge_filters, Operator, Value};
 /// // System ensures user can only see their org's data
 /// let trusted = vec![
-///     Filter { field: "org_id".into(), op: Operator::Eq, value: Value::Int(123) },
+///     Filter::new("org_id", Operator::Eq, Value::Int(123)),
 /// ];
 ///
 /// // User wants to filter by status
 /// let user = vec![
-///     Filter { field: "status".into(), op: Operator::Eq, value: Value::String("active".into()) },
+///     Filter::new("status", Operator::Eq, Value::String("active".into())),
 /// ];
 ///
 /// let validator = FilterValidator::new().allow_fields(&["status", "name"]);

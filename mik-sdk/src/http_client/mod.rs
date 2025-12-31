@@ -265,12 +265,12 @@ mod tests {
     fn test_error_display() {
         assert_eq!(
             Error::DnsError("failed".to_string()).to_string(),
-            "DNS error: failed"
+            "dns error: failed"
         );
-        assert_eq!(Error::Timeout.to_string(), "Request timeout");
+        assert_eq!(Error::Timeout.to_string(), "request timeout");
         assert_eq!(
             Error::InvalidUrl("bad url".to_string()).to_string(),
-            "Invalid URL: bad url"
+            "invalid url: bad url"
         );
     }
 

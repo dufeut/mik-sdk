@@ -3,9 +3,12 @@
 // =============================================================================
 #![forbid(unsafe_code)]
 #![deny(unused_must_use)]
+#![warn(missing_docs)]
 #![warn(missing_debug_implementations)]
 #![warn(rust_2018_idioms)]
 #![warn(unreachable_pub)]
+#![warn(rustdoc::missing_crate_level_docs)]
+#![warn(rustdoc::broken_intra_doc_links)]
 // =============================================================================
 // CLIPPY CONFIGURATION
 // =============================================================================
@@ -22,6 +25,10 @@
 #![allow(clippy::cast_possible_truncation)] // Intentional in SQL context
 #![allow(clippy::cast_sign_loss)] // Intentional in SQL context
 #![allow(clippy::cast_possible_wrap)] // Intentional in SQL context
+// Internal builder code where bounds are checked before use
+#![allow(clippy::indexing_slicing)] // Bounds checked before indexing in builder logic
+#![allow(clippy::unwrap_used)] // Used after explicit length checks in compound filter builders
+#![allow(clippy::double_must_use)] // Functions returning must_use types can have their own docs
 
 //! # mik-sql - SQL Query Builder with Mongo-style Filters
 //!
@@ -514,4 +521,84 @@ mod tests {
         assert!(result.sql.contains("BETWEEN ?1 AND ?2"));
         assert_eq!(result.params.len(), 2);
     }
+}
+
+// ============================================================================
+// API Contract Tests (compile-time assertions)
+// ============================================================================
+
+#[cfg(test)]
+mod api_contracts {
+    use static_assertions::assert_impl_all;
+
+    // ========================================================================
+    // Query Builder types
+    // ========================================================================
+
+    // QueryResult is Clone, Debug, PartialEq
+    assert_impl_all!(crate::QueryResult: Clone, std::fmt::Debug, PartialEq);
+
+    // Cursor is Clone, Debug, PartialEq
+    assert_impl_all!(crate::Cursor: Clone, std::fmt::Debug, PartialEq);
+
+    // PageInfo is Clone, Debug, PartialEq, Eq, Default
+    assert_impl_all!(crate::PageInfo: Clone, std::fmt::Debug, PartialEq, Eq, Default);
+
+    // ========================================================================
+    // Value and Filter types
+    // ========================================================================
+
+    // Value is Clone, Debug, PartialEq (no Eq because of Float)
+    assert_impl_all!(crate::Value: Clone, std::fmt::Debug, PartialEq);
+
+    // Filter is Clone, Debug, PartialEq
+    assert_impl_all!(crate::Filter: Clone, std::fmt::Debug, PartialEq);
+
+    // FilterExpr is Clone, Debug, PartialEq
+    assert_impl_all!(crate::FilterExpr: Clone, std::fmt::Debug, PartialEq);
+
+    // ========================================================================
+    // Enum types
+    // ========================================================================
+
+    // Operator is Copy, Clone, Debug, PartialEq, Eq
+    assert_impl_all!(crate::Operator: Copy, Clone, std::fmt::Debug, PartialEq, Eq);
+
+    // LogicalOp is Copy, Clone, Debug, PartialEq, Eq
+    assert_impl_all!(crate::LogicalOp: Copy, Clone, std::fmt::Debug, PartialEq, Eq);
+
+    // SortDir is Copy, Clone, Debug, PartialEq, Eq
+    assert_impl_all!(crate::SortDir: Copy, Clone, std::fmt::Debug, PartialEq, Eq);
+
+    // CursorDirection is Copy, Clone, Debug, PartialEq, Eq
+    assert_impl_all!(crate::CursorDirection: Copy, Clone, std::fmt::Debug, PartialEq, Eq);
+
+    // AggregateFunc is Copy, Clone, Debug, PartialEq, Eq
+    assert_impl_all!(crate::AggregateFunc: Copy, Clone, std::fmt::Debug, PartialEq, Eq);
+
+    // ========================================================================
+    // Error types
+    // ========================================================================
+
+    // CursorError is Clone, Debug, PartialEq, Eq
+    assert_impl_all!(crate::CursorError: Clone, std::fmt::Debug, PartialEq, Eq);
+
+    // ValidationError is Clone, Debug, PartialEq, Eq
+    assert_impl_all!(crate::ValidationError: Clone, std::fmt::Debug, PartialEq, Eq);
+
+    // ========================================================================
+    // Helper types
+    // ========================================================================
+
+    // SortField is Clone, Debug, PartialEq, Eq
+    assert_impl_all!(crate::SortField: Clone, std::fmt::Debug, PartialEq, Eq);
+
+    // Aggregate is Clone, Debug, PartialEq, Eq
+    assert_impl_all!(crate::Aggregate: Clone, std::fmt::Debug, PartialEq, Eq);
+
+    // ComputedField is Clone, Debug, PartialEq, Eq
+    assert_impl_all!(crate::ComputedField: Clone, std::fmt::Debug, PartialEq, Eq);
+
+    // KeysetCondition is Clone, Debug, PartialEq
+    assert_impl_all!(crate::KeysetCondition: Clone, std::fmt::Debug, PartialEq);
 }

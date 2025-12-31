@@ -1,3 +1,5 @@
+#![allow(missing_docs)] // Example crate - documentation not required
+#![allow(clippy::exhaustive_structs)] // Example types are internal, not published APIs
 //! Hello World - Clean DX with typed inputs and proc-macros!
 //!
 //! New simplified 2-component architecture:

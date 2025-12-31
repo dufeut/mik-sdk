@@ -7,6 +7,7 @@ use super::types::{QueryResult, Value};
 
 /// Builder for INSERT queries.
 #[derive(Debug)]
+#[must_use = "builder does nothing until .build() is called"]
 pub struct InsertBuilder<D: Dialect> {
     dialect: D,
     table: String,

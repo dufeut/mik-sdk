@@ -10,7 +10,8 @@ use super::cursor::Cursor;
 ///
 /// Generates efficient `(col1, col2) > ($1, $2)` style WHERE clauses
 /// for keyset/seek pagination.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub struct KeysetCondition {
     /// The sort fields and their directions.
     pub sort_fields: Vec<SortField>,

@@ -45,6 +45,8 @@ panic = "abort"
 [workspace.lints.rust]
 # Deny unsafe_code by default - examples allow it only for generated bindings
 unsafe_code = "deny"
+# Require documentation for public items
+missing_docs = "warn"
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
@@ -58,5 +60,15 @@ missing_panics_doc = "allow"
 needless_pass_by_value = "allow"
 # Allow match expressions over let...else when clearer
 manual_let_else = "allow"
+# Prefer expect() or handle None/Err explicitly
+unwrap_used = "warn"
+# Document why panicking is acceptable when using expect
+expect_used = "warn"
+# Prefer .get() for bounds checking instead of direct indexing
+indexing_slicing = "warn"
+# Non-exhaustive enums for API compatibility
+exhaustive_enums = "warn"
+# Non-exhaustive structs for API compatibility
+exhaustive_structs = "warn"
 
 # cargo-component runs wasm-opt automatically in release builds

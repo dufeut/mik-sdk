@@ -1,4 +1,9 @@
-#![allow(clippy::unreadable_literal, clippy::cast_sign_loss)]
+#![allow(
+    clippy::unreadable_literal,
+    clippy::cast_sign_loss,
+    clippy::unwrap_used,       // Test code uses unwrap for assertions
+    clippy::indexing_slicing   // Test code uses indexing for assertions
+)]
 //! Roundtrip property tests for mik-sdk.
 //!
 //! These tests verify that data survives encode -> decode -> encode cycles.

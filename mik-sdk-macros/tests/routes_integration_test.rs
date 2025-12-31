@@ -1,7 +1,10 @@
 #![allow(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
-    clippy::cast_precision_loss
+    clippy::cast_precision_loss,
+    clippy::unwrap_used,       // Test code uses unwrap for assertions
+    clippy::expect_used,       // Test code uses expect for setup
+    clippy::indexing_slicing   // Test code uses indexing for assertions
 )]
 //! Integration tests for the routes! macro with typed inputs.
 //!

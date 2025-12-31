@@ -9,6 +9,7 @@ pub use crate::request::Method;
 
 /// URL scheme.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Scheme {
     /// HTTP (unencrypted).
     Http,
@@ -44,6 +45,7 @@ impl std::fmt::Display for Scheme {
 /// # }
 /// ```
 #[derive(Debug, Clone)]
+#[must_use = "request must be sent with .send_with()"]
 pub struct ClientRequest {
     method: Method,
     url: String,

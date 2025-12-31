@@ -22,6 +22,7 @@ mik-sql-macros = { path = "../mik-sql-macros", version = "0.1.0" }
 proptest = { workspace = true }
 criterion = { workspace = true }
 insta = { workspace = true }
+static_assertions = "1.1"
 
 [[bench]]
 name = "sql_builder"

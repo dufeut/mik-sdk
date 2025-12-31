@@ -1,3 +1,22 @@
+// =============================================================================
+// CRATE-LEVEL QUALITY LINTS (following Tokio/Serde standards)
+// =============================================================================
+#![forbid(unsafe_code)]
+#![deny(unused_must_use)]
+#![warn(missing_docs)]
+#![warn(missing_debug_implementations)]
+#![warn(rust_2018_idioms)]
+// Note: unreachable_pub is not applicable to proc-macro crates where internal
+// functions need pub visibility for module organization but aren't exported
+#![warn(rustdoc::missing_crate_level_docs)]
+#![warn(rustdoc::broken_intra_doc_links)]
+// =============================================================================
+// CLIPPY CONFIGURATION FOR PROC-MACRO CRATES
+// =============================================================================
+// These lints are relaxed for proc-macro crates where syn/quote patterns are used
+#![allow(clippy::indexing_slicing)] // Checked by syn parsing structure
+#![allow(elided_lifetimes_in_paths)] // Common pattern with ParseStream
+
 //! Proc-macros for mik-sql - SQL query builder with Mongo-style filters.
 
 use proc_macro::TokenStream;

@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used)] // Test code uses expect for setup
 //! Tests for the json!, ok!, and error! macro outputs.
 //!
 //! These tests verify the macros generate valid code by checking

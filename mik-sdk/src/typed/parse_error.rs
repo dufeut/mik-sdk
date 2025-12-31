@@ -156,13 +156,13 @@ impl std::fmt::Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::MissingField { field } => {
-                write!(f, "Missing required field: {field}")
+                write!(f, "missing required field `{field}`")
             },
             Self::InvalidFormat { field, value } => {
-                write!(f, "Invalid format for '{field}': {value}")
+                write!(f, "invalid format for `{field}`: {value}")
             },
             Self::TypeMismatch { field, expected } => {
-                write!(f, "Expected {expected} for field '{field}'")
+                write!(f, "expected {expected} for field `{field}`")
             },
             Self::Custom { message, .. } => {
                 write!(f, "{message}")

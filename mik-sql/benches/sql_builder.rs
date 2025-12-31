@@ -1,3 +1,5 @@
+#![allow(clippy::indexing_slicing)] // Benchmark code uses indexing for setup
+#![allow(clippy::unwrap_used)] // Benchmark code uses unwrap for setup
 //! Benchmarks for mik-sql query building operations.
 //!
 //! Run with: cargo bench -p mik-sql
@@ -192,61 +194,57 @@ fn bench_filter_validation(c: &mut Criterion) {
     // Simple filter validation
     let validator = FilterValidator::new().allow_fields(&["name", "email", "status", "created_at"]);
 
-    let simple_filter = Filter {
-        field: "name".to_string(),
-        op: Operator::Eq,
-        value: Value::String("Alice".to_string()),
-    };
+    let simple_filter = Filter::new("name", Operator::Eq, Value::String("Alice".to_string()));
     group.bench_function("validate_simple", |b| {
         b.iter(|| validator.validate(black_box(&simple_filter)));
     });
 
     // Invalid field (should fail fast)
-    let invalid_filter = Filter {
-        field: "password".to_string(),
-        op: Operator::Eq,
-        value: Value::String("secret".to_string()),
-    };
+    let invalid_filter = Filter::new(
+        "password",
+        Operator::Eq,
+        Value::String("secret".to_string()),
+    );
     group.bench_function("validate_invalid_field", |b| {
         b.iter(|| validator.validate(black_box(&invalid_filter)));
     });
 
     // Filter with IN operator (array)
-    let in_filter = Filter {
-        field: "status".to_string(),
-        op: Operator::In,
-        value: Value::Array(vec![
+    let in_filter = Filter::new(
+        "status",
+        Operator::In,
+        Value::Array(vec![
             Value::String("active".to_string()),
             Value::String("pending".to_string()),
             Value::String("review".to_string()),
         ]),
-    };
+    );
     group.bench_function("validate_in_operator", |b| {
         b.iter(|| validator.validate(black_box(&in_filter)));
     });
 
     // Filter with deeply nested array values
-    let nested_array_filter = Filter {
-        field: "tags".to_string(),
-        op: Operator::In,
-        value: Value::Array(vec![
+    let nested_array_filter = Filter::new(
+        "tags",
+        Operator::In,
+        Value::Array(vec![
             Value::String("rust".to_string()),
             Value::String("wasm".to_string()),
             Value::String("web".to_string()),
             Value::String("api".to_string()),
             Value::String("http".to_string()),
         ]),
-    };
+    );
     group.bench_function("validate_array_5_items", |b| {
         b.iter(|| validator.validate(black_box(&nested_array_filter)));
     });
 
     // Regex operator (denied by default)
-    let regex_filter = Filter {
-        field: "email".to_string(),
-        op: Operator::Regex,
-        value: Value::String(".*@example\\.com".to_string()),
-    };
+    let regex_filter = Filter::new(
+        "email",
+        Operator::Regex,
+        Value::String(".*@example\\.com".to_string()),
+    );
     group.bench_function("validate_denied_operator", |b| {
         b.iter(|| validator.validate(black_box(&regex_filter)));
     });

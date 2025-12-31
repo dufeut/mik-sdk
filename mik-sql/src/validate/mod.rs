@@ -18,13 +18,13 @@
 //!
 //! // System/policy filters (trusted, no validation)
 //! let trusted = vec![
-//!     Filter { field: "org_id".into(), op: Operator::Eq, value: Value::Int(123) },
-//!     Filter { field: "deleted_at".into(), op: Operator::Eq, value: Value::Null },
+//!     Filter::new("org_id", Operator::Eq, Value::Int(123)),
+//!     Filter::new("deleted_at", Operator::Eq, Value::Null),
 //! ];
 //!
 //! // User-provided filters (validated)
 //! let user = vec![
-//!     Filter { field: "status".into(), op: Operator::Eq, value: Value::String("active".into()) },
+//!     Filter::new("status", Operator::Eq, Value::String("active".into())),
 //! ];
 //!
 //! // Merge with validation

@@ -8,6 +8,7 @@ use super::types::{Filter, FilterExpr, Operator, QueryResult, Value};
 
 /// Builder for UPDATE queries.
 #[derive(Debug)]
+#[must_use = "builder does nothing until .build() is called"]
 pub struct UpdateBuilder<D: Dialect> {
     dialect: D,
     table: String,

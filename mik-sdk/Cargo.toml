@@ -37,6 +37,7 @@ wit-bindgen = { workspace = true }
 proptest = { workspace = true }
 criterion = { workspace = true }
 insta = { workspace = true }
+static_assertions = "1.1"
 
 [[bench]]
 name = "parsing"

@@ -4,6 +4,7 @@ use crate::validate::assert_valid_sql_identifier;
 
 /// SQL comparison operators.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Operator {
     /// Equal: `=`
     Eq,
@@ -39,6 +40,7 @@ pub enum Operator {
 
 /// Logical operators for compound filters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum LogicalOp {
     /// All conditions must match: `AND`
     And,
@@ -50,6 +52,7 @@ pub enum LogicalOp {
 
 /// A filter expression that can be simple or compound.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum FilterExpr {
     /// A simple field comparison.
     Simple(Filter),
@@ -59,8 +62,11 @@ pub enum FilterExpr {
 
 /// A compound filter combining multiple expressions with a logical operator.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub struct CompoundFilter {
+    /// The logical operator (AND, OR, NOT) to combine filters.
     pub op: LogicalOp,
+    /// The filter expressions to combine.
     pub filters: Vec<FilterExpr>,
 }
 
@@ -95,6 +101,7 @@ impl CompoundFilter {
 
 /// Aggregation functions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum AggregateFunc {
     /// Count rows: `COUNT(*)`
     Count,
@@ -111,12 +118,14 @@ pub enum AggregateFunc {
 }
 
 /// An aggregation expression.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Aggregate {
+    /// The aggregation function to apply.
     pub func: AggregateFunc,
-    /// Field to aggregate, None for COUNT(*)
+    /// Field to aggregate, None for COUNT(*).
     pub field: Option<String>,
-    /// Optional alias for the result
+    /// Optional alias for the result.
     pub alias: Option<String>,
 }
 
@@ -256,26 +265,39 @@ impl Aggregate {
 
 /// SQL parameter values.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum Value {
+    /// SQL NULL value.
     Null,
+    /// Boolean value (true/false).
     Bool(bool),
+    /// 64-bit signed integer.
     Int(i64),
+    /// 64-bit floating point number.
     Float(f64),
+    /// UTF-8 string value.
     String(String),
+    /// Array of values (for IN, BETWEEN operators).
     Array(Vec<Value>),
 }
 
 /// Sort direction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum SortDir {
+    /// Ascending order (smallest to largest, A to Z).
     Asc,
+    /// Descending order (largest to smallest, Z to A).
     Desc,
 }
 
 /// Sort field with direction.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct SortField {
+    /// The column name to sort by.
     pub field: String,
+    /// The sort direction (ascending or descending).
     pub dir: SortDir,
 }
 
@@ -326,22 +348,53 @@ impl SortField {
 
 /// Filter condition.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub struct Filter {
+    /// The column name to filter on.
     pub field: String,
+    /// The comparison operator to use.
     pub op: Operator,
+    /// The value to compare against.
     pub value: Value,
+}
+
+impl Filter {
+    /// Create a new filter condition.
+    #[must_use]
+    pub fn new(field: impl Into<String>, op: Operator, value: Value) -> Self {
+        Self {
+            field: field.into(),
+            op,
+            value,
+        }
+    }
 }
 
 /// Query result with SQL string and parameters.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 #[must_use = "QueryResult must be used to execute the query"]
 pub struct QueryResult {
+    /// The generated SQL query string.
     pub sql: String,
+    /// The parameter values to bind to the query.
     pub params: Vec<Value>,
 }
 
+impl QueryResult {
+    /// Create a new query result.
+    #[must_use]
+    pub fn new(sql: impl Into<String>, params: Vec<Value>) -> Self {
+        Self {
+            sql: sql.into(),
+            params,
+        }
+    }
+}
+
 /// A computed field expression with alias.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct ComputedField {
     /// The alias for the computed field.
     pub alias: String,
@@ -367,6 +420,7 @@ impl ComputedField {
 
 /// Cursor pagination direction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CursorDirection {
     /// Paginate forward (after the cursor).
     After,

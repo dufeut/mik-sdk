@@ -1,3 +1,5 @@
+#![allow(clippy::indexing_slicing)] // Benchmark code uses indexing for setup
+#![allow(clippy::unwrap_used)] // Benchmark code uses unwrap for setup
 //! Benchmarks for mik-sdk parsing operations.
 //!
 //! Run with: cargo bench -p mik-sdk

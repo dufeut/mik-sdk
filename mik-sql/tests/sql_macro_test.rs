@@ -1,4 +1,6 @@
 #![allow(clippy::struct_field_names)]
+#![allow(clippy::indexing_slicing)] // Test code uses indexing for assertions
+#![allow(clippy::unwrap_used)] // Test code uses unwrap for assertions
 //! Tests for the `sql_read!/sql_create!/sql_update!/sql_delete`! macros.
 
 use mik_sql::Value;
@@ -1021,11 +1023,11 @@ use mik_sql::{Filter, Operator};
 
 #[test]
 fn test_sql_merge_filters_valid() {
-    let user_filters = vec![Filter {
-        field: "name".to_string(),
-        op: Operator::Eq,
-        value: Value::String("Alice".to_string()),
-    }];
+    let user_filters = vec![Filter::new(
+        "name",
+        Operator::Eq,
+        Value::String("Alice".to_string()),
+    )];
 
     let result = sql_read!(users {
         select: [id, name],
@@ -1043,11 +1045,11 @@ fn test_sql_merge_filters_valid() {
 
 #[test]
 fn test_sql_merge_filters_invalid_field() {
-    let user_filters = vec![Filter {
-        field: "password".to_string(), // Not allowed
-        op: Operator::Eq,
-        value: Value::String("secret".to_string()),
-    }];
+    let user_filters = vec![Filter::new(
+        "password", // Not allowed
+        Operator::Eq,
+        Value::String("secret".to_string()),
+    )];
 
     let result = sql_read!(users {
         select: [id, name],
@@ -1060,11 +1062,11 @@ fn test_sql_merge_filters_invalid_field() {
 
 #[test]
 fn test_sql_merge_filters_denied_operator() {
-    let user_filters = vec![Filter {
-        field: "name".to_string(),
-        op: Operator::Regex, // Denied
-        value: Value::String(".*".to_string()),
-    }];
+    let user_filters = vec![Filter::new(
+        "name",
+        Operator::Regex, // Denied
+        Value::String(".*".to_string()),
+    )];
 
     let result = sql_read!(users {
         select: [id, name],
@@ -1078,11 +1080,11 @@ fn test_sql_merge_filters_denied_operator() {
 
 #[test]
 fn test_sql_merge_filters_with_dynamic_sort() {
-    let user_filters = vec![Filter {
-        field: "status".to_string(),
-        op: Operator::Eq,
-        value: Value::String("active".to_string()),
-    }];
+    let user_filters = vec![Filter::new(
+        "status",
+        Operator::Eq,
+        Value::String("active".to_string()),
+    )];
     let user_sort = "name";
 
     let result = sql_read!(users {

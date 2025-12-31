@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 /// HTTP response from an outbound request.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct Response {
     /// HTTP status code.
     pub status: u16,

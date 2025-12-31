@@ -1,4 +1,5 @@
 #![allow(clippy::too_many_lines)]
+#![allow(clippy::expect_used)] // Test code uses expect for setup
 //! Tests for DX (Developer Experience) macros.
 //!
 //! These tests verify that all DX macros compile correctly and

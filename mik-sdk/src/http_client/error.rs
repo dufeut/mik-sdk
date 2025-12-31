@@ -41,6 +41,7 @@
 /// # }
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Error {
     /// DNS resolution failed - the hostname could not be resolved to an IP address.
     ///
@@ -234,15 +235,15 @@ pub enum Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::DnsError(msg) => write!(f, "DNS error: {msg}"),
-            Self::ConnectionError(msg) => write!(f, "Connection error: {msg}"),
-            Self::Timeout => write!(f, "Request timeout"),
-            Self::TlsError(msg) => write!(f, "TLS error: {msg}"),
-            Self::InvalidUrl(msg) => write!(f, "Invalid URL: {msg}"),
-            Self::InvalidRequest(msg) => write!(f, "Invalid request: {msg}"),
-            Self::ResponseError(msg) => write!(f, "Response error: {msg}"),
-            Self::SsrfBlocked(msg) => write!(f, "SSRF blocked: {msg}"),
-            Self::Other(msg) => write!(f, "HTTP error: {msg}"),
+            Self::DnsError(msg) => write!(f, "dns error: {msg}"),
+            Self::ConnectionError(msg) => write!(f, "connection error: {msg}"),
+            Self::Timeout => write!(f, "request timeout"),
+            Self::TlsError(msg) => write!(f, "tls error: {msg}"),
+            Self::InvalidUrl(msg) => write!(f, "invalid url: {msg}"),
+            Self::InvalidRequest(msg) => write!(f, "invalid request: {msg}"),
+            Self::ResponseError(msg) => write!(f, "response error: {msg}"),
+            Self::SsrfBlocked(msg) => write!(f, "ssrf blocked: {msg}"),
+            Self::Other(msg) => write!(f, "http error: {msg}"),
         }
     }
 }

@@ -1,0 +1,38 @@
+# Clippy configuration for exemplary Rust code quality
+# See: https://doc.rust-lang.org/clippy/configuration.html
+
+# API stability - warn when changes might break downstream users
+avoid-breaking-exported-api = true
+
+# Cognitive complexity threshold (default is 25, we want stricter)
+cognitive-complexity-threshold = 15
+
+# Type complexity threshold
+type-complexity-threshold = 250
+
+# Common technical acronyms that should not trigger doc_markdown lint
+doc-valid-idents = [
+    "WASI",
+    "HTTP",
+    "HTTPS",
+    "JSON",
+    "UUID",
+    "RFC",
+    "UTF",
+    "API",
+    "SDK",
+    "URL",
+    "URI",
+    "HTML",
+    "CSS",
+    "SQL",
+    "CRUD",
+    "REST",
+    "OAuth",
+    "JWT",
+    "SSRF",
+    "XSS",
+    "CORS",
+    "TLS",
+    "SSL",
+]

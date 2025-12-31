@@ -30,6 +30,8 @@ const MAX_CURSOR_FIELDS: usize = 16;
 /// If you need to prevent cursor tampering, validate cursor values against
 /// expected ranges or sign cursors server-side.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+#[must_use = "cursor must be encoded with .encode() or used with a query builder"]
 pub struct Cursor {
     /// Field values that define the cursor position.
     pub fields: Vec<(String, Value)>,
@@ -168,6 +170,7 @@ impl Default for Cursor {
 
 /// Errors that can occur when parsing a cursor.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CursorError {
     /// The base64 encoding is invalid.
     InvalidBase64,
@@ -182,10 +185,10 @@ pub enum CursorError {
 impl std::fmt::Display for CursorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::InvalidBase64 => write!(f, "Invalid base64 encoding"),
-            Self::InvalidFormat => write!(f, "Invalid cursor format"),
-            Self::TooLarge => write!(f, "Cursor exceeds maximum size"),
-            Self::TooManyFields => write!(f, "Cursor has too many fields"),
+            Self::InvalidBase64 => write!(f, "invalid base64 encoding"),
+            Self::InvalidFormat => write!(f, "invalid cursor format"),
+            Self::TooLarge => write!(f, "cursor exceeds maximum size"),
+            Self::TooManyFields => write!(f, "cursor has too many fields"),
         }
     }
 }

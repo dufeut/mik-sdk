@@ -1,7 +1,9 @@
 #![allow(
     clippy::missing_const_for_fn,
     clippy::unreadable_literal,
-    clippy::format_push_string
+    clippy::format_push_string,
+    clippy::indexing_slicing, // Benchmark code uses indexing for setup
+    clippy::unwrap_used       // Benchmark code uses unwrap for setup
 )]
 //! Benchmarks for JSON parsing and building operations.
 //!

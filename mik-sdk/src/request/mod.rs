@@ -17,6 +17,7 @@ use std::collections::HashMap;
 
 /// HTTP method enum matching the WIT definition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Method {
     /// HTTP GET method - retrieve a resource.
     Get,

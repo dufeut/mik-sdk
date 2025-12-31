@@ -7,6 +7,7 @@ use crate::constants::MAX_URL_DECODED_LEN;
 
 /// Error returned when URL decoding fails.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum DecodeError {
     /// Decoded output would exceed maximum length.
     TooLong,
@@ -15,7 +16,7 @@ pub enum DecodeError {
 impl std::fmt::Display for DecodeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::TooLong => write!(f, "URL decoded output exceeds maximum length"),
+            Self::TooLong => write!(f, "url decoded output exceeds maximum length"),
         }
     }
 }

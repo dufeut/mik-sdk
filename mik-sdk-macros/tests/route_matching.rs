@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used)] // Test code uses expect for setup
 //! Test that the router macro generates correct pattern matching code.
 
 use std::process::Command;

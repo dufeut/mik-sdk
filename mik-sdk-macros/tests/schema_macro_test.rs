@@ -1,7 +1,9 @@
 #![allow(
     clippy::cast_possible_truncation,
     clippy::cast_precision_loss,
-    clippy::cast_sign_loss
+    clippy::cast_sign_loss,
+    clippy::unwrap_used,       // Test code uses unwrap for assertions
+    clippy::indexing_slicing   // Test code uses indexing for assertions
 )]
 //! Tests for the derive macros (Type, Query, Path) and their generated code.
 //!

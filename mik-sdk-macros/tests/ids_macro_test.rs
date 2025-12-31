@@ -1,3 +1,4 @@
+#![allow(clippy::indexing_slicing)] // Test code uses indexing for assertions
 //! Tests for the ids! macro.
 //!
 //! The ids! macro collects field values from a Vec of structs for batched loading.

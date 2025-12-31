@@ -3,9 +3,12 @@
 // =============================================================================
 #![forbid(unsafe_code)]
 #![deny(unused_must_use)]
+#![warn(missing_docs)]
 #![warn(missing_debug_implementations)]
 #![warn(rust_2018_idioms)]
 #![warn(unreachable_pub)]
+#![warn(rustdoc::missing_crate_level_docs)]
+#![warn(rustdoc::broken_intra_doc_links)]
 // =============================================================================
 // CLIPPY CONFIGURATION
 // =============================================================================
@@ -22,7 +25,13 @@
 #![allow(clippy::missing_panics_doc)] // # Panics sections - doc-heavy
 #![allow(clippy::match_same_arms)] // Intentional for clarity
 #![allow(clippy::format_push_string)] // String building style
-#![allow(clippy::format_collect)] // Iterator to string style
+#![allow(clippy::format_collect)]
+// Iterator to string style
+// Internal implementation where bounds/values are known at compile time or checked
+#![allow(clippy::indexing_slicing)] // Fixed-size buffers and checked lengths
+#![allow(clippy::unwrap_used)] // Used after explicit checks or with known values
+#![allow(clippy::expect_used)] // Used for system-level guarantees (RNG, etc.)
+#![allow(clippy::double_must_use)] // Builder methods can have their own docs
 
 //! mik-sdk - Ergonomic SDK for WASI HTTP handlers
 //!
@@ -373,4 +382,68 @@ pub mod prelude {
     pub use crate::query::{Cursor, PageInfo, Value};
     #[cfg(feature = "sql")]
     pub use crate::{sql_create, sql_delete, sql_read, sql_update};
+}
+
+// ============================================================================
+// API Contract Tests (compile-time assertions)
+// ============================================================================
+
+#[cfg(test)]
+mod api_contracts {
+    use static_assertions::{assert_impl_all, assert_not_impl_any};
+
+    // ========================================================================
+    // Request types
+    // ========================================================================
+
+    // Request is Debug but not Clone (body shouldn't be cloned)
+    assert_impl_all!(crate::Request: std::fmt::Debug);
+    assert_not_impl_any!(crate::Request: Clone);
+
+    // Method is Copy, Clone, Debug, PartialEq, Eq, Hash
+    assert_impl_all!(crate::Method: Copy, Clone, std::fmt::Debug, PartialEq, Eq, std::hash::Hash);
+
+    // Id is Clone, Debug, PartialEq, Eq, Hash (can be map key)
+    assert_impl_all!(crate::typed::Id: Clone, std::fmt::Debug, PartialEq, Eq, std::hash::Hash);
+
+    // ========================================================================
+    // JSON types
+    // ========================================================================
+
+    // JsonValue is Clone and Debug
+    assert_impl_all!(crate::json::JsonValue: Clone, std::fmt::Debug);
+
+    // JsonValue is NOT Send/Sync (uses Rc internally for WASM optimization)
+    assert_not_impl_any!(crate::json::JsonValue: Send, Sync);
+
+    // ========================================================================
+    // Error types
+    // ========================================================================
+
+    // ParseError is Clone, Debug, PartialEq, Eq
+    assert_impl_all!(crate::typed::ParseError: Clone, std::fmt::Debug, PartialEq, Eq);
+
+    // ValidationError is Clone, Debug, PartialEq, Eq
+    assert_impl_all!(crate::typed::ValidationError: Clone, std::fmt::Debug, PartialEq, Eq);
+
+    // DecodeError is Copy, Clone, Debug, PartialEq, Eq
+    assert_impl_all!(crate::DecodeError: Copy, Clone, std::fmt::Debug, PartialEq, Eq);
+
+    // ========================================================================
+    // HTTP Client types (when http-client feature is enabled)
+    // ========================================================================
+
+    #[cfg(feature = "http-client")]
+    mod http_client_contracts {
+        use static_assertions::assert_impl_all;
+
+        // ClientRequest is Debug and Clone
+        assert_impl_all!(crate::http_client::ClientRequest: Clone, std::fmt::Debug);
+
+        // Response is Debug and Clone
+        assert_impl_all!(crate::http_client::Response: Clone, std::fmt::Debug);
+
+        // Error is Clone, Debug, PartialEq, Eq
+        assert_impl_all!(crate::http_client::Error: Clone, std::fmt::Debug, PartialEq, Eq);
+    }
 }

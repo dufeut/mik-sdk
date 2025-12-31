@@ -43,6 +43,7 @@ pub trait Dialect: Clone + Copy {
 
 /// Postgres dialect.
 #[derive(Debug, Clone, Copy, Default)]
+#[non_exhaustive]
 pub struct Postgres;
 
 impl Dialect for Postgres {
@@ -100,6 +101,7 @@ impl Dialect for Postgres {
 
 /// `SQLite` dialect.
 #[derive(Debug, Clone, Copy, Default)]
+#[non_exhaustive]
 pub struct Sqlite;
 
 impl Dialect for Sqlite {

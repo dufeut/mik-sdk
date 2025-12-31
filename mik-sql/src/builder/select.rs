@@ -12,6 +12,7 @@ use super::types::{
 
 /// SQL query builder with dialect support.
 #[derive(Debug)]
+#[must_use = "builder does nothing until .build() is called"]
 pub struct QueryBuilder<D: Dialect> {
     dialect: D,
     table: String,

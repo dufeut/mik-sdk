@@ -70,6 +70,7 @@ use std::collections::HashMap;
 /// - Prefixed: `"usr_abc123"`
 /// - Snowflake/ULID: `"01ARZ3NDEKTSV4RRFFQ69G5FAV"`
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub struct Id(pub String);
 
 impl Id {
@@ -420,7 +421,7 @@ mod tests {
         assert!(parsed.is_err());
         let err = parsed.unwrap_err();
         assert_eq!(err.field(), "id");
-        assert!(err.message().contains("Invalid format"));
+        assert!(err.message().contains("invalid format"));
         assert!(err.message().contains("not-a-number"));
     }
 
@@ -472,7 +473,7 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(err.field(), "id");
-        assert!(err.message().contains("Missing"));
+        assert!(err.message().contains("missing"));
     }
 
     #[test]
@@ -495,7 +496,7 @@ mod tests {
     fn test_parse_error_missing() {
         let err = ParseError::missing("email");
         assert_eq!(err.field(), "email");
-        assert!(err.message().contains("Missing required field"));
+        assert!(err.message().contains("missing required field"));
         assert!(err.message().contains("email"));
         // Test pattern matching
         assert!(matches!(err, ParseError::MissingField { .. }));
@@ -505,7 +506,7 @@ mod tests {
     fn test_parse_error_invalid_format() {
         let err = ParseError::invalid_format("date", "not-a-date");
         assert_eq!(err.field(), "date");
-        assert!(err.message().contains("Invalid format"));
+        assert!(err.message().contains("invalid format"));
         assert!(err.message().contains("date"));
         assert!(err.message().contains("not-a-date"));
         // Test pattern matching
@@ -516,7 +517,7 @@ mod tests {
     fn test_parse_error_type_mismatch() {
         let err = ParseError::type_mismatch("age", "integer");
         assert_eq!(err.field(), "age");
-        assert!(err.message().contains("Expected integer"));
+        assert!(err.message().contains("expected integer"));
         assert!(err.message().contains("age"));
         // Test pattern matching
         assert!(matches!(err, ParseError::TypeMismatch { .. }));
@@ -542,7 +543,7 @@ mod tests {
     fn test_parse_error_display() {
         let err = ParseError::missing("name");
         let display = format!("{err}");
-        assert!(display.contains("Missing required field: name"));
+        assert!(display.contains("missing required field `name`"));
     }
 
     #[test]
@@ -623,7 +624,7 @@ mod tests {
         let err = ValidationError::min("name", 3);
         assert_eq!(err.field(), "name");
         assert_eq!(err.constraint(), "min");
-        assert!(err.message().contains("'name'"));
+        assert!(err.message().contains("`name`"));
         assert!(err.message().contains("at least 3"));
         // Test pattern matching
         assert!(matches!(err, ValidationError::Min { min: 3, .. }));
@@ -634,7 +635,7 @@ mod tests {
         let err = ValidationError::max("count", 100);
         assert_eq!(err.field(), "count");
         assert_eq!(err.constraint(), "max");
-        assert!(err.message().contains("'count'"));
+        assert!(err.message().contains("`count`"));
         assert!(err.message().contains("at most 100"));
         // Test pattern matching
         assert!(matches!(err, ValidationError::Max { max: 100, .. }));
@@ -645,7 +646,7 @@ mod tests {
         let err = ValidationError::pattern("email", r"^[\w@.]+$");
         assert_eq!(err.field(), "email");
         assert_eq!(err.constraint(), "pattern");
-        assert!(err.message().contains("'email'"));
+        assert!(err.message().contains("`email`"));
         assert!(err.message().contains("must match pattern"));
         // Test pattern matching
         assert!(matches!(err, ValidationError::Pattern { .. }));
@@ -656,7 +657,7 @@ mod tests {
         let err = ValidationError::format("email", "email address");
         assert_eq!(err.field(), "email");
         assert_eq!(err.constraint(), "format");
-        assert!(err.message().contains("'email'"));
+        assert!(err.message().contains("`email`"));
         assert!(err.message().contains("valid email address"));
         // Test pattern matching
         assert!(matches!(err, ValidationError::Format { .. }));
@@ -676,7 +677,7 @@ mod tests {
     fn test_validation_error_display() {
         let err = ValidationError::min("name", 1);
         let display = format!("{err}");
-        assert!(display.contains("'name' must be at least 1"));
+        assert!(display.contains("`name` must be at least 1"));
     }
 
     #[test]
@@ -1075,15 +1076,15 @@ mod tests {
     #[test]
     fn test_parse_error_messages_are_user_friendly() {
         let missing = ParseError::missing("username");
-        assert!(missing.message().starts_with("Missing"));
+        assert!(missing.message().starts_with("missing"));
         assert!(missing.to_string().contains("username"));
 
         let invalid = ParseError::invalid_format("date", "abc");
-        assert!(invalid.message().contains("Invalid"));
+        assert!(invalid.message().contains("invalid"));
         assert!(invalid.to_string().contains("abc"));
 
         let type_err = ParseError::type_mismatch("age", "number");
-        assert!(type_err.message().contains("Expected"));
+        assert!(type_err.message().contains("expected"));
         assert!(type_err.to_string().contains("number"));
     }
 

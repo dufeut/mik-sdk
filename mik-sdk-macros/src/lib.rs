@@ -3,17 +3,23 @@
 // =============================================================================
 #![forbid(unsafe_code)]
 #![deny(unused_must_use)]
+#![warn(missing_docs)]
 #![warn(missing_debug_implementations)]
 #![warn(rust_2018_idioms)]
 // Note: unreachable_pub is not applicable to proc-macro crates where internal
 // functions need pub visibility for module organization but aren't exported
-
+#![warn(rustdoc::missing_crate_level_docs)]
+#![warn(rustdoc::broken_intra_doc_links)]
 // =============================================================================
-// CLIPPY CONFIGURATION
+// CLIPPY CONFIGURATION FOR PROC-MACRO CRATES
 // =============================================================================
+// These lints are relaxed for proc-macro crates where syn/quote patterns are used
 #![allow(clippy::doc_markdown)] // Code in docs - extensive changes needed
 #![allow(clippy::missing_errors_doc)] // # Errors sections - doc-heavy
 #![allow(clippy::missing_panics_doc)] // # Panics sections - doc-heavy
+#![allow(clippy::indexing_slicing)] // Checked by syn parsing structure
+#![allow(clippy::unwrap_used)] // Struct fields are known to exist in derives
+#![allow(elided_lifetimes_in_paths)] // Common pattern with ParseStream
 
 //! Proc-macros for `mik-sdk` - clean JSON syntax for WASI HTTP handlers.
 

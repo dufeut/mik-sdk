@@ -1,3 +1,4 @@
+#![allow(clippy::indexing_slicing)] // Test code uses indexing for assertions
 //! Comprehensive tests for builder module coverage.
 //!
 //! These tests target uncovered code paths in:

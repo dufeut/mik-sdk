@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used)] // Test code uses unwrap for assertions
 //! Tests for the fetch! macro.
 
 use mik_sdk::fetch;
