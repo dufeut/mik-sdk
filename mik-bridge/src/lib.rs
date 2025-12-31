@@ -85,7 +85,23 @@ const fn status_title(code: u16) -> &'static str {
 /// Cached max body size from environment.
 static MAX_BODY_SIZE: OnceLock<usize> = OnceLock::new();
 
-/// Get the maximum body size, reading from environment on first call.
+/// Returns the maximum allowed request body size in bytes.
+///
+/// Reads from `MIK_MAX_BODY_SIZE` environment variable on first call.
+/// Falls back to [`DEFAULT_MAX_BODY_SIZE`] (10MB) if not set or invalid.
+///
+/// The value is cached for the lifetime of the component, so environment
+/// changes after first access have no effect.
+///
+/// # Example Environment Configuration
+///
+/// ```bash
+/// # 50MB limit
+/// MIK_MAX_BODY_SIZE=52428800
+///
+/// # 1MB limit
+/// MIK_MAX_BODY_SIZE=1048576
+/// ```
 fn get_max_body_size() -> usize {
     *MAX_BODY_SIZE.get_or_init(|| {
         environment::get_environment()
@@ -96,8 +112,37 @@ fn get_max_body_size() -> usize {
     })
 }
 
+/// Bridge component implementing WASI HTTP to mik handler translation.
+///
+/// This is the core component that enables portable HTTP handlers:
+/// - Receives WASI HTTP requests via `wasi:http/incoming-handler`
+/// - Converts them to `mik:core/handler` format
+/// - Invokes the user's handler
+/// - Converts the response back to WASI HTTP format
+///
+/// After WAC composition with a user handler, the combined component
+/// runs on any WASI HTTP runtime (Spin, wasmCloud, wasmtime serve, etc.).
 struct Bridge;
 
+/// WASI HTTP handler implementation.
+///
+/// Implements the `wasi:http/incoming-handler` interface, which is the
+/// standard entry point for HTTP requests in WASI HTTP runtimes.
+///
+/// ## Request Flow
+///
+/// 1. Extract path, method, headers from WASI HTTP request
+/// 2. Read body with size limit enforcement (413 if exceeded)
+/// 3. Convert to `mik:core/handler::RequestData`
+/// 4. Call user's `handler::handle()` function
+/// 5. Convert response and send via WASI HTTP
+///
+/// ## Error Handling
+///
+/// - Unsupported HTTP methods (CONNECT, TRACE) → 501 Not Implemented
+/// - Body exceeds `MIK_MAX_BODY_SIZE` → 413 Payload Too Large
+/// - Invalid status codes are clamped to 500 with error logging
+/// - Invalid UTF-8 headers are silently dropped with error logging
 impl Guest for Bridge {
     fn handle(request: IncomingRequest, response_out: ResponseOutparam) {
         // 1. Extract data from WASI HTTP request
@@ -224,6 +269,21 @@ fn convert_method(m: bindings::wasi::http::types::Method) -> Option<Method> {
     }
 }
 
+/// Extracts HTTP headers from a WASI HTTP request.
+///
+/// Converts WASI `Fields` resource to a list of (name, value) string pairs.
+/// Headers with invalid UTF-8 values are silently dropped and logged.
+///
+/// # Behavior
+///
+/// - Header names are preserved as-is (typically lowercase per HTTP/2)
+/// - Header values must be valid UTF-8 (per HTTP semantics)
+/// - Invalid UTF-8 values are dropped with a single log message per request
+/// - Multiple headers with the same name are preserved as separate entries
+///
+/// # Returns
+///
+/// Vector of (header_name, header_value) pairs with valid UTF-8 encoding.
 fn extract_headers(req: &IncomingRequest) -> Vec<(String, String)> {
     let headers = req.headers();
     let mut result = Vec::new();
