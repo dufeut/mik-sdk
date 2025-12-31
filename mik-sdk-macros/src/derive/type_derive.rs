@@ -31,7 +31,7 @@ fn pascal_to_snake_case(s: &str) -> String {
             // - Not at start
             // - Previous char wasn't uppercase (handles "HTTPRequest" → "http_request")
             // - OR next char is lowercase (handles "XMLParser" → "xml_parser")
-            let next_is_lower = s.chars().nth(i + 1).is_some_and(|nc| nc.is_lowercase());
+            let next_is_lower = s.chars().nth(i + 1).is_some_and(char::is_lowercase);
             if !prev_was_underscore && (!prev_was_upper || next_is_lower) {
                 result.push('_');
             }
@@ -86,6 +86,7 @@ pub fn derive_type_impl(input: TokenStream) -> TokenStream {
 // DERIVE TYPE - Enum Implementation
 // ============================================================================
 
+#[allow(clippy::too_many_lines)]
 fn derive_enum_type_impl(input: &DeriveInput, data_enum: &syn::DataEnum) -> TokenStream {
     let name = &input.ident;
     let name_str = name.to_string();
@@ -221,6 +222,7 @@ fn derive_enum_type_impl(input: &DeriveInput, data_enum: &syn::DataEnum) -> Toke
 // DERIVE TYPE - Struct Implementation
 // ============================================================================
 
+#[allow(clippy::too_many_lines)]
 fn derive_struct_type_impl(input: &DeriveInput, data_struct: &syn::DataStruct) -> TokenStream {
     let name = &input.ident;
     let name_str = name.to_string();

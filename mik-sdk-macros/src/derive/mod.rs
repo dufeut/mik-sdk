@@ -59,6 +59,7 @@ pub struct FieldAttrs {
     pub(crate) docs: Option<String>,
 }
 
+#[allow(clippy::too_many_lines)]
 pub fn parse_field_attrs(attrs: &[Attribute]) -> Result<FieldAttrs, syn::Error> {
     let mut result = FieldAttrs::default();
 
