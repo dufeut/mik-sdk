@@ -82,6 +82,7 @@ pub fn __format_timestamp() -> String {
 /// Exposed for testing the date calculation algorithm.
 #[doc(hidden)]
 #[must_use]
+#[allow(clippy::similar_names)] // doe/doy are standard date algorithm abbreviations
 pub fn __format_timestamp_from_duration(secs: u64, millis: u32) -> String {
     use crate::constants::{SECONDS_PER_DAY, SECONDS_PER_HOUR, SECONDS_PER_MINUTE};
 

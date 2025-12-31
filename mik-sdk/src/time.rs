@@ -170,6 +170,7 @@ pub fn to_millis(seconds: u64, nanoseconds: u32) -> u64 {
 /// assert_eq!(iso, "2025-01-16T10:50:00.500Z");
 /// ```
 #[must_use]
+#[allow(clippy::similar_names)] // doe/doy are standard date algorithm abbreviations
 pub fn to_iso(seconds: u64, nanoseconds: u32) -> String {
     use crate::constants::{SECONDS_PER_DAY, SECONDS_PER_HOUR, SECONDS_PER_MINUTE};
 

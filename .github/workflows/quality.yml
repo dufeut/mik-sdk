@@ -30,8 +30,8 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
-      - name: Clippy (all features)
-        run: cargo clippy --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api --all-features -- -D warnings
+      - name: Clippy (all targets, all features)
+        run: cargo clippy --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api --all-targets --all-features -- -D warnings
       - name: Clippy (no default features)
         run: cargo clippy -p mik-sdk --no-default-features -- -D warnings
 
