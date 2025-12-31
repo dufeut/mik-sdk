@@ -9,6 +9,7 @@ members = [
     "examples/crud-api",
     "examples/auth-api",
     "examples/external-api",
+    "examples/resilient-api",
 ]
 exclude = ["test-project"]
 

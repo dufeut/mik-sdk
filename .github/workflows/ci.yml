@@ -19,8 +19,41 @@ on:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  RUSTFLAGS: -Dwarnings
 
 jobs:
+  # ============================================================================
+  # Code Quality
+  # ============================================================================
+
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Clippy (all targets, all features)
+        run: cargo clippy --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api --exclude resilient-api --all-targets --all-features -- -D warnings
+      - name: Clippy (no default features)
+        run: cargo clippy -p mik-sdk --no-default-features -- -D warnings
+
+  # ============================================================================
+  # Tests
+  # ============================================================================
+
   test:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -30,135 +63,118 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.89
+      - uses: Swatinem/rust-cache@v2
+      - name: Run tests (all features)
+        run: cargo test --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api --exclude resilient-api --all-features
+      - name: Run tests (no default features)
+        run: cargo test -p mik-sdk --no-default-features
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.89
-        with:
-          components: rustfmt, clippy
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build documentation
+        run: cargo doc --no-deps --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api --exclude resilient-api --all-features
+        env:
+          RUSTDOCFLAGS: -Dwarnings
+      - name: Run doc tests
+        run: cargo test --doc --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api --exclude resilient-api
 
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
+  # ============================================================================
+  # WASM & MSRV
+  # ============================================================================
 
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-
-      - name: Clippy
-        run: cargo clippy --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api -- -D warnings
-
-      - name: Run tests
-        run: cargo test --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api
-
-      - name: Test without SQL feature
-        run: cargo check -p mik-sdk --no-default-features
-
-  # Build WASM components (optional, requires cargo-component)
   wasm:
     name: WASM Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.89
+      - uses: dtolnay/rust-toolchain@1.89
         with:
           targets: wasm32-wasip2
-
       - name: Install cargo-component
         run: cargo install cargo-component --locked
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-wasm-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-wasm-
-
+      - uses: Swatinem/rust-cache@v2
       - name: Build bridge component
         run: cd mik-bridge && cargo component build --release
-
       - name: Build hello-world example
         run: cd examples/hello-world && cargo component build --release
-
       - name: Build crud-api example
         run: cd examples/crud-api && cargo component build --release
 
   msrv:
-    name: Check MSRV (1.89)
+    name: MSRV (1.89)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Rust 1.89
-        uses: dtolnay/rust-toolchain@1.89
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-msrv-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-msrv-
-
+      - uses: dtolnay/rust-toolchain@1.89
+      - uses: Swatinem/rust-cache@v2
       - name: Check compilation
-        run: cargo check --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api
+        run: cargo check --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api --exclude resilient-api
+
+  # ============================================================================
+  # Security & Compliance
+  # ============================================================================
 
   security:
     name: Security Audit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Run cargo-audit
-        uses: rustsec/audit-check@v2
+      - uses: rustsec/audit-check@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  deny:
+    name: Cargo Deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+
+  semver:
+    name: SemVer Check
+    runs-on: ubuntu-latest
+    # Only run on PRs to catch breaking changes before merge
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-semver-checks
+      - name: Check semver (mik-sdk)
+        run: cargo semver-checks check-release -p mik-sdk
+      - name: Check semver (mik-sql)
+        run: cargo semver-checks check-release -p mik-sql
+      - name: Check semver (mik-sdk-macros)
+        run: cargo semver-checks check-release -p mik-sdk-macros
+      - name: Check semver (mik-sql-macros)
+        run: cargo semver-checks check-release -p mik-sql-macros
+
+  # ============================================================================
+  # Fuzz Testing
+  # ============================================================================
 
   fuzz:
     name: Fuzz Targets
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Rust nightly
-        uses: dtolnay/rust-toolchain@nightly
-
+      - uses: dtolnay/rust-toolchain@nightly
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz --locked
-
-      - name: Cache cargo
-        uses: actions/cache@v4
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            mik-sdk/fuzz/target/
-          key: ${{ runner.os }}-fuzz-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-fuzz-
-
+          workspaces: mik-sdk/fuzz
       - name: Build fuzz targets
         working-directory: mik-sdk/fuzz
         run: cargo +nightly fuzz build
-
       - name: Run fuzz targets briefly
         working-directory: mik-sdk/fuzz
         run: |
@@ -167,58 +183,22 @@ jobs:
             cargo +nightly fuzz run "$target" -- -max_total_time=10 || true
           done
 
-  docs:
-    name: Documentation
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.89
-
-      - name: Check docs build
-        run: cargo doc --no-deps --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api
-        env:
-          RUSTDOCFLAGS: -D warnings
-
-  deny:
-    name: Cargo Deny
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check licenses and bans
-        uses: EmbarkStudios/cargo-deny-action@v2
+  # ============================================================================
+  # Coverage
+  # ============================================================================
 
   coverage:
     name: Code Coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.89
+      - uses: dtolnay/rust-toolchain@1.89
         with:
           components: llvm-tools-preview
-
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-coverage-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-coverage-
-
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: Swatinem/rust-cache@v2
       - name: Generate coverage report
-        run: cargo llvm-cov --all-features --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api --lcov --output-path lcov.info
-
+        run: cargo llvm-cov --all-features --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api --exclude resilient-api --lcov --output-path lcov.info
       # Note: CODECOV_TOKEN secret must be added to repo settings at:
       # Settings > Secrets and variables > Actions > New repository secret
       - name: Upload coverage to Codecov
@@ -228,3 +208,28 @@ jobs:
           fail_ci_if_error: false
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # ============================================================================
+  # Quality Gate
+  # ============================================================================
+
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs: [format, clippy, test, docs, wasm, msrv, security, deny]
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [[ "${{ needs.format.result }}" != "success" ]] || \
+             [[ "${{ needs.clippy.result }}" != "success" ]] || \
+             [[ "${{ needs.test.result }}" != "success" ]] || \
+             [[ "${{ needs.docs.result }}" != "success" ]] || \
+             [[ "${{ needs.wasm.result }}" != "success" ]] || \
+             [[ "${{ needs.msrv.result }}" != "success" ]] || \
+             [[ "${{ needs.security.result }}" != "success" ]] || \
+             [[ "${{ needs.deny.result }}" != "success" ]]; then
+            echo "One or more quality checks failed"
+            exit 1
+          fi
+          echo "All quality checks passed!"

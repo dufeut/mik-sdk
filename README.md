@@ -10,6 +10,14 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/dufeut/mik-sdk/actions/workflows/ci.yml"><img src="https://github.com/dufeut/mik-sdk/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://codecov.io/gh/dufeut/mik-sdk"><img src="https://codecov.io/gh/dufeut/mik-sdk/graph/badge.svg" alt="codecov"></a>
+  <a href="https://crates.io/crates/mik-sdk"><img src="https://img.shields.io/crates/v/mik-sdk.svg" alt="Crates.io"></a>
+  <a href="https://docs.rs/mik-sdk"><img src="https://docs.rs/mik-sdk/badge.svg" alt="docs.rs"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+</p>
+
+<p align="center">
   <a href="https://dufeut.github.io/mik-sdk/">Docs</a> &bull;
   <a href="https://crates.io/crates/mik-sdk">Crates.io</a> &bull;
   <a href="LICENSE">MIT License</a>
@@ -122,8 +130,11 @@ Full documentation is available at [docs/](./docs/).
 
 See the [examples/](./examples/) directory:
 
-- **hello-world** - Minimal handler with typed inputs
-- **crud-api** - REST API with SQL query builder
+- **hello-world** - Minimal handler with typed path/query inputs
+- **crud-api** - REST API with SQL query builder and pagination
+- **auth-api** - Authentication patterns and JWT handling
+- **external-api** - Outbound HTTP calls with `fetch!` macro
+- **resilient-api** - Resilience patterns: retry, fallback, rate limiting
 
 ## Crate Structure
 
