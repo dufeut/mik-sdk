@@ -32,7 +32,7 @@ anyhow = "1.0"
 # Testing dependencies
 proptest = "1.5"
 criterion = { version = "0.8", default-features = false }
-insta = "1.41"
+insta = "1.45"
 
 # Optimize WASM builds for size
 [profile.release]
