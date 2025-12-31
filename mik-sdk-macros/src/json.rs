@@ -18,8 +18,8 @@ pub enum JsonValue {
     Int(LitInt),
     Float(LitFloat),
     String(LitStr),
-    Array(Vec<JsonValue>),
-    Object(Vec<(String, JsonValue)>),
+    Array(Vec<Self>),
+    Object(Vec<(String, Self)>),
     Expr(Expr),
     // Type hints for expressions
     StrHint(Expr),

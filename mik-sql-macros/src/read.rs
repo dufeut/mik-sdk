@@ -256,6 +256,7 @@ impl Parse for SqlInput {
 
 /// Build a SELECT query using the query builder (CRUD: Read).
 #[allow(clippy::too_many_lines)] // Query building has many options to handle
+#[allow(clippy::cognitive_complexity)] // Complex macro with many branches
 pub fn sql_read_impl(input: TokenStream) -> TokenStream {
     let SqlInput {
         dialect,

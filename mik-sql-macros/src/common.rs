@@ -85,7 +85,7 @@ pub enum SqlFilterExpr {
     Simple(SqlFilter),
     Compound {
         op: SqlLogicalOp,
-        filters: Vec<SqlFilterExpr>,
+        filters: Vec<Self>,
     },
 }
 
@@ -131,7 +131,7 @@ pub enum SqlValue {
     Int(LitInt),
     Float(LitFloat),
     String(LitStr),
-    Array(Vec<SqlValue>),
+    Array(Vec<Self>),
     IntHint(Expr),
     StrHint(Expr),
     FloatHint(Expr),
@@ -201,15 +201,15 @@ pub enum SqlComputeExpr {
     LitInt(LitInt),
     LitFloat(LitFloat),
     BinOp {
-        left: Box<SqlComputeExpr>,
+        left: Box<Self>,
         op: SqlComputeBinOp,
-        right: Box<SqlComputeExpr>,
+        right: Box<Self>,
     },
     Func {
         name: SqlComputeFunc,
-        args: Vec<SqlComputeExpr>,
+        args: Vec<Self>,
     },
-    Paren(Box<SqlComputeExpr>),
+    Paren(Box<Self>),
 }
 
 /// Binary operators for compute expressions.

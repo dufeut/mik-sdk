@@ -15,6 +15,7 @@ use super::{
 // ============================================================================
 
 #[allow(clippy::too_many_lines)] // Complex derive with many type handling branches
+#[allow(clippy::cognitive_complexity)] // Complex macro with many type branches
 pub fn derive_type_impl(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
