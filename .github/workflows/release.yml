@@ -33,13 +33,13 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs.releases_created == 'true' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.89
+        uses: dtolnay/rust-toolchain@1.100
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/
@@ -79,10 +79,10 @@ jobs:
     needs: [release-please, publish-crates]
     if: ${{ needs.release-please.outputs.releases_created == 'true' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.89
+        uses: dtolnay/rust-toolchain@1.100
         with:
           targets: wasm32-wasip2
 
@@ -119,10 +119,10 @@ jobs:
     needs: [release-please, publish-bridge]
     if: ${{ needs.release-please.outputs.releases_created == 'true' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.89
+        uses: dtolnay/rust-toolchain@1.100
         with:
           targets: wasm32-wasip2
 

@@ -30,7 +30,7 @@ jobs:
     name: Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -40,7 +40,7 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -62,8 +62,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@1.100
       - uses: Swatinem/rust-cache@v2
       - name: Run tests (all features)
         run: cargo test --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api --exclude resilient-api --all-features
@@ -74,7 +74,7 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Build documentation
@@ -92,8 +92,8 @@ jobs:
     name: WASM Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@1.100
         with:
           targets: wasm32-wasip2
       - name: Install cargo-component
@@ -112,8 +112,8 @@ jobs:
     # Only run on PRs and main branch pushes (skip feature branch pushes)
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@1.100
         with:
           targets: wasm32-wasip2
       - name: Install cargo-component
@@ -146,8 +146,8 @@ jobs:
     name: MSRV (1.89)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@1.100
       - uses: Swatinem/rust-cache@v2
       - name: Check compilation
         run: cargo check --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api --exclude resilient-api
@@ -160,7 +160,7 @@ jobs:
     name: Security Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: rustsec/audit-check@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -169,7 +169,7 @@ jobs:
     name: Cargo Deny
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: EmbarkStudios/cargo-deny-action@v2
 
   semver:
@@ -178,7 +178,7 @@ jobs:
     # Only run on PRs to catch breaking changes before merge
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
@@ -201,7 +201,7 @@ jobs:
     name: Fuzz Targets
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@nightly
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz --locked
@@ -227,7 +227,7 @@ jobs:
     name: Benchmark Compilation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Compile benchmarks (mik-sdk)
@@ -243,8 +243,8 @@ jobs:
     name: Code Coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@1.100
         with:
           components: llvm-tools-preview
       - uses: taiki-e/install-action@cargo-llvm-cov
@@ -254,7 +254,7 @@ jobs:
       # Note: CODECOV_TOKEN secret must be added to repo settings at:
       # Settings > Secrets and variables > Actions > New repository secret
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: lcov.info
           fail_ci_if_error: false
