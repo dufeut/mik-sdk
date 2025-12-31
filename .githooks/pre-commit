@@ -23,7 +23,10 @@ echo "  ✓ Formatting OK"
 
 # Clippy - matches CI: exclude examples (need WASM target)
 echo "  → Running clippy..."
-if ! cargo clippy --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api --all-targets --all-features -- -D warnings 2>&1 | tail -5; then
+CLIPPY_OUTPUT=$(cargo clippy --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api --exclude resilient-api --all-targets --all-features -- -D warnings 2>&1)
+CLIPPY_EXIT=$?
+if [ $CLIPPY_EXIT -ne 0 ]; then
+    echo "$CLIPPY_OUTPUT" | tail -20
     echo "❌ Clippy found issues. Fix them before committing."
     exit 1
 fi
@@ -31,7 +34,7 @@ echo "  ✓ Clippy OK"
 
 # Quick compile check
 echo "  → Checking compilation..."
-if ! cargo check --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api --all-features > /dev/null 2>&1; then
+if ! cargo check --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api --exclude resilient-api --all-features > /dev/null 2>&1; then
     echo "❌ Compilation failed."
     exit 1
 fi
