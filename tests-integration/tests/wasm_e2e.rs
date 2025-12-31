@@ -367,6 +367,101 @@ fn test_hello_world_echo_post() {
 }
 
 // =============================================================================
+// Error Response Tests (413, 501)
+// =============================================================================
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_413_payload_too_large() {
+    run_on_all_runtimes("hello-world-service.wasm", |server| {
+        // Default MIK_MAX_BODY_SIZE is 10MB, send 11MB
+        let large_body = vec![b'x'; 11 * 1024 * 1024];
+
+        let response = ureq::post(&format!("{}/echo", server.base_url()))
+            .set("Content-Type", "application/octet-stream")
+            .send_bytes(&large_body);
+
+        match response {
+            Ok(_) => panic!("Expected 413 Payload Too Large"),
+            Err(ureq::Error::Status(code, resp)) => {
+                assert_eq!(code, 413, "Expected 413, got {code}");
+                // Verify RFC 7807 Problem Details response
+                if let Ok(json) = resp.into_json::<serde_json::Value>() {
+                    assert_eq!(json["status"], 413);
+                    assert_eq!(json["title"], "Payload Too Large");
+                }
+            }
+            Err(e) => panic!("Unexpected error: {e}"),
+        }
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_501_unsupported_method_connect() {
+    run_on_all_runtimes("hello-world-service.wasm", |server| {
+        // CONNECT method is not supported by mik-bridge
+        // ureq doesn't support CONNECT directly, use raw request
+        let client = std::net::TcpStream::connect(format!("127.0.0.1:{}", server.port));
+
+        if let Ok(mut stream) = client {
+            use std::io::{Read, Write};
+
+            // Send raw CONNECT request
+            let request = format!(
+                "CONNECT / HTTP/1.1\r\nHost: 127.0.0.1:{}\r\n\r\n",
+                server.port
+            );
+            let _ = stream.write_all(request.as_bytes());
+            let _ = stream.flush();
+
+            // Read response
+            let mut response = [0u8; 1024];
+            if let Ok(n) = stream.read(&mut response) {
+                let response_str = String::from_utf8_lossy(&response[..n]);
+                // Should contain 501 status
+                assert!(
+                    response_str.contains("501") || response_str.contains("Not Implemented"),
+                    "Expected 501 for CONNECT, got: {response_str}"
+                );
+            }
+        }
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_501_unsupported_method_trace() {
+    run_on_all_runtimes("hello-world-service.wasm", |server| {
+        // TRACE method is not supported by mik-bridge
+        let client = std::net::TcpStream::connect(format!("127.0.0.1:{}", server.port));
+
+        if let Ok(mut stream) = client {
+            use std::io::{Read, Write};
+
+            // Send raw TRACE request
+            let request = format!(
+                "TRACE / HTTP/1.1\r\nHost: 127.0.0.1:{}\r\n\r\n",
+                server.port
+            );
+            let _ = stream.write_all(request.as_bytes());
+            let _ = stream.flush();
+
+            // Read response
+            let mut response = [0u8; 1024];
+            if let Ok(n) = stream.read(&mut response) {
+                let response_str = String::from_utf8_lossy(&response[..n]);
+                // Should contain 501 status
+                assert!(
+                    response_str.contains("501") || response_str.contains("Not Implemented"),
+                    "Expected 501 for TRACE, got: {response_str}"
+                );
+            }
+        }
+    });
+}
+
+// =============================================================================
 // Runtime-specific Smoke Tests
 // =============================================================================
 

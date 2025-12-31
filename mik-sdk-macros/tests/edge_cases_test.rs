@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)] // Test code
 //! Edge case tests for route matching and macro behavior.
 
 #[test]

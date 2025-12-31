@@ -21,6 +21,7 @@ syn = { version = "2.0", features = ["full", "parsing"] }
 # The crate is still imported as `mik_sdk` in code
 mik_sdk = { path = "../mik-sdk", package = "mik-sdk" }
 trybuild = "1.0"
+macrotest = "1.0"
 
 [lints]
 workspace = true

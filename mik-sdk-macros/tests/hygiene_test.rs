@@ -1,7 +1,9 @@
 #![allow(
     clippy::unnecessary_wraps,
     clippy::unused_self,
-    clippy::items_after_statements
+    clippy::items_after_statements,
+    clippy::unwrap_used,
+    clippy::expect_used
 )]
 //! Hygiene tests - ensure user code with `__` prefixed variables doesn't conflict with macros.
 //!

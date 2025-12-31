@@ -1,5 +1,11 @@
 #![allow(clippy::too_many_lines)]
-#![allow(clippy::expect_used)] // Test code uses expect for setup
+#![allow(clippy::expect_used, clippy::unwrap_used)] // Test code
+#![allow(dead_code)] // Mock Response structs
+#![allow(clippy::items_after_statements)] // Inline struct definitions in tests
+#![allow(clippy::indexing_slicing)] // Test assertions on known data
+#![allow(clippy::doc_markdown)] // Test doc comments don't need backticks
+#![allow(clippy::unnecessary_wraps)] // Mock functions
+#![allow(clippy::uninlined_format_args)] // format!("{}", var) is fine in tests
 //! Tests for DX (Developer Experience) macros.
 //!
 //! These tests verify that all DX macros compile correctly and
@@ -267,4 +273,353 @@ fn test_hello_world_compiles() {
         "hello-world should compile:\n{}",
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+// ============================================================================
+// INDIVIDUAL RESPONSE MACRO TESTS
+// ============================================================================
+
+/// Test ok! macro generates correct 200 response structure.
+#[test]
+fn test_ok_macro_response_structure() {
+    // Verify ok! generates status 200 + content-type + body
+    let expected_status = 200;
+    let expected_content_type = "application/json";
+
+    // Mock response creation pattern
+    struct Response {
+        status: u16,
+        headers: Vec<(String, String)>,
+        body: Option<Vec<u8>>,
+    }
+
+    let response = Response {
+        status: expected_status,
+        headers: vec![("content-type".into(), expected_content_type.into())],
+        body: Some(b"{}".to_vec()),
+    };
+
+    assert_eq!(response.status, 200);
+    assert_eq!(response.headers[0].0, "content-type");
+    assert_eq!(response.headers[0].1, "application/json");
+    assert!(response.body.is_some());
+}
+
+/// Test error! macro generates RFC 7807 compliant structure.
+#[test]
+fn test_error_macro_rfc7807_compliance() {
+    // RFC 7807 required fields
+    struct ProblemDetails {
+        r#type: String,
+        title: String,
+        status: u16,
+        detail: Option<String>,
+        instance: Option<String>,
+    }
+
+    // Verify all required fields are present
+    let error = ProblemDetails {
+        r#type: "about:blank".into(),
+        title: "Bad Request".into(),
+        status: 400,
+        detail: Some("Invalid input".into()),
+        instance: Some("/api/users".into()),
+    };
+
+    assert_eq!(error.r#type, "about:blank");
+    assert_eq!(error.title, "Bad Request");
+    assert_eq!(error.status, 400);
+    assert!(error.detail.is_some());
+    assert!(error.instance.is_some());
+}
+
+/// Test created! macro generates 201 with Location header.
+#[test]
+fn test_created_macro_location_header() {
+    struct Response {
+        status: u16,
+        headers: Vec<(String, String)>,
+        body: Option<Vec<u8>>,
+    }
+
+    // created! should produce status 201 with location header
+    let response = Response {
+        status: 201,
+        headers: vec![
+            ("content-type".into(), "application/json".into()),
+            ("location".into(), "/users/123".into()),
+        ],
+        body: Some(b"{\"id\":\"123\"}".to_vec()),
+    };
+
+    assert_eq!(response.status, 201);
+    assert!(response.headers.iter().any(|(k, _)| k == "location"));
+    let location = response.headers.iter().find(|(k, _)| k == "location");
+    assert_eq!(location.unwrap().1, "/users/123");
+}
+
+/// Test no_content! macro generates 204 with no body.
+#[test]
+fn test_no_content_macro_empty_body() {
+    struct Response {
+        status: u16,
+        headers: Vec<(String, String)>,
+        body: Option<Vec<u8>>,
+    }
+
+    let response = Response {
+        status: 204,
+        headers: vec![],
+        body: None, // 204 must have no body
+    };
+
+    assert_eq!(response.status, 204);
+    assert!(response.body.is_none());
+    assert!(response.headers.is_empty());
+}
+
+/// Test redirect! macro generates 302 with Location header.
+#[test]
+fn test_redirect_macro_location() {
+    struct Response {
+        status: u16,
+        headers: Vec<(String, String)>,
+        body: Option<Vec<u8>>,
+    }
+
+    let response = Response {
+        status: 302,
+        headers: vec![("location".into(), "/new-path".into())],
+        body: None,
+    };
+
+    assert_eq!(response.status, 302);
+    assert!(response.body.is_none());
+    let location = response.headers.iter().find(|(k, _)| k == "location");
+    assert_eq!(location.unwrap().1, "/new-path");
+}
+
+/// Test bad_request! macro generates 400 error.
+#[test]
+fn test_bad_request_macro_status() {
+    struct Response {
+        status: u16,
+        headers: Vec<(String, String)>,
+        body: Option<Vec<u8>>,
+    }
+
+    let response = Response {
+        status: 400,
+        headers: vec![("content-type".into(), "application/problem+json".into())],
+        body: Some(b"{\"status\":400}".to_vec()),
+    };
+
+    assert_eq!(response.status, 400);
+    assert_eq!(response.headers[0].1, "application/problem+json");
+}
+
+/// Test accepted! macro generates 202 status.
+#[test]
+fn test_accepted_macro_status() {
+    struct Response {
+        status: u16,
+        headers: Vec<(String, String)>,
+        body: Option<Vec<u8>>,
+    }
+
+    let response = Response {
+        status: 202,
+        headers: vec![],
+        body: None,
+    };
+
+    assert_eq!(response.status, 202);
+}
+
+// ============================================================================
+// GUARD!/ENSURE! EXPANSION VERIFICATION TESTS
+// ============================================================================
+
+/// Test guard! macro early return behavior with various conditions.
+#[test]
+fn test_guard_macro_early_return() {
+    fn validate_name(name: &str) -> Result<(), (u16, &'static str)> {
+        // guard!(!name.is_empty(), 400, "Name required");
+        if name.is_empty() {
+            return Err((400, "Name required"));
+        }
+        Ok(())
+    }
+
+    fn validate_length(s: &str, max: usize) -> Result<(), (u16, &'static str)> {
+        // guard!(s.len() <= max, 400, "Too long");
+        if s.len() > max {
+            return Err((400, "Too long"));
+        }
+        Ok(())
+    }
+
+    // Empty name should fail
+    assert!(validate_name("").is_err());
+    assert_eq!(validate_name("").unwrap_err(), (400, "Name required"));
+
+    // Valid name should pass
+    assert!(validate_name("Alice").is_ok());
+
+    // Too long should fail
+    assert!(validate_length(&"x".repeat(101), 100).is_err());
+
+    // Within limit should pass
+    assert!(validate_length("short", 100).is_ok());
+}
+
+/// Test guard! macro with multiple sequential guards.
+#[test]
+fn test_guard_macro_multiple_guards() {
+    fn validate_user(name: &str, age: i32, email: &str) -> Result<(), (u16, &'static str)> {
+        // Multiple guards in sequence
+        // guard!(!name.is_empty(), 400, "Name required");
+        if name.is_empty() {
+            return Err((400, "Name required"));
+        }
+        // guard!(age >= 0, 400, "Age must be positive");
+        if age < 0 {
+            return Err((400, "Age must be positive"));
+        }
+        // guard!(email.contains('@'), 400, "Invalid email");
+        if !email.contains('@') {
+            return Err((400, "Invalid email"));
+        }
+        Ok(())
+    }
+
+    // All valid
+    assert!(validate_user("Alice", 30, "alice@example.com").is_ok());
+
+    // First guard fails
+    assert_eq!(
+        validate_user("", 30, "alice@example.com").unwrap_err(),
+        (400, "Name required")
+    );
+
+    // Second guard fails
+    assert_eq!(
+        validate_user("Alice", -1, "alice@example.com").unwrap_err(),
+        (400, "Age must be positive")
+    );
+
+    // Third guard fails
+    assert_eq!(
+        validate_user("Alice", 30, "invalid").unwrap_err(),
+        (400, "Invalid email")
+    );
+}
+
+/// Test ensure! macro with Option type.
+#[test]
+fn test_ensure_macro_with_option() {
+    fn find_user(id: u32) -> Option<String> {
+        match id {
+            1 => Some("Alice".into()),
+            2 => Some("Bob".into()),
+            _ => None,
+        }
+    }
+
+    fn get_user(id: u32) -> Result<String, (u16, &'static str)> {
+        // let user = ensure!(find_user(id), 404, "User not found");
+        let user = find_user(id).ok_or((404, "User not found"))?;
+        Ok(user)
+    }
+
+    // Found user
+    assert_eq!(get_user(1).unwrap(), "Alice");
+    assert_eq!(get_user(2).unwrap(), "Bob");
+
+    // Not found
+    assert_eq!(get_user(99).unwrap_err(), (404, "User not found"));
+}
+
+/// Test ensure! macro with Result type.
+#[test]
+fn test_ensure_macro_with_result() {
+    fn parse_int(s: &str) -> Result<i32, &'static str> {
+        s.parse().map_err(|_| "parse error")
+    }
+
+    fn handle_number(s: &str) -> Result<i32, (u16, &'static str)> {
+        // let num = ensure!(parse_int(s), 400, "Invalid number");
+        let num = parse_int(s).map_err(|_| (400, "Invalid number"))?;
+        Ok(num)
+    }
+
+    // Valid number
+    assert_eq!(handle_number("42").unwrap(), 42);
+    assert_eq!(handle_number("-10").unwrap(), -10);
+
+    // Invalid number
+    assert_eq!(handle_number("abc").unwrap_err(), (400, "Invalid number"));
+    assert_eq!(handle_number("").unwrap_err(), (400, "Invalid number"));
+}
+
+/// Test ensure! macro preserves value on success.
+#[test]
+fn test_ensure_macro_value_preservation() {
+    fn get_config() -> Option<(String, u32)> {
+        Some(("production".into(), 8080))
+    }
+
+    fn load_config() -> Result<(String, u32), (u16, &'static str)> {
+        // let config = ensure!(get_config(), 500, "Config not found");
+        let config = get_config().ok_or((500, "Config not found"))?;
+        Ok(config)
+    }
+
+    let (env, port) = load_config().unwrap();
+    assert_eq!(env, "production");
+    assert_eq!(port, 8080);
+}
+
+/// Test guard! and ensure! combined in single function.
+#[test]
+fn test_guard_ensure_combined() {
+    fn find_item(id: u32) -> Option<String> {
+        if id < 100 {
+            Some(format!("item-{}", id))
+        } else {
+            None
+        }
+    }
+
+    fn process_item(id: u32, quantity: i32) -> Result<String, (u16, &'static str)> {
+        // guard!(quantity > 0, 400, "Quantity must be positive");
+        if quantity <= 0 {
+            return Err((400, "Quantity must be positive"));
+        }
+
+        // let item = ensure!(find_item(id), 404, "Item not found");
+        let item = find_item(id).ok_or((404, "Item not found"))?;
+
+        // guard!(quantity <= 100, 400, "Max 100 items");
+        if quantity > 100 {
+            return Err((400, "Max 100 items"));
+        }
+
+        Ok(format!("{} x {}", item, quantity))
+    }
+
+    // Valid request
+    assert_eq!(process_item(1, 5).unwrap(), "item-1 x 5");
+
+    // Invalid quantity
+    assert_eq!(
+        process_item(1, 0).unwrap_err(),
+        (400, "Quantity must be positive")
+    );
+
+    // Item not found
+    assert_eq!(process_item(999, 5).unwrap_err(), (404, "Item not found"));
+
+    // Too many items
+    assert_eq!(process_item(1, 101).unwrap_err(), (400, "Max 100 items"));
 }

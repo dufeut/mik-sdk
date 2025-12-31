@@ -1,4 +1,4 @@
-#![allow(clippy::too_many_lines)]
+#![allow(clippy::too_many_lines, clippy::unwrap_used, clippy::expect_used)]
 //! Verify that the routes! macro generates the correct code structure.
 //!
 //! This test ensures that the macro:
