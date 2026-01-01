@@ -73,14 +73,30 @@ proptest! {
 // SQL Expression Property Tests
 // =============================================================================
 
-/// Check if identifier contains blocked patterns
+/// Short dangerous function names that might be generated in proptests
+const DANGEROUS_NAMES: &[&str] = &[
+    "chr", "char", "hex", "ascii", "cast", "exec", "drop", "alter", "union",
+];
+
+/// Check if identifier contains blocked patterns or dangerous function names
 fn contains_blocked_pattern(s: &str) -> bool {
     let lower = s.to_lowercase();
-    lower.contains("pg_")
+    // System catalog prefixes
+    if lower.contains("pg_")
         || lower.contains("sqlite_")
         || lower.contains("information_")
         || lower.contains("load_")
         || lower.contains("0x")
+    {
+        return true;
+    }
+    // Check dangerous function names
+    for name in DANGEROUS_NAMES {
+        if lower == *name {
+            return true;
+        }
+    }
+    false
 }
 
 proptest! {
