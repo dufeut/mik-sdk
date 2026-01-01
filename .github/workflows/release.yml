@@ -29,24 +29,35 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install git-cliff
-        run: cargo install git-cliff --locked
+      - name: Install tools
+        run: |
+          cargo install git-cliff --locked
+          cargo install cargo-workspaces --locked
+
+      - name: Bump versions
+        run: |
+          # Update all publishable crate versions to match release version
+          cargo ws version ${{ inputs.version }} --no-git-commit --yes
 
       - name: Generate changelog
         run: |
           git-cliff --tag v${{ inputs.version }} --output CHANGELOG.md
 
-      - name: Show changelog (dry run)
+      - name: Show changes (dry run)
         if: ${{ inputs.dry_run }}
-        run: cat CHANGELOG.md
+        run: |
+          echo "=== Version changes ==="
+          git diff --name-only
+          echo "=== Changelog ==="
+          cat CHANGELOG.md
 
-      - name: Commit changelog and create tag
+      - name: Commit version bump, changelog, and create tag
         if: ${{ !inputs.dry_run }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md
-          git commit -m "docs: update changelog for v${{ inputs.version }}" || echo "No changes to commit"
+          git add -A
+          git commit -m "chore: release v${{ inputs.version }}"
           git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
           git push origin main --tags
 
