@@ -14,6 +14,13 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Attribute, Data, DeriveInput, Expr, Fields, Lit, Type};
 
+use crate::errors::did_you_mean;
+
+/// Valid #[field(...)] attributes.
+const VALID_FIELD_ATTRS: &[&str] = &[
+    "min", "max", "default", "format", "pattern", "rename", "docs",
+];
+
 // Re-export the public entry points
 pub use path_derive::derive_path_impl;
 pub use query_derive::derive_query_impl;
@@ -169,10 +176,12 @@ pub fn parse_field_attrs(attrs: &[Attribute]) -> Result<FieldAttrs, syn::Error> 
                 }
             } else {
                 let path = &meta.path;
+                let attr_name = quote!(#path).to_string();
+                let suggestion = did_you_mean(&attr_name, VALID_FIELD_ATTRS);
                 return Err(syn::Error::new_spanned(
                     path,
                     format!(
-                        "Unknown field attribute '{}'.\n\
+                        "Unknown field attribute '{attr_name}'.{suggestion}\n\
                          \n\
                          ✅ Valid attributes:\n\
                          #[field(min = 1)]           // minimum value/length\n\
@@ -181,8 +190,7 @@ pub fn parse_field_attrs(attrs: &[Attribute]) -> Result<FieldAttrs, syn::Error> 
                          #[field(format = \"email\")] // format hint (OpenAPI)\n\
                          #[field(pattern = \"...\")]  // regex pattern (OpenAPI)\n\
                          #[field(rename = \"...\")]   // JSON key name\n\
-                         #[field(docs = \"...\")]     // description",
-                        quote!(#path)
+                         #[field(docs = \"...\")]     // description"
                     ),
                 ));
             }

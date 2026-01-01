@@ -9,7 +9,14 @@ use syn::{
     punctuated::Punctuated,
 };
 
+use crate::errors::did_you_mean;
 use crate::json::{JsonValue, json_value_to_tokens};
+
+/// Valid HTTP methods for fetch! macro.
+const VALID_METHODS: &[&str] = &["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"];
+
+/// Valid options for fetch! macro.
+const VALID_OPTIONS: &[&str] = &["headers", "json", "body", "timeout"];
 
 // =============================================================================
 // HTTP Client Macro
@@ -117,14 +124,12 @@ impl Parse for FetchInput {
 
         // Validate method
         let method_str = method.to_string().to_uppercase();
-        if !matches!(
-            method_str.as_str(),
-            "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS"
-        ) {
+        if !VALID_METHODS.contains(&method_str.as_str()) {
+            let suggestion = did_you_mean(&method_str, VALID_METHODS);
             return Err(syn::Error::new_spanned(
                 &method,
                 format!(
-                    "Unknown HTTP method '{method}'.\n\
+                    "Unknown HTTP method '{method}'.{suggestion}\n\
                      \n\
                      Valid methods: GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS\n\
                      \n\
@@ -309,10 +314,11 @@ impl Parse for FetchInput {
                     })?);
                 },
                 other => {
+                    let suggestion = did_you_mean(other, VALID_OPTIONS);
                     return Err(syn::Error::new_spanned(
                         &key,
                         format!(
-                            "Unknown option '{other}'.\n\
+                            "Unknown option '{other}'.{suggestion}\n\
                              \n\
                              Valid options:\n\
                              - headers: {{ \"Name\": \"value\" }}  - Request headers\n\
