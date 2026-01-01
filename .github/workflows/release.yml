@@ -3,10 +3,15 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: "Version to release (e.g., 0.1.1)"
+      bump:
+        description: "Version bump type"
         required: true
-        type: string
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
       dry_run:
         description: "Dry run (skip actual publish)"
         required: false
@@ -24,6 +29,8 @@ jobs:
   prepare:
     name: Prepare Release
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,29 +43,39 @@ jobs:
 
       - name: Bump versions
         run: |
-          # Update all publishable crate versions to match release version
-          cargo ws version ${{ inputs.version }} --no-git-commit --yes
+          cargo ws version ${{ inputs.bump }} --no-git-commit --yes
+
+      - name: Get new version
+        id: get-version
+        run: |
+          VERSION=$(grep '^version' mik-sdk/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $VERSION"
 
       - name: Generate changelog
         run: |
-          git-cliff --tag v${{ inputs.version }} --output CHANGELOG.md
+          git-cliff --tag v${{ steps.get-version.outputs.version }} --output CHANGELOG.md
 
       - name: Show changes (dry run)
         if: ${{ inputs.dry_run }}
         run: |
-          echo "=== Version changes ==="
+          echo "=== New version: ${{ steps.get-version.outputs.version }} ==="
+          echo "=== Changed files ==="
           git diff --name-only
+          echo "=== Cargo.toml changes ==="
+          git diff mik-sdk/Cargo.toml
           echo "=== Changelog ==="
           cat CHANGELOG.md
 
       - name: Commit version bump, changelog, and create tag
         if: ${{ !inputs.dry_run }}
         run: |
+          VERSION="${{ steps.get-version.outputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "chore: release v${{ inputs.version }}"
-          git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
+          git commit -m "chore: release v${VERSION}"
+          git tag -a "v${VERSION}" -m "Release v${VERSION}"
           git push origin main --tags
 
   publish-crates:
@@ -69,7 +86,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: v${{ inputs.version }}
+          ref: v${{ needs.prepare.outputs.version }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.89
@@ -112,11 +129,11 @@ jobs:
   publish-bridge:
     name: Publish Bridge to ghcr.io
     runs-on: ubuntu-latest
-    needs: publish-crates
+    needs: [prepare, publish-crates]
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: v${{ inputs.version }}
+          ref: v${{ needs.prepare.outputs.version }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.89
@@ -141,7 +158,7 @@ jobs:
 
       - name: Push bridge component to ghcr.io
         run: |
-          VERSION="${{ inputs.version }}"
+          VERSION="${{ needs.prepare.outputs.version }}"
           oras push ghcr.io/dufeut/mik-sdk-bridge:${VERSION} \
             --artifact-type application/vnd.wasm.component.v1+wasm \
             mik-bridge/target/wasm32-wasip1/release/mik_bridge.wasm:application/wasm
@@ -151,7 +168,7 @@ jobs:
 
       - name: Push WIT interface to ghcr.io
         run: |
-          VERSION="${{ inputs.version }}"
+          VERSION="${{ needs.prepare.outputs.version }}"
           oras push ghcr.io/dufeut/mik-sdk-wit:${VERSION} \
             --artifact-type application/vnd.wit \
             mik-wit/core/core.wit:application/wit
@@ -162,11 +179,11 @@ jobs:
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: publish-bridge
+    needs: [prepare, publish-bridge]
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: v${{ inputs.version }}
+          ref: v${{ needs.prepare.outputs.version }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.89
@@ -193,8 +210,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ inputs.version }}
-          name: mik-sdk v${{ inputs.version }}
+          tag_name: v${{ needs.prepare.outputs.version }}
+          name: mik-sdk v${{ needs.prepare.outputs.version }}
           body_path: RELEASE_NOTES.md
           files: |
             artifacts/mik-bridge.wasm
