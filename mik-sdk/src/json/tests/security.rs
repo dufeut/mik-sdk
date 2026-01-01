@@ -6,7 +6,7 @@
 //! - Size limits (prevents memory exhaustion)
 
 use super::super::*;
-use crate::constants::MAX_JSON_SIZE;
+use crate::constants::get_max_json_size;
 
 // =========================================================================
 // HELPER FUNCTIONS
@@ -280,23 +280,26 @@ fn test_depth_one_over_limit() {
 
 #[test]
 fn test_try_parse_full_exceeds_size_limit() {
-    // Create JSON larger than MAX_JSON_SIZE (1MB)
-    let large = vec![b'x'; 1_000_001];
+    // Create JSON larger than max size (default 1MB, configurable via MIK_MAX_JSON_SIZE)
+    let max_size = get_max_json_size();
+    let large = vec![b'x'; max_size + 1];
     assert!(try_parse_full(&large).is_none());
 }
 
 #[test]
 fn test_try_parse_exceeds_size_limit() {
-    let large = vec![b' '; 1_000_001];
+    let max_size = get_max_json_size();
+    let large = vec![b' '; max_size + 1];
     assert!(try_parse(&large).is_none());
 }
 
 #[test]
 fn test_json_at_size_limit() {
     // Create JSON just under the limit
-    let padding = "a".repeat(MAX_JSON_SIZE - 20);
+    let max_size = get_max_json_size();
+    let padding = "a".repeat(max_size - 20);
     let json = format!(r#"{{"x": "{padding}"}}"#);
-    if json.len() <= MAX_JSON_SIZE {
+    if json.len() <= max_size {
         assert!(try_parse(json.as_bytes()).is_some());
     }
 }

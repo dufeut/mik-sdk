@@ -2,6 +2,27 @@
 //!
 //! All limits, sizes, and magic numbers are defined here for easy tuning
 //! and consistent behavior across the SDK.
+//!
+//! # Environment Variables
+//!
+//! Some limits can be configured via environment variables:
+//!
+//! | Variable | Default | Description |
+//! |----------|---------|-------------|
+//! | `MIK_MAX_JSON_SIZE` | 1MB (1,000,000) | Maximum JSON input size |
+//! | `MIK_MAX_BODY_SIZE` | 10MB (10,485,760) | Maximum request body size (bridge) |
+//!
+//! ## Example
+//!
+//! ```bash
+//! # Allow 5MB JSON payloads
+//! MIK_MAX_JSON_SIZE=5000000
+//!
+//! # Allow 50MB request bodies (set in bridge component)
+//! MIK_MAX_BODY_SIZE=52428800
+//! ```
+
+use std::sync::OnceLock;
 
 // ============================================================================
 // TIME CONSTANTS
@@ -20,8 +41,38 @@ pub const SECONDS_PER_MINUTE: u64 = 60;
 // JSON LIMITS
 // ============================================================================
 
-/// Maximum JSON input size (1MB) - prevents memory exhaustion.
-pub const MAX_JSON_SIZE: usize = 1_000_000;
+/// Default maximum JSON input size (1MB) - prevents memory exhaustion.
+const DEFAULT_MAX_JSON_SIZE: usize = 1_000_000;
+
+/// Cached max JSON size from environment.
+static MAX_JSON_SIZE_CACHE: OnceLock<usize> = OnceLock::new();
+
+/// Returns the maximum allowed JSON input size in bytes.
+///
+/// Reads from `MIK_MAX_JSON_SIZE` environment variable on first call.
+/// Falls back to 1MB (1,000,000 bytes) if not set or invalid.
+///
+/// The value is cached for the lifetime of the process, so environment
+/// changes after first access have no effect.
+///
+/// # Example
+///
+/// ```bash
+/// # 5MB limit
+/// MIK_MAX_JSON_SIZE=5000000
+///
+/// # 500KB limit
+/// MIK_MAX_JSON_SIZE=512000
+/// ```
+#[inline]
+pub fn get_max_json_size() -> usize {
+    *MAX_JSON_SIZE_CACHE.get_or_init(|| {
+        std::env::var("MIK_MAX_JSON_SIZE")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(DEFAULT_MAX_JSON_SIZE)
+    })
+}
 
 /// Maximum JSON nesting depth - prevents stack overflow.
 ///

@@ -55,7 +55,7 @@ mod tests;
 mod to_json;
 mod value;
 
-use crate::constants::{MAX_JSON_DEPTH, MAX_JSON_SIZE};
+use crate::constants::{MAX_JSON_DEPTH, get_max_json_size};
 use miniserde::json::{Number, Value};
 
 // Re-export public types and functions
@@ -109,7 +109,7 @@ pub(crate) fn json_depth_exceeds_limit(data: &[u8]) -> bool {
 /// # Returns
 ///
 /// Returns `None` if:
-/// - Input exceeds 1MB (`MAX_JSON_SIZE`)
+/// - Input exceeds max size (default 1MB, configurable via `MIK_MAX_JSON_SIZE`)
 /// - Nesting depth exceeds 20 levels (`MAX_JSON_DEPTH`, heuristic check)
 /// - Input is not valid UTF-8
 /// - **Non-whitespace content exists after the JSON value** (security: prevents injection)
@@ -119,7 +119,7 @@ pub(crate) fn json_depth_exceeds_limit(data: &[u8]) -> bool {
 /// from `path_*` methods.
 #[must_use]
 pub fn try_parse(data: &[u8]) -> Option<JsonValue> {
-    if data.len() > MAX_JSON_SIZE {
+    if data.len() > get_max_json_size() {
         return None;
     }
     if json_depth_exceeds_limit(data) {
@@ -148,14 +148,14 @@ pub fn try_parse(data: &[u8]) -> Option<JsonValue> {
 /// # Returns
 ///
 /// Returns `None` if:
-/// - Input exceeds 1MB (`MAX_JSON_SIZE`)
+/// - Input exceeds max size (default 1MB, configurable via `MIK_MAX_JSON_SIZE`)
 /// - Nesting depth exceeds 20 levels (`MAX_JSON_DEPTH`, heuristic check)
 /// - Input is not valid UTF-8
 /// - JSON syntax is invalid
 /// - **Non-whitespace content exists after the JSON value** (security: prevents injection)
 #[must_use]
 pub fn try_parse_full(data: &[u8]) -> Option<JsonValue> {
-    if data.len() > MAX_JSON_SIZE {
+    if data.len() > get_max_json_size() {
         return None;
     }
     if json_depth_exceeds_limit(data) {
