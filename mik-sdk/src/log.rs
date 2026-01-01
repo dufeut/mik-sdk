@@ -190,6 +190,21 @@ pub fn __escape_json(s: &str) -> String {
     result
 }
 
+/// Write a simple log line to stderr (internal helper).
+///
+/// This function contains the actual logging logic. The public macros
+/// (`log::info!`, etc.) are thin wrappers that call this function.
+#[doc(hidden)]
+pub fn __write_simple_log(level: &str, msg: &str) {
+    use std::io::Write;
+    let timestamp = __format_timestamp();
+    let escaped = __escape_json(msg);
+    let _ = writeln!(
+        std::io::stderr(),
+        r#"{{"level":"{level}","msg":"{escaped}","ts":"{timestamp}"}}"#,
+    );
+}
+
 /// Log an informational message to stderr.
 ///
 /// # Examples
@@ -201,16 +216,7 @@ pub fn __escape_json(s: &str) -> String {
 /// ```
 #[macro_export]
 macro_rules! log_info {
-    ($($arg:tt)*) => {{
-        use std::io::Write;
-        let timestamp = $crate::log::__format_timestamp();
-        let msg = $crate::log::__escape_json(&format!($($arg)*));
-        let log_line = format!(
-            r#"{{"level":"info","msg":"{}","ts":"{}"}}"#,
-            msg, timestamp
-        );
-        let _ = writeln!(std::io::stderr(), "{}", log_line);
-    }};
+    ($($arg:tt)*) => { $crate::log::__write_simple_log("info", &format!($($arg)*)) };
 }
 
 /// Log a warning message to stderr.
@@ -224,16 +230,7 @@ macro_rules! log_info {
 /// ```
 #[macro_export]
 macro_rules! log_warn {
-    ($($arg:tt)*) => {{
-        use std::io::Write;
-        let timestamp = $crate::log::__format_timestamp();
-        let msg = $crate::log::__escape_json(&format!($($arg)*));
-        let log_line = format!(
-            r#"{{"level":"warn","msg":"{}","ts":"{}"}}"#,
-            msg, timestamp
-        );
-        let _ = writeln!(std::io::stderr(), "{}", log_line);
-    }};
+    ($($arg:tt)*) => { $crate::log::__write_simple_log("warn", &format!($($arg)*)) };
 }
 
 /// Log an error message to stderr.
@@ -247,16 +244,7 @@ macro_rules! log_warn {
 /// ```
 #[macro_export]
 macro_rules! log_error {
-    ($($arg:tt)*) => {{
-        use std::io::Write;
-        let timestamp = $crate::log::__format_timestamp();
-        let msg = $crate::log::__escape_json(&format!($($arg)*));
-        let log_line = format!(
-            r#"{{"level":"error","msg":"{}","ts":"{}"}}"#,
-            msg, timestamp
-        );
-        let _ = writeln!(std::io::stderr(), "{}", log_line);
-    }};
+    ($($arg:tt)*) => { $crate::log::__write_simple_log("error", &format!($($arg)*)) };
 }
 
 /// Log a debug message to stderr (only in debug builds).
@@ -274,18 +262,7 @@ macro_rules! log_error {
 macro_rules! log_debug {
     ($($arg:tt)*) => {{
         #[cfg(debug_assertions)]
-        {
-            use std::io::Write;
-            let timestamp = $crate::log::__format_timestamp();
-            let msg = $crate::log::__escape_json(&format!($($arg)*));
-            let log_line = format!(
-                r#"{{"level":"debug","msg":"{}","ts":"{}"}}"#,
-                msg, timestamp
-            );
-            let _ = writeln!(std::io::stderr(), "{}", log_line);
-        }
-        // In release builds: complete no-op, arguments not evaluated
-        // Macro arguments don't generate unused warnings
+        $crate::log::__write_simple_log("debug", &format!($($arg)*));
     }};
 }
 
