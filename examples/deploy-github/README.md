@@ -26,10 +26,13 @@ git init
 # 2. Setup WIT deps for local dev
 ./setup.sh
 
-# 3. Build locally
-cargo component build --release
+# 3. Build and compose locally
+./build.sh
 
-# 4. Push to GitHub - workflow runs automatically
+# 4. Run locally
+wasmtime serve -S cli=y service.wasm
+
+# 5. Push to GitHub - workflow runs automatically
 git add .
 git commit -m "Initial commit"
 git remote add origin git@github.com:your-org/my-api.git
@@ -69,8 +72,29 @@ mik add your-org/my-api
 
 | Variable         | Default    | Description                          |
 | ---------------- | ---------- | ------------------------------------ |
-| `SDK_VERSION`    | `0.1.1`    | mik-sdk version (bridge + WIT deps)  |
+| `SDK_VERSION`    | `0.1.2`    | mik-sdk version (bridge + WIT deps)  |
 | `inputs.version` | Cargo.toml | Override version for manual dispatch |
+
+## Local Development
+
+```bash
+# First time setup
+./setup.sh            # Fetch WIT deps
+
+# Build complete service
+./build.sh            # Build, compose, strip
+
+# Run locally
+wasmtime serve -S cli=y service.wasm
+curl http://localhost:8080/
+```
+
+## Prerequisites
+
+Local development requires:
+- `cargo-component` - `cargo install cargo-component`
+- `wac` - `cargo install wac-cli`
+- `wasm-tools` (optional) - `cargo install wasm-tools`
 
 ## No mik CLI Required
 
