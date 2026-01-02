@@ -113,8 +113,8 @@ mod validate;
 pub use builder::{
     Aggregate, AggregateFunc, CompoundFilter, ComputedField, CursorDirection, DeleteBuilder,
     Filter, FilterExpr, InsertBuilder, LogicalOp, Operator, ParseError, QueryBuilder, QueryResult,
-    SortDir, SortField, UpdateBuilder, Value, and, delete, insert, not, or, parse_filter,
-    parse_filter_bytes, simple, update,
+    SortDir, SortField, UpdateBuilder, Value, and, delete, insert, not, or, parse_filter, simple,
+    update,
 };
 
 /// Re-export miniserde's json module for runtime filter parsing.
@@ -178,8 +178,8 @@ pub mod prelude {
         CursorError, DeleteBuilder, Dialect, Filter, FilterExpr, FilterValidator, InsertBuilder,
         IntoCursor, KeysetCondition, LogicalOp, Operator, PageInfo, ParseError, Postgres,
         QueryBuilder, QueryResult, SortDir, SortField, Sqlite, UpdateBuilder, ValidationError,
-        Value, and, delete, insert, json, merge_filters, not, or, parse_filter, parse_filter_bytes,
-        postgres, simple, sqlite, update,
+        Value, and, delete, insert, json, merge_filters, not, or, parse_filter, postgres, simple,
+        sqlite, update,
     };
 
     // Re-export macros

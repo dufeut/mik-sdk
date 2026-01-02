@@ -11,7 +11,7 @@ mod update;
 // Re-export all public items
 pub use delete::{DeleteBuilder, delete, delete_sqlite};
 pub use insert::{InsertBuilder, insert, insert_sqlite};
-pub use parse::{ParseError, parse_filter, parse_filter_bytes};
+pub use parse::{ParseError, parse_filter};
 pub use select::QueryBuilder;
 pub use types::{
     Aggregate, AggregateFunc, CompoundFilter, ComputedField, CursorDirection, Filter, FilterExpr,

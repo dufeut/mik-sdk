@@ -120,22 +120,6 @@ pub fn parse_filter(json_str: &str) -> Result<FilterExpr, ParseError> {
     FilterExpr::parse(json_str)
 }
 
-/// Parse a Mongo-style filter from JSON bytes.
-///
-/// Convenience function for parsing raw request bodies.
-///
-/// # Example
-///
-/// ```
-/// use mik_sql::prelude::*;
-///
-/// let body = br#"{"name": {"$startsWith": "John"}}"#;
-/// let filter = parse_filter_bytes(body).unwrap();
-/// ```
-pub fn parse_filter_bytes(bytes: &[u8]) -> Result<FilterExpr, ParseError> {
-    FilterExpr::parse_bytes(bytes)
-}
-
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

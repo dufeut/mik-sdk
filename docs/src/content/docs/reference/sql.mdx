@@ -347,10 +347,6 @@ Allow users to provide filters at runtime with validation and security controls.
 
 ### Parsing User Input
 
-Two functions are available:
-- `parse_filter(&str)` - Parse from string (use with `req.text()`)
-- `parse_filter_bytes(&[u8])` - Parse from bytes (use with `req.body()`)
-
 ```rust
 use mik_sql::{parse_filter, sql_read};
 
@@ -373,22 +369,6 @@ fn search(query: SearchQuery, req: &Request) -> Response {
     }), 400, "Invalid filter field");
 
     // Execute query...
-}
-```
-
-Or using raw bytes:
-
-```rust
-use mik_sql::{parse_filter_bytes, sql_read};
-
-fn search(query: SearchQuery, req: &Request) -> Response {
-    // Extract body as bytes
-    let body = ensure!(req.body(), 400, "Filter body required");
-
-    // Parse filter from bytes
-    let filter = ensure!(parse_filter_bytes(body), 400, "Invalid filter");
-
-    // ... same as above
 }
 ```
 
