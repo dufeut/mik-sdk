@@ -1,4 +1,6 @@
-error: Unknown option 'invalid_option'. Valid options: select, compute, aggregate, filter, merge, allow, deny_ops, max_depth, group_by, having, order, allow_sort, page, limit, offset, after, before
+error: Unknown option 'invalid_option'.
+
+       Valid options: select, compute, aggregate, filter, merge, allow, deny_ops, max_depth, group_by, having, order, allow_sort, page, limit, offset, after, before
  --> tests/ui/sql/unknown_option.rs:7:9
   |
 7 |         invalid_option: true,

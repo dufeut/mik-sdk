@@ -1,4 +1,11 @@
-error: Unknown operator '$unknown'. Valid operators: $eq, $ne, $gt, $gte, $lt, $lte, $in, $nin, $like, $ilike, $regex, $startsWith, $endsWith, $contains, $between
+error: Unknown operator '$unknown'.
+
+       Valid operators:
+       • Comparison: $eq, $ne, $gt, $gte, $lt, $lte
+       • Collection: $in, $nin
+       • String: $like, $ilike, $starts_with, $ends_with, $contains
+       • Range: $between
+       • Logical: $and, $or, $not
  --> tests/ui/sql/unknown_operator.rs:7:28
   |
 7 |         filter: { name: { $unknown: "test" } },

@@ -2,7 +2,19 @@
 
 use syn::{Result, Token, parse::ParseStream};
 
+use crate::errors::did_you_mean;
 use crate::types::{SqlAggregate, SqlAggregateFunc};
+
+/// Valid aggregate functions.
+const VALID_AGGREGATE_FUNCS: &[&str] = &[
+    "count",
+    "count_distinct",
+    "countDistinct",
+    "sum",
+    "avg",
+    "min",
+    "max",
+];
 
 /// Parse the aggregate block.
 pub fn parse_aggregates(input: ParseStream) -> Result<Vec<SqlAggregate>> {
@@ -48,10 +60,12 @@ pub fn parse_aggregates(input: ParseStream) -> Result<Vec<SqlAggregate>> {
                 (SqlAggregateFunc::Max, Some(field), None)
             },
             other => {
+                let suggestion = did_you_mean(other, VALID_AGGREGATE_FUNCS);
                 return Err(syn::Error::new(
                     func_name.span(),
                     format!(
-                        "Unknown aggregate function '{other}'. Valid: count, count_distinct, sum, avg, min, max"
+                        "Unknown aggregate function '{other}'.{suggestion}\n\n\
+                         Valid functions: count, count_distinct, sum, avg, min, max"
                     ),
                 ));
             },

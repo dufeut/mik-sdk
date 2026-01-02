@@ -8,10 +8,32 @@ use syn::{
     token,
 };
 
+use crate::errors::did_you_mean;
 use crate::parse::{
     parse_aggregates, parse_compute_fields, parse_filter_block, parse_optional_dialect,
 };
 use crate::types::{SqlAggregate, SqlCompute, SqlDialect, SqlFilterExpr, SqlSort};
+
+/// Valid options for `sql_read!` macro.
+const VALID_READ_OPTIONS: &[&str] = &[
+    "select",
+    "compute",
+    "aggregate",
+    "filter",
+    "merge",
+    "allow",
+    "deny_ops",
+    "max_depth",
+    "group_by",
+    "having",
+    "order",
+    "allow_sort",
+    "page",
+    "limit",
+    "offset",
+    "after",
+    "before",
+];
 
 /// Input for the [`sql_read!`] macro.
 pub struct SqlInput {
@@ -210,10 +232,14 @@ impl Parse for SqlInput {
                     before = Some(content.parse()?);
                 },
                 other => {
+                    let suggestion = did_you_mean(other, VALID_READ_OPTIONS);
                     return Err(syn::Error::new(
                         key.span(),
                         format!(
-                            "Unknown option '{other}'. Valid options: select, compute, aggregate, filter, merge, allow, deny_ops, max_depth, group_by, having, order, allow_sort, page, limit, offset, after, before"
+                            "Unknown option '{other}'.{suggestion}\n\n\
+                             Valid options: select, compute, aggregate, filter, merge, allow, \
+                             deny_ops, max_depth, group_by, having, order, allow_sort, page, \
+                             limit, offset, after, before"
                         ),
                     ));
                 },

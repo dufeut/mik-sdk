@@ -10,8 +10,12 @@ use syn::{
 };
 
 use crate::codegen::sql_filter_expr_to_tokens;
+use crate::errors::did_you_mean;
 use crate::parse::{parse_filter_block, parse_optional_dialect};
 use crate::types::{SqlDialect, SqlFilterExpr};
+
+/// Valid options for `sql_delete!` macro.
+const VALID_DELETE_OPTIONS: &[&str] = &["where", "filter", "returning"];
 
 struct DeleteInput {
     dialect: SqlDialect,
@@ -48,10 +52,14 @@ impl Parse for DeleteInput {
                         ret_content.parse_terminated(syn::Ident::parse, Token![,])?;
                     returning = fields.into_iter().collect();
                 },
-                _ => {
+                other => {
+                    let suggestion = did_you_mean(other, VALID_DELETE_OPTIONS);
                     return Err(syn::Error::new(
                         key.span(),
-                        format!("Unknown option '{key}'. Expected 'where' or 'returning'"),
+                        format!(
+                            "Unknown option '{other}'.{suggestion}\n\n\
+                             Valid options: where, filter, returning"
+                        ),
                     ));
                 },
             }

@@ -10,7 +10,19 @@ use syn::{
     punctuated::Punctuated,
 };
 
+use crate::errors::did_you_mean;
 use crate::json::{JsonValue, json_value_to_tokens};
+
+/// Valid fields for error! macro.
+const VALID_ERROR_FIELDS: &[&str] = &[
+    "status",
+    "title",
+    "detail",
+    "problem_type",
+    "type",
+    "instance",
+    "meta",
+];
 
 /// Return 200 OK with JSON body.
 ///
@@ -212,9 +224,9 @@ impl Parse for ProblemDetails {
             match field.name.to_string().as_str() {
                 "status" => {
                     if status.is_some() {
-                        return Err(syn::Error::new_spanned(
-                            field.name,
-                            "Duplicate 'status' field. Each field can only appear once.",
+                        return Err(crate::errors::duplicate_field_error(
+                            field.name.span(),
+                            "status",
                         ));
                     }
                     if let ProblemFieldValue::Expr(e) = field.value {
@@ -223,9 +235,9 @@ impl Parse for ProblemDetails {
                 },
                 "title" => {
                     if title.is_some() {
-                        return Err(syn::Error::new_spanned(
-                            field.name,
-                            "Duplicate 'title' field. Each field can only appear once.",
+                        return Err(crate::errors::duplicate_field_error(
+                            field.name.span(),
+                            "title",
                         ));
                     }
                     if let ProblemFieldValue::Expr(e) = field.value {
@@ -234,9 +246,9 @@ impl Parse for ProblemDetails {
                 },
                 "detail" => {
                     if detail.is_some() {
-                        return Err(syn::Error::new_spanned(
-                            field.name,
-                            "Duplicate 'detail' field. Each field can only appear once.",
+                        return Err(crate::errors::duplicate_field_error(
+                            field.name.span(),
+                            "detail",
                         ));
                     }
                     if let ProblemFieldValue::Expr(e) = field.value {
@@ -245,9 +257,9 @@ impl Parse for ProblemDetails {
                 },
                 "problem_type" | "type" => {
                     if problem_type.is_some() {
-                        return Err(syn::Error::new_spanned(
-                            field.name,
-                            "Duplicate 'problem_type' or 'type' field. Each field can only appear once.",
+                        return Err(crate::errors::duplicate_field_error(
+                            field.name.span(),
+                            "problem_type/type",
                         ));
                     }
                     if let ProblemFieldValue::Expr(e) = field.value {
@@ -256,9 +268,9 @@ impl Parse for ProblemDetails {
                 },
                 "instance" => {
                     if instance.is_some() {
-                        return Err(syn::Error::new_spanned(
-                            field.name,
-                            "Duplicate 'instance' field. Each field can only appear once.",
+                        return Err(crate::errors::duplicate_field_error(
+                            field.name.span(),
+                            "instance",
                         ));
                     }
                     if let ProblemFieldValue::Expr(e) = field.value {
@@ -267,9 +279,9 @@ impl Parse for ProblemDetails {
                 },
                 "meta" => {
                     if meta.is_some() {
-                        return Err(syn::Error::new_spanned(
-                            field.name,
-                            "Duplicate 'meta' field. Each field can only appear once.",
+                        return Err(crate::errors::duplicate_field_error(
+                            field.name.span(),
+                            "meta",
                         ));
                     }
                     if let ProblemFieldValue::Json(j) = field.value {
@@ -277,10 +289,11 @@ impl Parse for ProblemDetails {
                     }
                 },
                 other => {
+                    let suggestion = did_you_mean(other, VALID_ERROR_FIELDS);
                     return Err(syn::Error::new_spanned(
                         field.name,
                         format!(
-                            "Unknown field '{other}' in error! macro.\n\
+                            "Unknown field '{other}' in error! macro.{suggestion}\n\
                              \n\
                              Valid fields:\n\
                              - status: <u16> (required) - HTTP status code\n\

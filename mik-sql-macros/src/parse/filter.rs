@@ -5,7 +5,11 @@ use syn::{
     parse::ParseStream, punctuated::Punctuated, token,
 };
 
+use crate::errors::{did_you_mean, invalid_operator};
 use crate::types::{SqlFilter, SqlFilterExpr, SqlLogicalOp, SqlOperator, SqlValue};
+
+/// Valid logical operators for filter blocks.
+const VALID_LOGICAL_OPS: &[&str] = &["and", "or", "not"];
 
 /// Parse a filter block containing simple and/or compound filters.
 pub fn parse_filter_block(input: ParseStream) -> Result<SqlFilterExpr> {
@@ -22,9 +26,13 @@ pub fn parse_filter_block(input: ParseStream) -> Result<SqlFilterExpr> {
                 "or" => SqlLogicalOp::Or,
                 "not" => SqlLogicalOp::Not,
                 other => {
+                    let suggestion = did_you_mean(other, VALID_LOGICAL_OPS);
                     return Err(syn::Error::new(
                         op_name.span(),
-                        format!("Unknown logical operator '${other}'. Valid: $and, $or, $not"),
+                        format!(
+                            "Unknown logical operator '${other}'.{suggestion}\n\n\
+                             Valid operators: $and, $or, $not"
+                        ),
                     ));
                 },
             };
@@ -139,12 +147,7 @@ fn parse_sql_filter(input: ParseStream) -> Result<SqlFilter> {
             "contains" => SqlOperator::Contains,
             "between" => SqlOperator::Between,
             other => {
-                return Err(syn::Error::new(
-                    op_name.span(),
-                    format!(
-                        "Unknown operator '${other}'. Valid operators: $eq, $ne, $gt, $gte, $lt, $lte, $in, $nin, $like, $ilike, $regex, $startsWith, $endsWith, $contains, $between"
-                    ),
-                ));
+                return Err(invalid_operator(op_name.span(), other));
             },
         };
 

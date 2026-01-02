@@ -4,7 +4,13 @@ use syn::{
     LitFloat, LitInt, LitStr, Result, Token, parse::ParseStream, punctuated::Punctuated, token,
 };
 
+use crate::errors::did_you_mean;
 use crate::types::{SqlCompute, SqlComputeBinOp, SqlComputeExpr, SqlComputeFunc};
+
+/// Valid compute functions.
+const VALID_COMPUTE_FUNCS: &[&str] = &[
+    "concat", "coalesce", "upper", "lower", "round", "abs", "length", "len",
+];
 
 /// Parse the compute block.
 pub fn parse_compute_fields(input: ParseStream) -> Result<Vec<SqlCompute>> {
@@ -109,10 +115,12 @@ fn parse_compute_primary(input: ParseStream) -> Result<SqlComputeExpr> {
                 "abs" => SqlComputeFunc::Abs,
                 "length" | "len" => SqlComputeFunc::Length,
                 other => {
+                    let suggestion = did_you_mean(other, VALID_COMPUTE_FUNCS);
                     return Err(syn::Error::new(
                         ident.span(),
                         format!(
-                            "Unknown compute function '{other}'. Valid: concat, coalesce, upper, lower, round, abs, length"
+                            "Unknown compute function '{other}'.{suggestion}\n\n\
+                             Valid functions: concat, coalesce, upper, lower, round, abs, length"
                         ),
                     ));
                 },

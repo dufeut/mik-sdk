@@ -11,8 +11,12 @@ use syn::{
 };
 
 use crate::codegen::{sql_filter_expr_to_tokens, sql_value_to_tokens};
+use crate::errors::did_you_mean;
 use crate::parse::{parse_column_values, parse_filter_block, parse_optional_dialect};
 use crate::types::{SqlDialect, SqlFilterExpr, SqlValue};
+
+/// Valid options for `sql_update!` macro.
+const VALID_UPDATE_OPTIONS: &[&str] = &["set", "where", "filter", "returning"];
 
 struct UpdateInput {
     dialect: SqlDialect,
@@ -56,10 +60,14 @@ impl Parse for UpdateInput {
                         ret_content.parse_terminated(syn::Ident::parse, Token![,])?;
                     returning = fields.into_iter().collect();
                 },
-                _ => {
+                other => {
+                    let suggestion = did_you_mean(other, VALID_UPDATE_OPTIONS);
                     return Err(syn::Error::new(
                         key.span(),
-                        format!("Unknown option '{key}'. Expected 'set', 'where', or 'returning'"),
+                        format!(
+                            "Unknown option '{other}'.{suggestion}\n\n\
+                             Valid options: set, where, filter, returning"
+                        ),
                     ));
                 },
             }
