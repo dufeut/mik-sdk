@@ -505,3 +505,14 @@ fn get_iso_time() -> String {
     let dt = wall_clock::now();
     time::to_iso(dt.seconds, dt.nanoseconds)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn write_openapi_json() {
+        std::fs::write("openapi.json", OPENAPI_JSON).expect("Failed to write openapi.json");
+        println!("Generated openapi.json ({} bytes)", OPENAPI_JSON.len());
+    }
+}

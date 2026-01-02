@@ -849,3 +849,47 @@ fn test_crud_api_search_users_disallowed_field() {
         }
     });
 }
+
+// ============================================================================
+// OPENAPI SCHEMA TESTS
+// ============================================================================
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_hello_world_schema_endpoint() {
+    run_on_all_runtimes("hello-world-service.wasm", |server| {
+        // Test GET /__schema returns OpenAPI JSON
+        let response = ureq::get(&format!("{}/__schema", server.base_url()))
+            .call()
+            .expect("/__schema should return 200");
+
+        assert_eq!(response.status(), 200);
+
+        let body = response.into_string().unwrap();
+        assert!(body.contains("\"openapi\""), "Should contain openapi field");
+        assert!(body.contains("\"3.0.0\""), "Should be OpenAPI 3.0.0");
+        assert!(body.contains("\"paths\""), "Should contain paths");
+        assert!(body.contains("\"components\""), "Should contain components");
+        // Note: braces escaped to avoid format string interpretation
+        assert!(body.contains(r#""/hello/{name}""#), "Should document /hello/{{name}} route");
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_crud_api_schema_endpoint() {
+    run_on_all_runtimes("crud-api-service.wasm", |server| {
+        // Test GET /__schema returns OpenAPI JSON
+        let response = ureq::get(&format!("{}/__schema", server.base_url()))
+            .call()
+            .expect("/__schema should return 200");
+
+        assert_eq!(response.status(), 200);
+
+        let body = response.into_string().unwrap();
+        assert!(body.contains("\"openapi\""), "Should contain openapi field");
+        assert!(body.contains("\"paths\""), "Should contain paths");
+        assert!(body.contains("\"/users\""), "Should document /users route");
+        assert!(body.contains("\"/users/search\""), "Should document /users/search route");
+    });
+}

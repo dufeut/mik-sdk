@@ -26,70 +26,70 @@ ok!({
 
 ### Most Common Snippets
 
-| Type this... | To get... |
-|--------------|-----------|
-| `ok` | `ok!({ ... })` - Return 200 with JSON |
-| `error` | `error! { status, title, detail }` |
-| `guard` | `guard!(condition, status, "message")` |
-| `ensure` | `let x = ensure!(expr, status, "message")` |
-| `sql_read` | SELECT query with filter, order, limit |
-| `sql_create` | INSERT query |
-| `fetch` | HTTP GET request |
-| `derive-type` | `#[derive(Type)]` struct |
-| `derive-query` | `#[derive(Query)]` struct with pagination |
-| `routes` | Full routes! macro with CRUD endpoints |
+| Type this...   | To get...                                  |
+| -------------- | ------------------------------------------ |
+| `ok`           | `ok!({ ... })` - Return 200 with JSON      |
+| `error`        | `error! { status, title, detail }`         |
+| `guard`        | `guard!(condition, status, "message")`     |
+| `ensure`       | `let x = ensure!(expr, status, "message")` |
+| `sql_read`     | SELECT query with filter, order, limit     |
+| `sql_create`   | INSERT query                               |
+| `fetch`        | HTTP GET request                           |
+| `derive-type`  | `#[derive(Type)]` struct                   |
+| `derive-query` | `#[derive(Query)]` struct with pagination  |
+| `routes`       | Full routes! macro with CRUD endpoints     |
 
 ### Field Attributes
 
 When inside a struct, type `field-` to see all options:
 
-| Type this... | To get... |
-|--------------|-----------|
-| `field-default` | `#[field(default = value)]` |
-| `field-min` | `#[field(min = 1)]` |
-| `field-max` | `#[field(max = 100)]` |
-| `field-format` | `#[field(format = "email")]` with picker |
-| `field-pattern` | `#[field(pattern = r"^[a-z]+$")]` |
-| `field-rename` | `#[field(rename = "jsonName")]` |
-| `field-docs` | `#[field(docs = "Description")]` |
+| Type this...    | To get...                                |
+| --------------- | ---------------------------------------- |
+| `field-default` | `#[field(default = value)]`              |
+| `field-min`     | `#[field(min = 1)]`                      |
+| `field-max`     | `#[field(max = 100)]`                    |
+| `field-format`  | `#[field(format = "email")]` with picker |
+| `field-pattern` | `#[field(pattern = r"^[a-z]+$")]`        |
+| `field-rename`  | `#[field(rename = "jsonName")]`          |
+| `field-docs`    | `#[field(docs = "Description")]`         |
 
 ### SQL Queries
 
-| Type this... | To get... |
-|--------------|-----------|
-| `sql_read` | Basic SELECT |
-| `sql_read-page` | SELECT with offset pagination |
-| `sql_read-cursor` | SELECT with cursor pagination |
-| `sql_read-merge` | SELECT with runtime filter parsing |
-| `sql_create` | INSERT with returning |
-| `sql_update` | UPDATE with filter |
-| `sql_delete` | DELETE with filter |
-| `sql-filter` | Filter with operator picker (`$eq`, `$gt`, etc.) |
-| `$or` | OR condition |
-| `$and` | AND condition |
+| Type this...      | To get...                                        |
+| ----------------- | ------------------------------------------------ |
+| `sql_read`        | Basic SELECT                                     |
+| `sql_read-page`   | SELECT with offset pagination                    |
+| `sql_read-cursor` | SELECT with cursor pagination                    |
+| `sql_read-merge`  | SELECT with runtime filter parsing               |
+| `sql_create`      | INSERT with returning                            |
+| `sql_update`      | UPDATE with filter                               |
+| `sql_delete`      | DELETE with filter                               |
+| `sql-filter`      | Filter with operator picker (`$eq`, `$gt`, etc.) |
+| `$or`             | OR condition                                     |
+| `$and`            | AND condition                                    |
 
 ### HTTP Client
 
-| Type this... | To get... |
-|--------------|-----------|
-| `fetch` | Simple GET request |
-| `fetch-post` | POST with JSON body |
-| `fetch-headers` | Request with custom headers |
-| `fetch-timeout` | Request with timeout |
-| `fetch-ssrf` | Request with SSRF protection |
+| Type this...    | To get...                    |
+| --------------- | ---------------------------- |
+| `fetch`         | Simple GET request           |
+| `fetch-post`    | POST with JSON body          |
+| `fetch-headers` | Request with custom headers  |
+| `fetch-timeout` | Request with timeout         |
+| `fetch-ssrf`    | Request with SSRF protection |
 
 ### Response Helpers
 
-| Type this... | To get... |
-|--------------|-----------|
-| `ok` | 200 OK with JSON |
-| `created` | 201 Created with Location header |
-| `no_content` | 204 No Content |
-| `not_found` | 404 Not Found |
-| `bad_request` | 400 Bad Request |
-| `conflict` | 409 Conflict |
-| `forbidden` | 403 Forbidden |
-| `error` | RFC 7807 error with status picker |
+| Type this...  | To get...                         |
+| ------------- | --------------------------------- |
+| `ok`          | 200 OK with JSON                  |
+| `created`     | 201 Created with Location header  |
+| `no_content`  | 204 No Content                    |
+| `not_found`   | 404 Not Found                     |
+| `bad_request` | 400 Bad Request                   |
+| `conflict`    | 409 Conflict                      |
+| `forbidden`   | 403 Forbidden                     |
+| `error`       | RFC 7807 error with status picker |
 
 ### Complete File Template
 

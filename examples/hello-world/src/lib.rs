@@ -1,22 +1,12 @@
-#![allow(missing_docs)] // Example crate - documentation not required
-#![allow(clippy::exhaustive_structs)] // Example types are internal, not published APIs
-#![allow(unsafe_code)] // Required for generated WIT bindings
-//! Hello World - Clean DX with typed inputs and proc-macros!
-//!
-//! New simplified 2-component architecture:
-//! - JSON/time/random are pure Rust in mik-sdk
-//! - Only need bridge + handler composition
-//! - Type-safe inputs with derive macros
+#![allow(missing_docs)]
+#![allow(clippy::exhaustive_structs)]
+#![allow(unsafe_code)]
 
 #[allow(warnings, unsafe_code)]
 mod bindings;
 
 use bindings::exports::mik::core::handler::{self, Guest, Response};
 use mik_sdk::prelude::*;
-
-// ============================================================================
-// TYPE DEFINITIONS - Input and Output types with derive macros
-// ============================================================================
 
 #[derive(Type)]
 pub struct HomeResponse {
@@ -31,7 +21,6 @@ pub struct HelloResponse {
     pub name: String,
 }
 
-/// Custom path parameter - demonstrates #[derive(Path)]
 #[derive(Path)]
 pub struct HelloPath {
     pub name: String,
@@ -49,17 +38,11 @@ pub struct EchoResponse {
     pub length: i64,
 }
 
-/// Query parameters - demonstrates #[derive(Query)]
 #[derive(Query)]
 pub struct SearchQuery {
-    /// Search term (optional)
     pub q: Option<String>,
-
-    /// Page number with default
     #[field(default = 1)]
     pub page: u32,
-
-    /// Items per page with default and max
     #[field(default = 10, max = 100)]
     pub limit: u32,
 }
@@ -72,20 +55,12 @@ pub struct SearchResponse {
     pub message: String,
 }
 
-// ============================================================================
-// ROUTES - Flat syntax with typed inputs
-// ============================================================================
-
 routes! {
     GET "/" | "" => home -> HomeResponse,
     GET "/hello/{name}" => hello(path: HelloPath) -> HelloResponse,
     POST "/echo" => echo(body: EchoInput) -> EchoResponse,
     GET "/search" => search(query: SearchQuery) -> SearchResponse,
 }
-
-// ============================================================================
-// HANDLERS - Receive typed, parsed inputs
-// ============================================================================
 
 fn home(_req: &Request) -> Response {
     ok!({
@@ -96,7 +71,6 @@ fn home(_req: &Request) -> Response {
 }
 
 fn hello(path: HelloPath, _req: &Request) -> Response {
-    // path.name is extracted from {name} in the route
     log!(info, "hello called", name: &path.name);
     let greeting = format!("Hello, {}!", path.name);
     ok!({
@@ -106,7 +80,6 @@ fn hello(path: HelloPath, _req: &Request) -> Response {
 }
 
 fn echo(body: EchoInput, _req: &Request) -> Response {
-    // body is already parsed and validated!
     let len = body.message.len();
     ok!({
         "echo": body.message,
@@ -115,16 +88,15 @@ fn echo(body: EchoInput, _req: &Request) -> Response {
 }
 
 fn search(query: SearchQuery, _req: &Request) -> Response {
-    // query.q is Option<String>, query.page defaults to 1, query.limit defaults to 10
     let message = match &query.q {
-        Some(q) => format!("Searching for '{}' on page {}", q, query.page),
+        Some(q) => format!("Searching for \'{}\' on page {}", q, query.page),
         None => format!("Listing all items on page {}", query.page),
     };
 
     ok!({
-        "query": query.q,       // Option<String> -> null or string
-        "page": query.page,     // u32 -> integer
-        "limit": query.limit,   // u32 -> integer
-        "message": message      // String -> string
+        "query": query.q,
+        "page": query.page,
+        "limit": query.limit,
+        "message": message
     })
 }
