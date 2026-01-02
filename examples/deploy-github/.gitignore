@@ -1,0 +1,6 @@
+/target
+/Cargo.lock
+/wit/deps
+/src/bindings.rs
+*.wasm
+openapi.json

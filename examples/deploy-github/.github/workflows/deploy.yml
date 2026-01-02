@@ -1,0 +1,122 @@
+# Example GitHub Actions workflow for deploying mik-sdk handlers
+# Copy this to your project's .github/workflows/deploy.yml
+#
+# Publishes to: ghcr.io/{owner}/{repo}:{version}
+# Artifacts: service.wasm, openapi.json
+#
+# Trigger: Push to main, or manual with version override
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version override (leave empty to use Cargo.toml)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  CARGO_TERM_COLOR: always
+  # Update these for your project
+  SDK_VERSION: "0.1.1"
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.89
+        with:
+          targets: wasm32-wasip2
+
+      - name: Install tools
+        run: |
+          cargo install cargo-component --locked
+          cargo install wasm-tools --locked
+          curl -LO https://github.com/oras-project/oras/releases/download/v1.2.0/oras_1.2.0_linux_amd64.tar.gz
+          tar -xzf oras_1.2.0_linux_amd64.tar.gz
+          sudo mv oras /usr/local/bin/
+          curl -LO https://github.com/bytecodealliance/wac/releases/download/v0.6.1/wac-v0.6.1-x86_64-unknown-linux-musl.tar.gz
+          tar -xzf wac-v0.6.1-x86_64-unknown-linux-musl.tar.gz
+          sudo mv wac /usr/local/bin/
+
+      - name: Get version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Fetch WIT deps
+        run: |
+          mkdir -p wit/deps
+          curl -sL "https://github.com/dufeut/mik-sdk/releases/download/v${{ env.SDK_VERSION }}/wit-deps.tar.gz" \
+            | tar -xz -C wit/deps
+
+      - name: Build handler
+        run: cargo component build --release
+
+      - name: Pull bridge
+        run: |
+          oras pull ghcr.io/dufeut/mik-sdk-bridge:${{ env.SDK_VERSION }} -o bridge/
+          mv bridge/mik_bridge.wasm bridge.wasm
+
+      - name: Compose components
+        run: |
+          HANDLER=$(find target/wasm32-wasip2/release -name "*.wasm" ! -name "deps" | head -1)
+          wac plug bridge.wasm --plug "$HANDLER" -o service.wasm
+
+      - name: Strip debug info
+        run: wasm-tools strip --all service.wasm -o service.wasm
+
+      - name: Generate OpenAPI schema
+        run: |
+          cargo test --release write_openapi_json -- --ignored --nocapture
+          test -f openapi.json || { echo "ERROR: openapi.json not generated"; exit 1; }
+
+      - name: Login to ghcr.io
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push to ghcr.io
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+
+          # Push versioned (both wasm + openapi bundled)
+          oras push ghcr.io/${REPO}:${VERSION} \
+            --artifact-type application/vnd.wasm.component.v1+wasm \
+            service.wasm:application/wasm \
+            openapi.json:application/json
+
+          # Push latest
+          oras push ghcr.io/${REPO}:latest \
+            --artifact-type application/vnd.wasm.component.v1+wasm \
+            service.wasm:application/wasm \
+            openapi.json:application/json
+
+          echo "Published: ghcr.io/${REPO}:${VERSION}"

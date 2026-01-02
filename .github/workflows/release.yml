@@ -203,6 +203,11 @@ jobs:
           cp target/wasm32-wasip1/release/mik_bridge.wasm ../artifacts/mik-bridge.wasm
           cp ../mik-wit/core/core.wit ../artifacts/core.wit
 
+      - name: Bundle WIT deps
+        run: |
+          # Bundle all WIT deps from hello-world example (includes WASI + mik:core)
+          tar -czf artifacts/wit-deps.tar.gz -C examples/hello-world/wit/deps .
+
       - name: Generate release notes
         run: |
           git-cliff --latest --strip header --output RELEASE_NOTES.md
@@ -216,3 +221,4 @@ jobs:
           files: |
             artifacts/mik-bridge.wasm
             artifacts/core.wit
+            artifacts/wit-deps.tar.gz
