@@ -16,8 +16,8 @@ crate-type = ["rlib"]
 default = []
 
 [dependencies]
-mik-sql-macros = { path = "../mik-sql-macros", version = "0.1.0" }
-mik-sdk-macros = { path = "../mik-sdk-macros", version = "0.1.0" }
+mik-sql-macros = { path = "../mik-sql-macros", version = "0.1" }
+mik-sdk-macros = { path = "../mik-sdk-macros", version = "0.1" }
 # JSON parsing for runtime filter construction (same lib as mik-sdk)
 miniserde = "0.1"
 
