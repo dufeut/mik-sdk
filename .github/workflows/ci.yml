@@ -8,6 +8,9 @@ on:
       - "docs/**"
       - "LICENSE"
       - ".gitignore"
+      - ".github/**"
+      - ".vscode/**"
+      - "examples/**"
   pull_request:
     branches: [main]
     paths-ignore:
@@ -15,6 +18,9 @@ on:
       - "docs/**"
       - "LICENSE"
       - ".gitignore"
+      - ".github/**"
+      - ".vscode/**"
+      - "examples/**"
 
 env:
   CARGO_TERM_COLOR: always
