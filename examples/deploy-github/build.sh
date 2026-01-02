@@ -23,6 +23,12 @@ if ! command -v wasm-tools &> /dev/null; then
   cargo install wasm-tools --locked
 fi
 
+# Auto-fetch WIT deps if missing
+if [ ! -d "wit/deps" ]; then
+  echo "==> Fetching WIT dependencies..."
+  ./setup.sh "$VERSION"
+fi
+
 echo "==> Building handler..."
 cargo component build --release
 
