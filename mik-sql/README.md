@@ -54,22 +54,22 @@ let (sql, params) = sql_delete!(users {
 
 ## Filter Operators
 
-| Operator | SQL | Example |
-|----------|-----|---------|
-| `$eq` | `=` | `status: { $eq: "active" }` |
-| `$ne` | `!=` | `status: { $ne: "deleted" }` |
-| `$gt` | `>` | `age: { $gt: 18 }` |
-| `$gte` | `>=` | `age: { $gte: 21 }` |
-| `$lt` | `<` | `price: { $lt: 100 }` |
-| `$lte` | `<=` | `price: { $lte: 50 }` |
-| `$in` | `IN (...)` | `status: { $in: ["a", "b"] }` |
-| `$nin` | `NOT IN` | `status: { $nin: ["x"] }` |
-| `$like` | `LIKE` | `name: { $like: "%test%" }` |
-| `$ilike` | `ILIKE` | `name: { $ilike: "%TEST%" }` |
-| `$starts_with` | `LIKE x \|\| '%'` | `name: { $starts_with: "John" }` |
-| `$ends_with` | `LIKE '%' \|\| x` | `email: { $ends_with: "@example.com" }` |
-| `$contains` | `LIKE '%' \|\| x \|\| '%'` | `bio: { $contains: "rust" }` |
-| `$between` | `BETWEEN` | `age: { $between: [18, 65] }` |
+| Operator       | SQL                        | Example                                 |
+| -------------- | -------------------------- | --------------------------------------- |
+| `$eq`          | `=`                        | `status: { $eq: "active" }`             |
+| `$ne`          | `!=`                       | `status: { $ne: "deleted" }`            |
+| `$gt`          | `>`                        | `age: { $gt: 18 }`                      |
+| `$gte`         | `>=`                       | `age: { $gte: 21 }`                     |
+| `$lt`          | `<`                        | `price: { $lt: 100 }`                   |
+| `$lte`         | `<=`                       | `price: { $lte: 50 }`                   |
+| `$in`          | `IN (...)`                 | `status: { $in: ["a", "b"] }`           |
+| `$nin`         | `NOT IN`                   | `status: { $nin: ["x"] }`               |
+| `$like`        | `LIKE`                     | `name: { $like: "%test%" }`             |
+| `$ilike`       | `ILIKE`                    | `name: { $ilike: "%TEST%" }`            |
+| `$starts_with` | `LIKE x \|\| '%'`          | `name: { $starts_with: "John" }`        |
+| `$ends_with`   | `LIKE '%' \|\| x`          | `email: { $ends_with: "@example.com" }` |
+| `$contains`    | `LIKE '%' \|\| x \|\| '%'` | `bio: { $contains: "rust" }`            |
+| `$between`     | `BETWEEN`                  | `age: { $between: [18, 65] }`           |
 
 ## Logical Operators
 

@@ -23,12 +23,12 @@ mik-sdk = "0.1"
 
 ## Macros Provided
 
-| Macro | Purpose |
-|-------|---------|
-| `sql_read!` | SELECT query with filters, sorting, pagination |
-| `sql_create!` | INSERT query with returning |
-| `sql_update!` | UPDATE query with filters |
-| `sql_delete!` | DELETE query with filters |
+| Macro         | Purpose                                        |
+| ------------- | ---------------------------------------------- |
+| `sql_read!`   | SELECT query with filters, sorting, pagination |
+| `sql_create!` | INSERT query with returning                    |
+| `sql_update!` | UPDATE query with filters                      |
+| `sql_delete!` | DELETE query with filters                      |
 
 See the [mik-sql documentation](https://docs.rs/mik-sql) for usage examples.
 

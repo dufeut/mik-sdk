@@ -67,9 +67,9 @@ mik add your-org/my-api
 
 ## Customization
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SDK_VERSION` | `0.1.1` | mik-sdk version (bridge + WIT deps) |
+| Variable         | Default    | Description                          |
+| ---------------- | ---------- | ------------------------------------ |
+| `SDK_VERSION`    | `0.1.1`    | mik-sdk version (bridge + WIT deps)  |
 | `inputs.version` | Cargo.toml | Override version for manual dispatch |
 
 ## No mik CLI Required

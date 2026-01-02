@@ -163,7 +163,7 @@ Type hints available for explicit control: `str()`, `int()`, `float()`, `bool()`
 ### Modules
 
 | Module        | Purpose                        |
-|---------------|--------------------------------|
+| ------------- | ------------------------------ |
 | `json`        | JSON building and lazy parsing |
 | `time`        | UTC timestamps and ISO 8601    |
 | `random`      | UUIDs, tokens, random bytes    |
@@ -174,76 +174,76 @@ Type hints available for explicit control: `str()`, `int()`, `float()`, `bool()`
 
 ### Response Macros
 
-| Macro | Status | Description |
-|-------|--------|-------------|
-| `ok!({ ... })` | 200 | JSON response |
-| `created!(loc, { ... })` | 201 | With Location header |
-| `accepted!()` | 202 | Accepted |
-| `no_content!()` | 204 | No Content |
-| `redirect!(url)` | 302 | Redirect |
-| `bad_request!(msg)` | 400 | Bad Request |
-| `forbidden!(msg)` | 403 | Forbidden |
-| `not_found!(msg)` | 404 | Not Found |
-| `conflict!(msg)` | 409 | Conflict |
-| `error! { ... }` | any | RFC 7807 |
+| Macro                    | Status | Description          |
+| ------------------------ | ------ | -------------------- |
+| `ok!({ ... })`           | 200    | JSON response        |
+| `created!(loc, { ... })` | 201    | With Location header |
+| `accepted!()`            | 202    | Accepted             |
+| `no_content!()`          | 204    | No Content           |
+| `redirect!(url)`         | 302    | Redirect             |
+| `bad_request!(msg)`      | 400    | Bad Request          |
+| `forbidden!(msg)`        | 403    | Forbidden            |
+| `not_found!(msg)`        | 404    | Not Found            |
+| `conflict!(msg)`         | 409    | Conflict             |
+| `error! { ... }`         | any    | RFC 7807             |
 
 ### DX Macros
 
-| Macro | Purpose |
-|-------|---------|
-| `guard!(cond, status, msg)` | Early return if false |
-| `ensure!(expr, status, msg)` | Unwrap or return error |
-| `fetch!(METHOD url, ...)` | HTTP client request |
-| `ids!(collection)` | Extract IDs for batching |
+| Macro                        | Purpose                  |
+| ---------------------------- | ------------------------ |
+| `guard!(cond, status, msg)`  | Early return if false    |
+| `ensure!(expr, status, msg)` | Unwrap or return error   |
+| `fetch!(METHOD url, ...)`    | HTTP client request      |
+| `ids!(collection)`           | Extract IDs for batching |
 
 ### SQL Macros
 
-| Macro | Purpose |
-|-------|---------|
-| `sql_read!(table { ... })` | SELECT |
-| `sql_create!(table { ... })` | INSERT |
-| `sql_update!(table { ... })` | UPDATE |
-| `sql_delete!(table { ... })` | DELETE |
+| Macro                        | Purpose |
+| ---------------------------- | ------- |
+| `sql_read!(table { ... })`   | SELECT  |
+| `sql_create!(table { ... })` | INSERT  |
+| `sql_update!(table { ... })` | UPDATE  |
+| `sql_delete!(table { ... })` | DELETE  |
 
 ### time Module
 
-| Function | Returns |
-|----------|---------|
-| `time::now()` | `u64` - Unix seconds |
+| Function             | Returns                   |
+| -------------------- | ------------------------- |
+| `time::now()`        | `u64` - Unix seconds      |
 | `time::now_millis()` | `u64` - Unix milliseconds |
-| `time::now_iso()` | `String` - ISO 8601 |
+| `time::now_iso()`    | `String` - ISO 8601       |
 
 ### random Module
 
-| Function | Returns |
-|----------|---------|
-| `random::uuid()` | `String` - UUID v4 |
-| `random::hex(n)` | `String` - n bytes as hex |
+| Function           | Returns                    |
+| ------------------ | -------------------------- |
+| `random::uuid()`   | `String` - UUID v4         |
+| `random::hex(n)`   | `String` - n bytes as hex  |
 | `random::bytes(n)` | `Vec<u8>` - n random bytes |
-| `random::u64()` | `u64` - Random integer |
+| `random::u64()`    | `u64` - Random integer     |
 
 ### Request Methods
 
-| Method | Returns |
-|--------|---------|
-| `param(name)` | `Option<&str>` |
-| `query(name)` | `Option<&str>` |
-| `query_all(name)` | `&[String]` |
-| `header(name)` | `Option<&str>` |
-| `header_all(name)` | `Vec<&str>` |
-| `trace_id()` | `Option<&str>` |
-| `body()` | `Option<&[u8]>` |
-| `text()` | `Option<&str>` |
-| `json()` | `Option<JsonValue>` |
-| `json_with(parser)` | `Option<T>` |
-| `form(name)` | `Option<&str>` |
-| `form_all(name)` | `&[String]` |
-| `is_json()` | `bool` |
-| `is_form()` | `bool` |
-| `is_html()` | `bool` |
-| `accepts(mime)` | `bool` |
-| `has_body()` | `bool` |
-| `content_type()` | `Option<&str>` |
+| Method              | Returns             |
+| ------------------- | ------------------- |
+| `param(name)`       | `Option<&str>`      |
+| `query(name)`       | `Option<&str>`      |
+| `query_all(name)`   | `&[String]`         |
+| `header(name)`      | `Option<&str>`      |
+| `header_all(name)`  | `Vec<&str>`         |
+| `trace_id()`        | `Option<&str>`      |
+| `body()`            | `Option<&[u8]>`     |
+| `text()`            | `Option<&str>`      |
+| `json()`            | `Option<JsonValue>` |
+| `json_with(parser)` | `Option<T>`         |
+| `form(name)`        | `Option<&str>`      |
+| `form_all(name)`    | `&[String]`         |
+| `is_json()`         | `bool`              |
+| `is_form()`         | `bool`              |
+| `is_html()`         | `bool`              |
+| `accepts(mime)`     | `bool`              |
+| `has_body()`        | `bool`              |
+| `content_type()`    | `Option<&str>`      |
 
 ### Logging
 
@@ -268,17 +268,17 @@ mik-sdk = "0.1"  # Includes sql + http-client by default
 mik-sdk = { version = "0.1", default-features = false }
 ```
 
-| Feature       | Default | Description                 |
-|---------------|---------|------------------------------|
-| `sql`         | Yes     | SQL query builder macros     |
-| `http-client` | Yes     | HTTP client with `.send()`   |
+| Feature       | Default | Description                |
+| ------------- | ------- | -------------------------- |
+| `sql`         | Yes     | SQL query builder macros   |
+| `http-client` | Yes     | HTTP client with `.send()` |
 
 ## Configuration
 
 Environment variables for runtime limits:
 
 | Variable            | Default | Description                         |
-|---------------------|---------|-------------------------------------|
+| ------------------- | ------- | ----------------------------------- |
 | `MIK_MAX_JSON_SIZE` | 1 MB    | Maximum JSON input size for parsing |
 | `MIK_MAX_BODY_SIZE` | 10 MB   | Maximum request body size (bridge)  |
 
