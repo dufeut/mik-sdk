@@ -1,14 +1,27 @@
 #!/bin/bash
 # Build and compose the complete WASI HTTP component
 # Usage: ./build.sh [version]
-#
-# Prerequisites: cargo-component, wac
-# Optional: wasm-tools (for stripping debug info)
 
 set -e
 
 VERSION="${1:-0.1.2}"
 REPO="dufeut/mik-sdk"
+
+# Auto-install missing tools
+if ! command -v cargo-component &> /dev/null; then
+  echo "==> Installing cargo-component..."
+  cargo install cargo-component --locked
+fi
+
+if ! command -v wac &> /dev/null; then
+  echo "==> Installing wac..."
+  cargo install wac-cli --locked
+fi
+
+if ! command -v wasm-tools &> /dev/null; then
+  echo "==> Installing wasm-tools..."
+  cargo install wasm-tools --locked
+fi
 
 echo "==> Building handler..."
 cargo component build --release

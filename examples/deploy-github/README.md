@@ -91,10 +91,9 @@ curl http://localhost:8080/
 
 ## Prerequisites
 
-Local development requires:
-- `cargo-component` - `cargo install cargo-component`
-- `wac` - `cargo install wac-cli`
-- `wasm-tools` (optional) - `cargo install wasm-tools`
+- Rust 1.89+
+
+Tools (`cargo-component`, `wac`, `wasm-tools`) are auto-installed by `build.sh` if missing.
 
 ## No mik CLI Required
 
