@@ -1,4 +1,4 @@
-error: Duplicate 'headers' option. Each option can only appear once.
+error: Duplicate 'headers' field. Each field can only appear once.
  --> tests/ui/fetch/duplicate_option.rs:7:9
   |
 7 |         headers: { "B": "2" }

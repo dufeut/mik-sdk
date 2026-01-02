@@ -9,7 +9,7 @@ use syn::{
     punctuated::Punctuated,
 };
 
-use crate::errors::did_you_mean;
+use crate::errors::{did_you_mean, duplicate_field_error};
 use crate::json::{JsonValue, json_value_to_tokens};
 
 /// Valid HTTP methods for fetch! macro.
@@ -207,10 +207,7 @@ impl Parse for FetchInput {
             match key.to_string().as_str() {
                 "headers" => {
                     if headers.is_some() {
-                        return Err(syn::Error::new_spanned(
-                            &key,
-                            "Duplicate 'headers' option. Each option can only appear once.",
-                        ));
+                        return Err(duplicate_field_error(key.span(), "headers"));
                     }
                     // Parse headers: { "Name": "value", ... }
                     let content;
@@ -239,10 +236,7 @@ impl Parse for FetchInput {
                 },
                 "json" => {
                     if json_body.is_some() {
-                        return Err(syn::Error::new_spanned(
-                            &key,
-                            "Duplicate 'json' option. Each option can only appear once.",
-                        ));
+                        return Err(duplicate_field_error(key.span(), "json"));
                     }
                     // Parse JSON body using JsonValue parser
                     json_body = Some(input.parse::<JsonValue>().map_err(|e| {
@@ -266,10 +260,7 @@ impl Parse for FetchInput {
                 },
                 "body" => {
                     if raw_body.is_some() {
-                        return Err(syn::Error::new_spanned(
-                            &key,
-                            "Duplicate 'body' option. Each option can only appear once.",
-                        ));
+                        return Err(duplicate_field_error(key.span(), "body"));
                     }
                     // Parse raw body expression
                     raw_body = Some(input.parse::<Expr>().map_err(|e| {
@@ -290,10 +281,7 @@ impl Parse for FetchInput {
                 },
                 "timeout" => {
                     if timeout_ms.is_some() {
-                        return Err(syn::Error::new_spanned(
-                            &key,
-                            "Duplicate 'timeout' option. Each option can only appear once.",
-                        ));
+                        return Err(duplicate_field_error(key.span(), "timeout"));
                     }
                     // Parse timeout in milliseconds
                     timeout_ms = Some(input.parse::<Expr>().map_err(|e| {
