@@ -32,3 +32,9 @@ CLAUDE.md
 
 # Test projects
 .test-*/
+
+# Generated OpenAPI schemas
+**/openapi.json
+
+# Generated WASI bindings (cargo-component)
+**/bindings.rs
