@@ -10,7 +10,8 @@ use syn::{
 
 use crate::errors::did_you_mean;
 use crate::parse::{
-    parse_aggregates, parse_compute_fields, parse_filter_block, parse_optional_dialect,
+    parse_aggregates, parse_compute_fields, parse_filter_block, parse_ident_list,
+    parse_optional_dialect,
 };
 use crate::types::{SqlAggregate, SqlCompute, SqlDialect, SqlFilterExpr, SqlSort};
 
@@ -103,11 +104,7 @@ impl Parse for SqlInput {
 
             match key.to_string().as_str() {
                 "select" => {
-                    let fields_content;
-                    bracketed!(fields_content in content);
-                    let fields: Punctuated<syn::Ident, Token![,]> =
-                        fields_content.parse_terminated(syn::Ident::parse, Token![,])?;
-                    select_fields = fields.into_iter().collect();
+                    select_fields = parse_ident_list(&content)?;
                 },
                 "compute" => {
                     let compute_content;
@@ -125,11 +122,7 @@ impl Parse for SqlInput {
                     filter_expr = Some(parse_filter_block(&filter_content)?);
                 },
                 "group_by" | "groupBy" => {
-                    let group_content;
-                    bracketed!(group_content in content);
-                    let fields: Punctuated<syn::Ident, Token![,]> =
-                        group_content.parse_terminated(syn::Ident::parse, Token![,])?;
-                    group_by = fields.into_iter().collect();
+                    group_by = parse_ident_list(&content)?;
                 },
                 "having" => {
                     let having_content;
@@ -183,21 +176,13 @@ impl Parse for SqlInput {
                     }
                 },
                 "allow_sort" | "allowSort" => {
-                    let allow_content;
-                    bracketed!(allow_content in content);
-                    let fields: Punctuated<syn::Ident, Token![,]> =
-                        allow_content.parse_terminated(syn::Ident::parse, Token![,])?;
-                    allow_sort = fields.into_iter().collect();
+                    allow_sort = parse_ident_list(&content)?;
                 },
                 "merge" => {
                     merge_filters = Some(content.parse()?);
                 },
                 "allow" => {
-                    let allow_content;
-                    bracketed!(allow_content in content);
-                    let fields: Punctuated<syn::Ident, Token![,]> =
-                        allow_content.parse_terminated(syn::Ident::parse, Token![,])?;
-                    allow_fields = fields.into_iter().collect();
+                    allow_fields = parse_ident_list(&content)?;
                 },
                 "deny_ops" | "denyOps" => {
                     let deny_content;

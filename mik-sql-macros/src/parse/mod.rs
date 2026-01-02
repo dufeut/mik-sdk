@@ -12,6 +12,6 @@ mod compute;
 mod filter;
 
 pub use aggregate::parse_aggregates;
-pub use common::{parse_column_values, parse_optional_dialect, parse_returning_fields};
+pub use common::{parse_column_values, parse_ident_list, parse_optional_dialect};
 pub use compute::parse_compute_fields;
 pub use filter::{parse_filter_block, parse_sql_value};

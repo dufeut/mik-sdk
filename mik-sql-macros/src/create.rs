@@ -10,7 +10,7 @@ use syn::{
 };
 
 use crate::codegen::{generate_returning_chain, sql_value_to_tokens};
-use crate::parse::{parse_optional_dialect, parse_returning_fields, parse_sql_value};
+use crate::parse::{parse_ident_list, parse_optional_dialect, parse_sql_value};
 use crate::types::{SqlDialect, SqlValue};
 
 struct InsertInput {
@@ -36,7 +36,7 @@ impl Parse for InsertInput {
             content.parse::<Token![:]>()?;
 
             if key.to_string().as_str() == "returning" {
-                returning = parse_returning_fields(&content)?;
+                returning = parse_ident_list(&content)?;
             } else {
                 let value = parse_sql_value(&content)?;
                 columns.push((key, value));

@@ -41,8 +41,10 @@ pub fn parse_column_values(input: ParseStream) -> Result<Vec<(syn::Ident, SqlVal
     Ok(result)
 }
 
-/// Parse `returning: [field1, field2, ...]` field list.
-pub fn parse_returning_fields(input: ParseStream) -> Result<Vec<syn::Ident>> {
+/// Parse a bracketed identifier list: `[field1, field2, ...]`.
+///
+/// Used for `select:`, `group_by:`, `allow:`, `allow_sort:`, `returning:`, etc.
+pub fn parse_ident_list(input: ParseStream) -> Result<Vec<syn::Ident>> {
     let content;
     bracketed!(content in input);
     let fields: Punctuated<syn::Ident, Token![,]> =

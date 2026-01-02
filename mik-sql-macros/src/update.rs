@@ -12,7 +12,7 @@ use syn::{
 use crate::codegen::{generate_returning_chain, sql_filter_expr_to_tokens, sql_value_to_tokens};
 use crate::errors::did_you_mean;
 use crate::parse::{
-    parse_column_values, parse_filter_block, parse_optional_dialect, parse_returning_fields,
+    parse_column_values, parse_filter_block, parse_ident_list, parse_optional_dialect,
 };
 use crate::types::{SqlDialect, SqlFilterExpr, SqlValue};
 
@@ -55,7 +55,7 @@ impl Parse for UpdateInput {
                     where_expr = Some(parse_filter_block(&where_content)?);
                 },
                 "returning" => {
-                    returning = parse_returning_fields(&content)?;
+                    returning = parse_ident_list(&content)?;
                 },
                 other => {
                     let suggestion = did_you_mean(other, VALID_UPDATE_OPTIONS);
