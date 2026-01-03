@@ -13,14 +13,42 @@ use super::utoipa::problem_details_json;
 use crate::schema::types::{InputSource, RouteDef, RoutesDef};
 
 // =============================================================================
+// STATUS CODE HELPERS
+// =============================================================================
+
+/// Get a human-readable description for an HTTP status code.
+const fn status_code_description(code: u16) -> &'static str {
+    match code {
+        201 => "Created",
+        202 => "Accepted",
+        204 => "No Content",
+        301 => "Moved Permanently",
+        302 => "Found",
+        304 => "Not Modified",
+        400 => "Bad Request",
+        401 => "Unauthorized",
+        403 => "Forbidden",
+        404 => "Not Found",
+        409 => "Conflict",
+        422 => "Unprocessable Entity",
+        500 => "Internal Server Error",
+        502 => "Bad Gateway",
+        503 => "Service Unavailable",
+        _ => "Success",
+    }
+}
+
+// =============================================================================
 // OPENAPI GENERATION
 // =============================================================================
 
 /// Generate code that builds an OpenAPI method entry at runtime.
+#[allow(clippy::too_many_lines)]
 fn generate_method_entry_code(route: &RouteDef, default_tag: Option<&str>) -> TokenStream2 {
     let method_name = route.method.as_str();
     let tag = route.effective_tag(default_tag);
     let handler_name = route.handler.to_string();
+    let is_deprecated = route.deprecated;
 
     let mut parts: Vec<TokenStream2> = Vec::new();
 
@@ -42,6 +70,13 @@ fn generate_method_entry_code(route: &RouteDef, default_tag: Option<&str>) -> To
     if let Some(ref summary) = route.summary {
         parts.push(quote! {
             __parts.push(::std::format!("\"summary\":\"{}\"", #summary));
+        });
+    }
+
+    // Add deprecated if true
+    if is_deprecated {
+        parts.push(quote! {
+            __parts.push("\"deprecated\":true".to_string());
         });
     }
 
@@ -112,17 +147,26 @@ fn generate_method_entry_code(route: &RouteDef, default_tag: Option<&str>) -> To
     }
 
     // Response - includes success and error responses
+    let status_code = route.status_code;
+    let status_description = status_code_description(status_code);
+
     if let Some(ref output_type) = route.output_type {
         let output_str = output_type.to_string();
         parts.push(quote! {
             __parts.push(::std::format!(
-                "\"responses\":{{\"200\":{{\"description\":\"Success\",\"content\":{{\"application/json\":{{\"schema\":{{\"$ref\":\"#/components/schemas/{}\"}}}}}}}},\"4XX\":{{\"description\":\"Client Error\",\"content\":{{\"application/problem+json\":{{\"schema\":{{\"$ref\":\"#/components/schemas/ProblemDetails\"}}}}}}}},\"5XX\":{{\"description\":\"Server Error\",\"content\":{{\"application/problem+json\":{{\"schema\":{{\"$ref\":\"#/components/schemas/ProblemDetails\"}}}}}}}}}}",
+                "\"responses\":{{\"{}\":{{\"description\":\"{}\",\"content\":{{\"application/json\":{{\"schema\":{{\"$ref\":\"#/components/schemas/{}\"}}}}}}}},\"4XX\":{{\"description\":\"Client Error\",\"content\":{{\"application/problem+json\":{{\"schema\":{{\"$ref\":\"#/components/schemas/ProblemDetails\"}}}}}}}},\"5XX\":{{\"description\":\"Server Error\",\"content\":{{\"application/problem+json\":{{\"schema\":{{\"$ref\":\"#/components/schemas/ProblemDetails\"}}}}}}}}}}",
+                #status_code,
+                #status_description,
                 #output_str
             ));
         });
     } else {
         parts.push(quote! {
-            __parts.push("\"responses\":{\"200\":{\"description\":\"Success\"},\"4XX\":{\"description\":\"Client Error\",\"content\":{\"application/problem+json\":{\"schema\":{\"$ref\":\"#/components/schemas/ProblemDetails\"}}}},\"5XX\":{\"description\":\"Server Error\",\"content\":{\"application/problem+json\":{\"schema\":{\"$ref\":\"#/components/schemas/ProblemDetails\"}}}}}".to_string());
+            __parts.push(::std::format!(
+                "\"responses\":{{\"{}\":{{\"description\":\"{}\"}},\"4XX\":{{\"description\":\"Client Error\",\"content\":{{\"application/problem+json\":{{\"schema\":{{\"$ref\":\"#/components/schemas/ProblemDetails\"}}}}}}}},\"5XX\":{{\"description\":\"Server Error\",\"content\":{{\"application/problem+json\":{{\"schema\":{{\"$ref\":\"#/components/schemas/ProblemDetails\"}}}}}}}}}}",
+                #status_code,
+                #status_description
+            ));
         });
     }
 
@@ -217,16 +261,23 @@ pub fn generate_openapi_json(defs: &RoutesDef) -> TokenStream2 {
 
     // Generate code to build schema entries by calling trait methods
     // Use super:: prefix because this runs inside __mik_schema module
+    // Also collect nested schemas for transitive type inclusion
     let schema_builders: Vec<TokenStream2> = type_names
         .iter()
         .map(|type_name| {
             let type_name_str = type_name.to_string();
             quote! {
+                // Add this type's schema
                 __schema_parts.push(::std::format!(
                     "\"{}\":{}",
                     #type_name_str,
                     <super::#type_name as mik_sdk::typed::OpenApiSchema>::openapi_schema()
                 ));
+                // Add nested schemas (transitive types referenced via $ref)
+                let __nested = <super::#type_name as mik_sdk::typed::OpenApiSchema>::nested_schemas();
+                if !__nested.is_empty() {
+                    __schema_parts.push(__nested.to_string());
+                }
             }
         })
         .collect();

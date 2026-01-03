@@ -110,6 +110,9 @@ mod mik_sdk {
             fn openapi_path_params() -> &'static str {
                 "[]"
             }
+            fn nested_schemas() -> &'static str {
+                ""
+            }
         }
 
         // Implement FromJson for primitives
@@ -2408,5 +2411,93 @@ fn test_type_openapi_x_attrs_underscore_to_hyphen() {
     assert!(
         schema.contains("\"x-code-gen-ignore\":true"),
         "x_code_gen_ignore should become x-code-gen-ignore, got: {schema}"
+    );
+}
+
+// ============================================================================
+// DEPRECATED FIELD TESTS
+// ============================================================================
+
+#[test]
+fn test_type_openapi_with_deprecated_field() {
+    #[derive(Type)]
+    struct UserWithDeprecated {
+        name: String,
+        #[field(deprecated = true)]
+        legacy_id: String,
+    }
+
+    let schema = <UserWithDeprecated as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("UserWithDeprecated schema: {schema}");
+
+    // name should NOT have deprecated
+    assert!(
+        !schema.contains("\"name\":{")
+            || !schema[schema.find("\"name\":{").unwrap()..]
+                .split('}')
+                .next()
+                .unwrap()
+                .contains("deprecated"),
+        "name should not be deprecated, got: {schema}"
+    );
+
+    // legacy_id should have deprecated:true
+    assert!(
+        schema.contains("\"deprecated\":true"),
+        "legacy_id should have deprecated:true, got: {schema}"
+    );
+}
+
+#[test]
+fn test_type_openapi_with_deprecated_and_other_attrs() {
+    #[derive(Type)]
+    struct ApiResponse {
+        #[field(docs = "Current user ID")]
+        user_id: String,
+        #[field(
+            deprecated = true,
+            docs = "Use user_id instead",
+            x_replacement = "user_id"
+        )]
+        old_id: String,
+    }
+
+    let schema = <ApiResponse as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("ApiResponse schema: {schema}");
+
+    // Should have deprecated:true for old_id
+    assert!(
+        schema.contains("\"deprecated\":true"),
+        "old_id should have deprecated:true, got: {schema}"
+    );
+
+    // Should have x-replacement
+    assert!(
+        schema.contains("\"x-replacement\":\"user_id\""),
+        "old_id should have x-replacement, got: {schema}"
+    );
+
+    // Should have description for old_id
+    assert!(
+        schema.contains("Use user_id instead"),
+        "old_id should have description, got: {schema}"
+    );
+}
+
+#[test]
+fn test_type_openapi_deprecated_false_not_included() {
+    #[derive(Type)]
+    struct NotDeprecated {
+        #[field(deprecated = false)]
+        active_field: String,
+    }
+
+    let schema = <NotDeprecated as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("NotDeprecated schema: {schema}");
+
+    // deprecated:false should NOT be included (omit if false)
+    assert!(
+        !schema.contains("\"deprecated\""),
+        "deprecated:false should be omitted, got: {schema}"
     );
 }

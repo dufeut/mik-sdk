@@ -134,6 +134,7 @@ pub fn derive_enum_type_impl(input: &DeriveInput, data_enum: &syn::DataEnum) -> 
             fn schema_name() -> &'static str {
                 #name_str
             }
+            // Uses default nested_schemas() from trait (returns "")
         }
     };
 

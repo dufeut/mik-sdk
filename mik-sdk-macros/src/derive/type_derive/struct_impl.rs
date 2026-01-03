@@ -3,7 +3,7 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{DeriveInput, Fields};
+use syn::{DeriveInput, Fields, Ident};
 
 use super::validation::generate_validation_checks;
 use crate::derive::{
@@ -12,7 +12,9 @@ use crate::derive::{
 use crate::openapi::utoipa::{
     FieldConstraints, JsonFieldDef, apply_constraints, object_schema_json, schema_to_json,
 };
-use crate::type_registry::get_openapi_schema;
+use crate::type_registry::{
+    get_inner_type as registry_get_inner_type, get_openapi_schema, lookup_type,
+};
 
 /// Generate FromJson, Validate, and OpenApiSchema implementations for structs.
 #[allow(clippy::too_many_lines)]
@@ -63,6 +65,7 @@ pub fn derive_struct_type_impl(input: &DeriveInput, data_struct: &syn::DataStruc
     let mut from_json_fields = Vec::new();
     let mut field_defs: Vec<JsonFieldDef> = Vec::new();
     let mut validation_checks: Vec<TokenStream2> = Vec::new();
+    let mut nested_types: Vec<Ident> = Vec::new();
 
     for field in fields {
         let field_name = field.ident.as_ref().unwrap();
@@ -150,6 +153,13 @@ pub fn derive_struct_type_impl(input: &DeriveInput, data_struct: &syn::DataStruc
         // First, get the base schema JSON (used for validation type detection)
         let base_schema_json = get_openapi_schema(field_ty);
 
+        // Track nested custom types for OpenAPI schema collection
+        if let Some(custom_ident) = extract_custom_type_ident(field_ty)
+            && !nested_types.iter().any(|t| t == &custom_ident)
+        {
+            nested_types.push(custom_ident);
+        }
+
         // Build constraints from field attributes
         let constraints = FieldConstraints {
             min: attrs.min,
@@ -158,6 +168,7 @@ pub fn derive_struct_type_impl(input: &DeriveInput, data_struct: &syn::DataStruc
             pattern: attrs.pattern.clone(),
             description: attrs.docs.clone(),
             x_attrs: attrs.x_attrs.clone(),
+            deprecated: attrs.deprecated,
         };
 
         // Determine if this is a string type for constraint application
@@ -184,6 +195,7 @@ pub fn derive_struct_type_impl(input: &DeriveInput, data_struct: &syn::DataStruc
             schema_json: field_schema,
             required: !is_optional,
             x_attrs: attrs.x_attrs.clone(),
+            deprecated: attrs.deprecated,
         });
 
         // Generate validation checks (still uses base_schema_json for type detection)
@@ -198,6 +210,52 @@ pub fn derive_struct_type_impl(input: &DeriveInput, data_struct: &syn::DataStruc
 
     // Build OpenAPI schema using JSON-based helper (preserves nullable)
     let openapi_schema = object_schema_json(field_defs);
+
+    // Generate nested_schemas() implementation
+    // This returns JSON with all nested type schemas for transitive collection
+    let nested_schemas_impl: TokenStream2 = if nested_types.is_empty() {
+        quote! { "" }
+    } else {
+        // Generate code that builds nested schemas at compile time
+        let nested_calls: Vec<TokenStream2> = nested_types
+            .iter()
+            .map(|ty| {
+                let ty_str = ty.to_string();
+                quote! {
+                    // Add this type's schema
+                    if !__parts.is_empty() {
+                        __parts.push(',');
+                    }
+                    // Use fully qualified write! to avoid format_push_string clippy warning
+                    let _ = ::std::fmt::Write::write_fmt(
+                        &mut __parts,
+                        ::std::format_args!(
+                            "\"{}\":{}",
+                            #ty_str,
+                            <#ty as mik_sdk::typed::OpenApiSchema>::openapi_schema()
+                        )
+                    );
+                    // Add transitive nested schemas
+                    let __nested = <#ty as mik_sdk::typed::OpenApiSchema>::nested_schemas();
+                    if !__nested.is_empty() {
+                        __parts.push(',');
+                        __parts.push_str(__nested);
+                    }
+                }
+            })
+            .collect();
+
+        quote! {
+            {
+                static __NESTED: ::std::sync::LazyLock<::std::string::String> = ::std::sync::LazyLock::new(|| {
+                    let mut __parts = ::std::string::String::new();
+                    #(#nested_calls)*
+                    __parts
+                });
+                &__NESTED
+            }
+        }
+    };
 
     let tokens = quote! {
         impl mik_sdk::typed::FromJson for #name {
@@ -222,6 +280,10 @@ pub fn derive_struct_type_impl(input: &DeriveInput, data_struct: &syn::DataStruc
 
             fn schema_name() -> &'static str {
                 #name_str
+            }
+
+            fn nested_schemas() -> &'static str {
+                #nested_schemas_impl
             }
         }
     };
@@ -336,4 +398,33 @@ fn build_schema_with_constraints(
     } else {
         schema_json
     }
+}
+
+/// Extract the custom type identifier from a field type.
+///
+/// Returns `Some(Ident)` if the type is a custom type (not a primitive or built-in).
+/// Handles `Option<T>` and `Vec<T>` wrappers to extract the inner custom type.
+fn extract_custom_type_ident(ty: &syn::Type) -> Option<Ident> {
+    if let syn::Type::Path(type_path) = ty
+        && let Some(segment) = type_path.path.segments.last()
+    {
+        let name = segment.ident.to_string();
+
+        // Handle wrapper types - extract inner type
+        if name == "Option" || name == "Vec" {
+            if let Some(inner) = registry_get_inner_type(ty) {
+                return extract_custom_type_ident(inner);
+            }
+            return None;
+        }
+
+        // Check if it's a known primitive type
+        if lookup_type(&name).is_some() {
+            return None;
+        }
+
+        // It's a custom type - return the ident
+        return Some(segment.ident.clone());
+    }
+    None
 }

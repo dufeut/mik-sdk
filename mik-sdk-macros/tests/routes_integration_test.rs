@@ -165,6 +165,9 @@ mod mik_sdk {
             fn openapi_path_params() -> &'static str {
                 "[]"
             }
+            fn nested_schemas() -> &'static str {
+                ""
+            }
         }
 
         // Implement FromJson for primitives

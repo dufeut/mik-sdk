@@ -19,7 +19,14 @@ use crate::errors::did_you_mean;
 /// Valid #[field(...)] attributes.
 /// Note: x_* attributes are also valid for OpenAPI extensions.
 const VALID_FIELD_ATTRS: &[&str] = &[
-    "min", "max", "default", "format", "pattern", "rename", "docs",
+    "min",
+    "max",
+    "default",
+    "format",
+    "pattern",
+    "rename",
+    "docs",
+    "deprecated",
 ];
 
 /// Value types for x-* extension attributes.
@@ -76,6 +83,8 @@ pub struct FieldAttrs {
     pub(crate) docs: Option<String>,
     /// OpenAPI x-* extension attributes (x_foo_bar -> x-foo-bar)
     pub(crate) x_attrs: Vec<(String, XAttrValue)>,
+    /// Mark field as deprecated in OpenAPI schema
+    pub(crate) deprecated: bool,
 }
 
 #[allow(clippy::too_many_lines)]
@@ -186,6 +195,21 @@ pub fn parse_field_attrs(attrs: &[Attribute]) -> Result<FieldAttrs, syn::Error> 
                         ));
                     },
                 }
+            } else if meta.path.is_ident("deprecated") {
+                let value: Lit = meta.value()?.parse()?;
+                match value {
+                    Lit::Bool(lit) => {
+                        result.deprecated = lit.value();
+                    },
+                    _ => {
+                        return Err(syn::Error::new_spanned(
+                            &value,
+                            "deprecated needs a boolean!\n\
+                             \n\
+                             ✅ Correct: #[field(deprecated = true)]",
+                        ));
+                    },
+                }
             } else {
                 let path = &meta.path;
                 let attr_name = quote!(#path).to_string();
@@ -238,6 +262,7 @@ pub fn parse_field_attrs(attrs: &[Attribute]) -> Result<FieldAttrs, syn::Error> 
                              #[field(pattern = \"...\")]  // regex pattern (OpenAPI)\n\
                              #[field(rename = \"...\")]   // JSON key name\n\
                              #[field(docs = \"...\")]     // description\n\
+                             #[field(deprecated = true)] // mark as deprecated\n\
                              #[field(x_* = ...)]         // OpenAPI x-* extensions"
                         ),
                     ));

@@ -80,6 +80,10 @@ pub struct RouteDef {
     pub(crate) summary: Option<String>,
     /// Tag override from #[tag = "..."] attribute
     pub(crate) tag_override: Option<String>,
+    /// Mark operation as deprecated in OpenAPI schema
+    pub(crate) deprecated: bool,
+    /// HTTP status code for success response (default: 200)
+    pub(crate) status_code: u16,
 }
 
 /// All routes in the macro
@@ -161,9 +165,11 @@ impl Parse for RoutesDef {
 
 #[allow(clippy::too_many_lines)] // Complex route parsing with many input variants
 fn parse_route(input: ParseStream<'_>) -> Result<RouteDef> {
-    // Parse doc comments (/// ...) and attributes (#[tag = "..."]) before the route
+    // Parse doc comments (/// ...) and attributes (#[tag = "..."], #[deprecated], #[status(code)]) before the route
     let mut summary = None;
     let mut tag_override = None;
+    let mut deprecated = false;
+    let mut status_code: u16 = 200; // Default status code
 
     // Parse outer attributes (doc comments become #[doc = "..."])
     let attrs: Vec<Attribute> = input.call(Attribute::parse_outer)?;
@@ -188,6 +194,30 @@ fn parse_route(input: ParseStream<'_>) -> Result<RouteDef> {
         } else if attr.path().is_ident("tag") {
             let value: LitStr = attr.parse_args()?;
             tag_override = Some(value.value());
+        } else if attr.path().is_ident("deprecated") {
+            deprecated = true;
+        } else if attr.path().is_ident("status") {
+            let code: syn::LitInt = attr.parse_args()?;
+            status_code = code.base10_parse().map_err(|_| {
+                syn::Error::new_spanned(
+                    &code,
+                    "status code must be a valid HTTP status code (100-599)",
+                )
+            })?;
+            if !(100..=599).contains(&status_code) {
+                return Err(syn::Error::new_spanned(
+                    &code,
+                    format!(
+                        "Invalid HTTP status code: {status_code}. Must be between 100 and 599.\n\
+                         \n\
+                         Common status codes:\n\
+                         #[status(200)] - OK (default)\n\
+                         #[status(201)] - Created\n\
+                         #[status(202)] - Accepted\n\
+                         #[status(204)] - No Content"
+                    ),
+                ));
+            }
         }
     }
 
@@ -386,6 +416,8 @@ fn parse_route(input: ParseStream<'_>) -> Result<RouteDef> {
         output_type,
         summary,
         tag_override,
+        deprecated,
+        status_code,
     })
 }
 

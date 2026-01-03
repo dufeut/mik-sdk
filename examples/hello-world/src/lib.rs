@@ -9,12 +9,20 @@ use bindings::exports::mik::core::handler::{self, Guest, Response};
 use mik_sdk::prelude::*;
 
 #[derive(Type)]
+pub enum ApiStatus {
+    Online,
+    Maintenance,
+    Degraded,
+}
+
+#[derive(Type)]
 pub struct HomeResponse {
     #[field(x_example = "Welcome to mik-sdk!")]
     pub message: String,
     #[field(x_example = "0.1.0")]
     pub version: String,
     pub endpoints: Vec<String>,
+    pub status: ApiStatus,
 }
 
 #[derive(Type)]
@@ -84,7 +92,8 @@ fn home(_req: &Request) -> Response {
     ok!({
         "message": "Welcome to mik-sdk!",
         "version": "0.1.0",
-        "endpoints": ["/", "/hello/{name}", "/echo", "/search"]
+        "endpoints": ["/", "/hello/{name}", "/echo", "/search"],
+        "status": "online"
     })
 }
 

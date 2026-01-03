@@ -343,6 +343,16 @@ pub trait OpenApiSchema {
     fn openapi_path_params() -> &'static str {
         "[]"
     }
+
+    /// Get schemas for nested types referenced by this type via `$ref`.
+    ///
+    /// Returns a comma-separated list of `"TypeName":schema` entries (no outer braces).
+    /// Used to include referenced types in components/schemas.
+    ///
+    /// Returns empty string if no nested types.
+    fn nested_schemas() -> &'static str {
+        ""
+    }
 }
 
 // ============================================================================

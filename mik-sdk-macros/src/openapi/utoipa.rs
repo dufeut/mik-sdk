@@ -83,6 +83,8 @@ pub struct FieldConstraints {
     pub description: Option<String>,
     /// OpenAPI x-* extension attributes
     pub x_attrs: Vec<(String, XAttrValue)>,
+    /// Mark field as deprecated
+    pub deprecated: bool,
 }
 
 /// Apply field constraints to an `ObjectBuilder`.
@@ -172,6 +174,8 @@ pub struct JsonFieldDef {
     pub required: bool,
     /// OpenAPI x-* extension attributes for this field
     pub x_attrs: Vec<(String, XAttrValue)>,
+    /// Mark field as deprecated
+    pub deprecated: bool,
 }
 
 /// Format x-attrs as JSON key-value pairs.
@@ -220,23 +224,31 @@ pub fn object_schema_json(fields: Vec<JsonFieldDef>) -> String {
     let mut required_fields = Vec::new();
 
     for field in fields {
-        // Append x-attrs to the field schema if present
-        let schema_with_x_attrs = if field.x_attrs.is_empty() {
+        // Build extensions: deprecated + x-attrs
+        let mut extensions = String::new();
+        if field.deprecated {
+            extensions.push_str(",\"deprecated\":true");
+        }
+        if !field.x_attrs.is_empty() {
+            extensions.push_str(&format_x_attrs(&field.x_attrs));
+        }
+
+        // Append extensions to the field schema if present
+        let schema_with_extensions = if extensions.is_empty() {
             field.schema_json
         } else {
-            // Insert x-attrs before the closing brace of the schema
-            let x_attrs_json = format_x_attrs(&field.x_attrs);
+            // Insert extensions before the closing brace of the schema
             if field.schema_json.ends_with('}') {
                 format!(
                     "{}{}}}",
                     &field.schema_json[..field.schema_json.len() - 1],
-                    x_attrs_json
+                    extensions
                 )
             } else {
                 field.schema_json
             }
         };
-        properties.push(format!(r#""{}":{}"#, field.name, schema_with_x_attrs));
+        properties.push(format!(r#""{}":{}"#, field.name, schema_with_extensions));
         if field.required {
             required_fields.push(format!(r#""{}""#, field.name));
         }
