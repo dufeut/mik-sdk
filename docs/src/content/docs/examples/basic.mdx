@@ -134,7 +134,7 @@ fn home(_req: &Request) -> Response {
     ok!({
         "message": "Welcome to mik-sdk!",
         "version": "0.1.0",
-        "endpoints": ["/", "/hello/{name}", "/echo", "/search", "/__schema"]
+        "endpoints": ["/", "/hello/{name}", "/echo", "/search"]
     })
 }
 
@@ -203,9 +203,13 @@ curl -X POST http://localhost:8080/echo \
 curl "http://localhost:8080/search"
 curl "http://localhost:8080/search?q=rust"
 curl "http://localhost:8080/search?q=rust&page=2&limit=50"
+```
 
-# OpenAPI schema
-curl http://localhost:8080/__schema
+### Generate OpenAPI Schema
+
+```bash
+# Generate openapi.json (native test only)
+cargo test __mik_write_schema
 ```
 
 ## Expected Responses
@@ -216,7 +220,7 @@ curl http://localhost:8080/__schema
 {
   "message": "Welcome to mik-sdk!",
   "version": "0.1.0",
-  "endpoints": ["/", "/hello/{name}", "/echo", "/search", "/__schema"]
+  "endpoints": ["/", "/hello/{name}", "/echo", "/search"]
 }
 ```
 

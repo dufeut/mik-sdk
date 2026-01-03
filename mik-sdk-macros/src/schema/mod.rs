@@ -133,22 +133,6 @@ pub fn routes_impl(input: TokenStream) -> TokenStream {
             println!("Generated openapi.json ({} bytes)", __mik_schema::json().len());
         }
 
-        /// Handler for /__schema endpoint - returns OpenAPI JSON.
-        #[cfg(not(target_arch = "wasm32"))]
-        #[inline]
-        pub fn __schema(_req: &mik_sdk::Request) -> handler::Response {
-            handler::Response {
-                status: 200,
-                headers: vec![
-                    (
-                        mik_sdk::constants::HEADER_CONTENT_TYPE.to_string(),
-                        mik_sdk::constants::MIME_JSON.to_string()
-                    ),
-                ],
-                body: Some(__mik_schema::json().as_bytes().to_vec()),
-            }
-        }
-
         struct Handler;
 
         impl Guest for Handler {
@@ -164,19 +148,6 @@ pub fn routes_impl(input: TokenStream) -> TokenStream {
                 };
 
                 let __mik_path = __mik_raw.path.split('?').next().unwrap_or(&__mik_raw.path);
-
-                // Check for /__schema route first (only on native targets)
-                #[cfg(not(target_arch = "wasm32"))]
-                if __mik_path == "/__schema" {
-                    let __mik_req = mik_sdk::Request::new(
-                        __mik_method,
-                        __mik_raw.path.clone(),
-                        __mik_raw.headers.clone(),
-                        __mik_raw.body.clone(),
-                        ::std::collections::HashMap::new(),
-                    );
-                    return __schema(&__mik_req);
-                }
 
                 #(#route_blocks)*
 

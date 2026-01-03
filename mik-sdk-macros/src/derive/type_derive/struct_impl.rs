@@ -7,9 +7,12 @@ use syn::{DeriveInput, Fields};
 
 use super::validation::generate_validation_checks;
 use crate::derive::{
-    escape_json_string, get_inner_type, is_option_type, parse_field_attrs,
-    rust_type_to_json_getter, rust_type_to_name, type_to_openapi,
+    get_inner_type, is_option_type, parse_field_attrs, rust_type_to_json_getter, rust_type_to_name,
 };
+use crate::openapi::utoipa::{
+    FieldConstraints, JsonFieldDef, apply_constraints, object_schema_json, schema_to_json,
+};
+use crate::type_registry::get_openapi_schema;
 
 /// Generate FromJson, Validate, and OpenApiSchema implementations for structs.
 #[allow(clippy::too_many_lines)]
@@ -58,8 +61,7 @@ pub fn derive_struct_type_impl(input: &DeriveInput, data_struct: &syn::DataStruc
 
     // Generate from_json implementation
     let mut from_json_fields = Vec::new();
-    let mut required_fields = Vec::new();
-    let mut openapi_properties = Vec::new();
+    let mut field_defs: Vec<JsonFieldDef> = Vec::new();
     let mut validation_checks: Vec<TokenStream2> = Vec::new();
 
     for field in fields {
@@ -142,87 +144,58 @@ pub fn derive_struct_type_impl(input: &DeriveInput, data_struct: &syn::DataStruc
                     #field_name: <#field_ty as mik_sdk::typed::FromJson>::from_json(&__value.get(#json_key))?
                 });
             }
-            required_fields.push(json_key.clone());
         }
 
-        // Generate OpenAPI property
-        let mut base_schema = type_to_openapi(field_ty);
+        // Generate OpenAPI property using utoipa
+        // First, get the base schema JSON (used for validation type detection)
+        let base_schema_json = get_openapi_schema(field_ty);
 
-        // Add constraints to schema
-        // Note: Check array BEFORE string because array schemas contain "string" in items
-        let mut extra_props = Vec::new();
-        if let Some(min) = attrs.min {
-            if base_schema.contains("array") {
-                extra_props.push(format!(r#""minItems":{min}"#));
-            } else if base_schema.contains("string") {
-                extra_props.push(format!(r#""minLength":{min}"#));
-            } else if base_schema.contains("integer") || base_schema.contains("number") {
-                extra_props.push(format!(r#""minimum":{min}"#));
-            }
-        }
-        if let Some(max) = attrs.max {
-            if base_schema.contains("array") {
-                extra_props.push(format!(r#""maxItems":{max}"#));
-            } else if base_schema.contains("string") {
-                extra_props.push(format!(r#""maxLength":{max}"#));
-            } else if base_schema.contains("integer") || base_schema.contains("number") {
-                extra_props.push(format!(r#""maximum":{max}"#));
-            }
-        }
-        if let Some(ref fmt) = attrs.format {
-            extra_props.push(format!(r#""format":"{}""#, escape_json_string(fmt)));
-        }
-        if let Some(ref pattern) = attrs.pattern {
-            extra_props.push(format!(r#""pattern":"{}""#, escape_json_string(pattern)));
-        }
-        if let Some(ref docs) = attrs.docs {
-            extra_props.push(format!(r#""description":"{}""#, escape_json_string(docs)));
-        }
+        // Build constraints from field attributes
+        let constraints = FieldConstraints {
+            min: attrs.min,
+            max: attrs.max,
+            format: attrs.format.clone(),
+            pattern: attrs.pattern.clone(),
+            description: attrs.docs.clone(),
+        };
 
-        if !extra_props.is_empty() {
-            // Merge extra props into base schema (safe extraction)
-            let base_inner = base_schema
-                .strip_prefix('{')
-                .and_then(|s| s.strip_suffix('}'))
-                .unwrap_or(&base_schema);
-            base_schema = format!("{{{},{}}}", base_inner, extra_props.join(","));
-        }
+        // Determine if this is a string type for constraint application
+        let is_string_type = base_schema_json.contains("\"type\":\"string\"");
+        let is_array_type = base_schema_json.contains("\"type\":\"array\"");
 
-        openapi_properties.push(format!(
-            r#""{}":{}"#,
-            escape_json_string(&json_key),
-            base_schema
-        ));
+        // Build the field schema with constraints applied
+        let field_schema = if constraints.min.is_some()
+            || constraints.max.is_some()
+            || constraints.format.is_some()
+            || constraints.pattern.is_some()
+            || constraints.description.is_some()
+        {
+            // Apply constraints using utoipa ObjectBuilder
+            build_schema_with_constraints(field_ty, &constraints, is_string_type, is_array_type)
+        } else {
+            // No constraints - use the base schema directly
+            base_schema_json.clone()
+        };
 
-        // Generate validation checks
+        // Add field definition for object_schema_json (preserves nullable)
+        field_defs.push(JsonFieldDef {
+            name: json_key.clone(),
+            schema_json: field_schema,
+            required: !is_optional,
+        });
+
+        // Generate validation checks (still uses base_schema_json for type detection)
         generate_validation_checks(
             &attrs,
             field_name,
             is_optional,
-            &base_schema,
+            &base_schema_json,
             &mut validation_checks,
         );
     }
 
-    // Build OpenAPI schema
-    let required_json = if required_fields.is_empty() {
-        String::new()
-    } else {
-        format!(
-            r#","required":[{}]"#,
-            required_fields
-                .iter()
-                .map(|f| format!(r#""{}""#, escape_json_string(f)))
-                .collect::<Vec<_>>()
-                .join(",")
-        )
-    };
-
-    let openapi_schema = format!(
-        r#"{{"type":"object","properties":{{{}}}{}}}  "#,
-        openapi_properties.join(","),
-        required_json
-    );
+    // Build OpenAPI schema using JSON-based helper (preserves nullable)
+    let openapi_schema = object_schema_json(field_defs);
 
     let tokens = quote! {
         impl mik_sdk::typed::FromJson for #name {
@@ -252,4 +225,113 @@ pub fn derive_struct_type_impl(input: &DeriveInput, data_struct: &syn::DataStruc
     };
 
     TokenStream::from(tokens)
+}
+
+/// Build a schema with constraints applied using utoipa.
+///
+/// This function handles applying min/max/format/pattern/description constraints
+/// to a field schema. It uses utoipa's `ObjectBuilder` for type-safe schema construction.
+#[allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
+fn build_schema_with_constraints(
+    ty: &syn::Type,
+    constraints: &FieldConstraints,
+    is_string: bool,
+    is_array: bool,
+) -> String {
+    use utoipa::openapi::{ArrayBuilder, ObjectBuilder};
+
+    // Get base schema JSON and parse the type
+    let base_json = get_openapi_schema(ty);
+
+    // For arrays, we need to handle minItems/maxItems specially
+    if is_array {
+        // Parse and rebuild with array constraints
+        let inner_ty = get_inner_type(ty);
+        let items_schema = inner_ty.map_or_else(
+            || {
+                ObjectBuilder::new()
+                    .schema_type(utoipa::openapi::schema::SchemaType::Type(
+                        utoipa::openapi::Type::Object,
+                    ))
+                    .build()
+                    .into()
+            },
+            |inner| {
+                let inner_json = get_openapi_schema(inner);
+                serde_json::from_str(&inner_json).unwrap_or_else(|_| {
+                    utoipa::openapi::RefOr::T(
+                        ObjectBuilder::new()
+                            .schema_type(utoipa::openapi::schema::SchemaType::Type(
+                                utoipa::openapi::Type::Object,
+                            ))
+                            .build()
+                            .into(),
+                    )
+                })
+            },
+        );
+
+        let mut arr_builder = ArrayBuilder::new().items(items_schema);
+
+        if let Some(min) = constraints.min {
+            arr_builder = arr_builder.min_items(Some(min as usize));
+        }
+        if let Some(max) = constraints.max {
+            arr_builder = arr_builder.max_items(Some(max as usize));
+        }
+
+        let arr_schema: utoipa::openapi::Schema = arr_builder.build().into();
+        return schema_to_json(&arr_schema);
+    }
+
+    // Check if this is a nullable (Option) type
+    let is_nullable = base_json.contains("\"nullable\":true");
+
+    // For $ref types, we can't easily add constraints via utoipa
+    if base_json.contains("\"$ref\"") {
+        return base_json;
+    }
+
+    // For non-array types, use ObjectBuilder with apply_constraints
+    let mut builder = ObjectBuilder::new();
+
+    // Set the type based on base schema
+    if base_json.contains("\"type\":\"string\"") {
+        builder = builder.schema_type(utoipa::openapi::schema::SchemaType::Type(
+            utoipa::openapi::Type::String,
+        ));
+    } else if base_json.contains("\"type\":\"integer\"") {
+        builder = builder.schema_type(utoipa::openapi::schema::SchemaType::Type(
+            utoipa::openapi::Type::Integer,
+        ));
+    } else if base_json.contains("\"type\":\"number\"") {
+        builder = builder.schema_type(utoipa::openapi::schema::SchemaType::Type(
+            utoipa::openapi::Type::Number,
+        ));
+    } else if base_json.contains("\"type\":\"boolean\"") {
+        builder = builder.schema_type(utoipa::openapi::schema::SchemaType::Type(
+            utoipa::openapi::Type::Boolean,
+        ));
+    } else {
+        builder = builder.schema_type(utoipa::openapi::schema::SchemaType::Type(
+            utoipa::openapi::Type::Object,
+        ));
+    }
+
+    // Apply constraints using the utoipa helper
+    builder = apply_constraints(builder, constraints, is_string);
+
+    let schema: utoipa::openapi::Schema = builder.build().into();
+    let schema_json = schema_to_json(&schema);
+
+    // Re-add nullable if this was an Option type
+    if is_nullable {
+        crate::openapi::utoipa::make_nullable_json(&schema_json)
+    } else {
+        schema_json
+    }
 }

@@ -208,11 +208,6 @@ pub fn parse_field_attrs(attrs: &[Attribute]) -> Result<FieldAttrs, syn::Error> 
 // Re-export from type_registry for backward compatibility
 pub use crate::type_registry::{get_inner_type, is_option_type};
 
-/// Get OpenAPI schema for a type.
-pub fn type_to_openapi(ty: &Type) -> String {
-    crate::type_registry::get_openapi_schema(ty)
-}
-
 /// Get JSON getter TokenStream for a type.
 pub fn rust_type_to_json_getter(ty: &Type) -> Option<TokenStream2> {
     crate::type_registry::get_json_getter(ty)

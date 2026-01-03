@@ -217,7 +217,7 @@ routes! {
 
 Response types are used for:
 
-- OpenAPI schema generation (`/__schema` endpoint)
+- OpenAPI schema generation (via `cargo test __mik_write_schema`)
 - Documentation
 
 <Aside type="note">
@@ -275,17 +275,18 @@ pub struct PaginationQuery {
 | `rename`  | Any                  | JSON field name            |
 | `docs`    | Any                  | OpenAPI description        |
 
-## Auto-Generated Endpoints
+## OpenAPI Schema Generation
 
-The `routes!` macro automatically registers:
-
-| Endpoint    | Description         |
-| ----------- | ------------------- |
-| `/__schema` | OpenAPI JSON schema |
+The `routes!` macro generates OpenAPI schema that can be extracted via test:
 
 ```bash
-curl http://localhost:8080/__schema
+# Generate openapi.json
+cargo test __mik_write_schema
+
+# The schema is written to openapi.json in your project root
 ```
+
+The schema is generated at **test time only** and is not included in the WASM binary.
 
 ## Handler Signature
 

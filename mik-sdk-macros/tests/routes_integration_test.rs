@@ -13,7 +13,7 @@
 //! 2. Routes with typed query input (Query derive)
 //! 3. Routes with typed path input (Path derive)
 //! 4. Routes with multiple input types combined
-//! 5. The /__schema endpoint generation returns valid JSON
+//! 5. `OpenAPI` schema generation via test (`cargo test __mik_write_schema`)
 //! 6. HTTP method dispatch works correctly
 
 #![allow(dead_code)]
@@ -160,6 +160,9 @@ mod mik_sdk {
             fn openapi_schema() -> &'static str;
             fn schema_name() -> &'static str;
             fn openapi_query_params() -> &'static str {
+                "[]"
+            }
+            fn openapi_path_params() -> &'static str {
                 "[]"
             }
         }
@@ -991,23 +994,8 @@ fn test_integer_range_validation() {
 }
 
 // =============================================================================
-// /__SCHEMA ENDPOINT TESTS
+// OPENAPI SCHEMA TESTS
 // =============================================================================
-
-/// Test that the routes! macro generates the __schema endpoint handler.
-#[test]
-fn test_schema_endpoint_pattern() {
-    // The routes! macro auto-registers the /__schema endpoint
-    // This test verifies the pattern that gets generated
-    fn route_matches(path: &str) -> bool {
-        path == "/__schema"
-    }
-
-    assert!(route_matches("/__schema"));
-    assert!(!route_matches("/schema"));
-    assert!(!route_matches("/__schema/"));
-    assert!(!route_matches("/__schema?version=1"));
-}
 
 /// Test that `OpenAPI` schema structure is valid JSON-like.
 #[test]

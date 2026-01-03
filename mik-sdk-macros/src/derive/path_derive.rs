@@ -5,6 +5,9 @@ use quote::quote;
 use syn::{DeriveInput, Type, parse_macro_input};
 
 use super::{DeriveContext, escape_json_string, extract_named_fields, parse_field_attrs};
+use crate::openapi::utoipa::{
+    FieldDef, object_schema, ref_or_schema_to_json, rust_type_to_schema, schema_to_json,
+};
 
 // ============================================================================
 // DERIVE PATH
@@ -20,8 +23,8 @@ pub fn derive_path_impl(input: TokenStream) -> TokenStream {
     };
 
     let mut field_extractions = Vec::new();
-    let mut schema_props = Vec::new();
-    let mut required_fields = Vec::new();
+    let mut field_defs = Vec::new(); // utoipa FieldDef for object schema
+    let mut path_params = Vec::new(); // OpenAPI path parameter objects
 
     for field in fields {
         let field_name = field.ident.as_ref().unwrap();
@@ -63,18 +66,32 @@ pub fn derive_path_impl(input: TokenStream) -> TokenStream {
             });
         }
 
-        // Generate schema for this field (path params are always strings in OpenAPI)
+        // Build utoipa schema for this field
+        let type_str = quote::quote!(#field_ty).to_string().replace(' ', "");
+        let field_schema = rust_type_to_schema(&type_str);
+
+        // Add field definition for object schema (all path params are required)
+        field_defs.push(FieldDef {
+            name: path_key.clone(),
+            schema: field_schema.clone(),
+            required: true,
+        });
+
+        // Build OpenAPI path parameter object using utoipa schema
+        let schema_json = ref_or_schema_to_json(&field_schema);
         let escaped_path_key = escape_json_string(&path_key);
-        schema_props.push(format!(r#""{escaped_path_key}":{{"type":"string"}}"#));
-        required_fields.push(format!(r#""{escaped_path_key}""#));
+        path_params.push(format!(
+            r#"{{"name":"{escaped_path_key}","in":"path","required":true,"schema":{schema_json}}}"#
+        ));
     }
 
-    let schema_props_str = schema_props.join(",");
-    let required_str = required_fields.join(",");
-    let schema_json = format!(
-        r#"{{"type":"object","properties":{{{schema_props_str}}},"required":[{required_str}]}}"#
-    );
+    // Build the object schema using utoipa's object_schema helper
+    let schema = object_schema(field_defs);
+    let schema_json = schema_to_json(&schema);
     let name_str = name.to_string();
+
+    // Build OpenAPI path parameters array
+    let path_params_json = format!("[{}]", path_params.join(","));
 
     let tokens = quote! {
         impl mik_sdk::typed::FromPath for #name {
@@ -92,6 +109,10 @@ pub fn derive_path_impl(input: TokenStream) -> TokenStream {
 
             fn schema_name() -> &'static str {
                 #name_str
+            }
+
+            fn openapi_path_params() -> &'static str {
+                #path_params_json
             }
         }
     };

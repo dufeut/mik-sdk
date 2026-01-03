@@ -161,6 +161,40 @@ pub fn object_schema(fields: Vec<FieldDef>) -> Schema {
     builder.build().into()
 }
 
+/// A field definition using raw JSON strings (preserves nullable).
+pub struct JsonFieldDef {
+    pub name: String,
+    pub schema_json: String,
+    pub required: bool,
+}
+
+/// Build an object schema as JSON string from field definitions.
+/// This preserves nullable and other properties that utoipa might drop.
+pub fn object_schema_json(fields: Vec<JsonFieldDef>) -> String {
+    let mut properties = Vec::new();
+    let mut required_fields = Vec::new();
+
+    for field in fields {
+        properties.push(format!(r#""{}":{}"#, field.name, field.schema_json));
+        if field.required {
+            required_fields.push(format!(r#""{}""#, field.name));
+        }
+    }
+
+    if required_fields.is_empty() {
+        format!(
+            r#"{{"type":"object","properties":{{{}}}}}"#,
+            properties.join(",")
+        )
+    } else {
+        format!(
+            r#"{{"type":"object","required":[{}],"properties":{{{}}}}}"#,
+            required_fields.join(","),
+            properties.join(",")
+        )
+    }
+}
+
 // ============================================================================
 // SERIALIZATION
 // ============================================================================

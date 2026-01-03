@@ -5,7 +5,8 @@ use quote::quote;
 use syn::{DeriveInput, Fields};
 
 use super::case::pascal_to_snake_case;
-use crate::derive::{escape_json_string, parse_field_attrs};
+use crate::derive::parse_field_attrs;
+use crate::openapi::utoipa::{enum_schema, schema_to_json};
 
 /// Generate FromJson, ToJson, Validate, and OpenApiSchema implementations for enums.
 #[allow(clippy::too_many_lines)]
@@ -85,13 +86,9 @@ pub fn derive_enum_type_impl(input: &DeriveInput, data_enum: &syn::DataEnum) -> 
         .collect::<Vec<_>>()
         .join(", ");
 
-    // Generate OpenAPI schema with enum array
-    let enum_values_json = valid_values
-        .iter()
-        .map(|v| format!("\"{}\"", escape_json_string(v)))
-        .collect::<Vec<_>>()
-        .join(",");
-    let openapi_schema = format!(r#"{{"type":"string","enum":[{enum_values_json}]}}"#);
+    // Generate OpenAPI schema with enum array using utoipa
+    let schema = enum_schema(&valid_values);
+    let openapi_schema = schema_to_json(&schema);
 
     let tokens = quote! {
         impl mik_sdk::typed::FromJson for #name {
