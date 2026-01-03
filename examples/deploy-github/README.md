@@ -82,14 +82,14 @@ mik add your-org/my-api
 ## Local Development
 
 ```bash
-# First time setup
-./setup.sh            # Fetch WIT deps
+./build.sh            # Build + compose → service.wasm
 
-# Build complete service
-./build.sh            # Build, compose, strip
-
-# Run locally
+# Run with any runtime
+mik run service.wasm
 wasmtime serve -S cli=y service.wasm
+spin up --from service.wasm
+
+# Test
 curl http://localhost:8080/
 ```
 
