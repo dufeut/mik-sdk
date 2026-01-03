@@ -2501,3 +2501,95 @@ fn test_type_openapi_deprecated_false_not_included() {
         "deprecated:false should be omitted, got: {schema}"
     );
 }
+
+/// Test 7-level deep nested type collection.
+/// Verifies that `nested_schemas()` works transitively through multiple levels.
+#[test]
+fn test_deep_nested_types_7_levels() {
+    // Level 7 (deepest) - an enum
+    #[derive(Type)]
+    pub enum Level7Status {
+        Active,
+        Inactive,
+    }
+
+    // Level 6
+    #[derive(Type)]
+    pub struct Level6 {
+        pub status: Level7Status,
+        pub code: String,
+    }
+
+    // Level 5
+    #[derive(Type)]
+    pub struct Level5 {
+        pub data: Level6,
+        pub count: i64,
+    }
+
+    // Level 4
+    #[derive(Type)]
+    pub struct Level4 {
+        pub nested: Level5,
+        pub label: String,
+    }
+
+    // Level 3
+    #[derive(Type)]
+    pub struct Level3 {
+        pub child: Level4,
+        pub enabled: bool,
+    }
+
+    // Level 2
+    #[derive(Type)]
+    pub struct Level2 {
+        pub item: Level3,
+        pub name: String,
+    }
+
+    // Level 1 (top level)
+    #[derive(Type)]
+    pub struct Level1 {
+        pub content: Level2,
+        pub id: i64,
+    }
+
+    // Get nested schemas from Level1
+    let nested = <Level1 as mik_sdk::typed::OpenApiSchema>::nested_schemas();
+
+    // Verify all 6 nested types are included (Level2 through Level7Status)
+    assert!(
+        nested.contains("\"Level2\""),
+        "Should contain Level2, got: {nested}"
+    );
+    assert!(
+        nested.contains("\"Level3\""),
+        "Should contain Level3, got: {nested}"
+    );
+    assert!(
+        nested.contains("\"Level4\""),
+        "Should contain Level4, got: {nested}"
+    );
+    assert!(
+        nested.contains("\"Level5\""),
+        "Should contain Level5, got: {nested}"
+    );
+    assert!(
+        nested.contains("\"Level6\""),
+        "Should contain Level6, got: {nested}"
+    );
+    assert!(
+        nested.contains("\"Level7Status\""),
+        "Should contain Level7Status (deepest enum), got: {nested}"
+    );
+
+    // Verify the enum values are included
+    assert!(
+        nested.contains("\"active\"") && nested.contains("\"inactive\""),
+        "Should contain enum values, got: {nested}"
+    );
+
+    // Print for visual verification
+    println!("Level1 nested_schemas() = {nested}");
+}
