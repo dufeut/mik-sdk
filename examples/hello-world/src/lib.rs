@@ -10,14 +10,18 @@ use mik_sdk::prelude::*;
 
 #[derive(Type)]
 pub struct HomeResponse {
+    #[field(x_example = "Welcome to mik-sdk!")]
     pub message: String,
+    #[field(x_example = "0.1.0")]
     pub version: String,
     pub endpoints: Vec<String>,
 }
 
 #[derive(Type)]
 pub struct HelloResponse {
+    #[field(x_example = "Hello, Alice!")]
     pub greeting: String,
+    #[field(x_example = "Alice")]
     pub name: String,
 }
 
@@ -28,30 +32,37 @@ pub struct HelloPath {
 
 #[derive(Type)]
 pub struct EchoInput {
-    #[field(min = 1, docs = "Message to echo back")]
+    #[field(min = 1, docs = "Message to echo back", x_example = "Hello, World!")]
     pub message: String,
 }
 
 #[derive(Type)]
 pub struct EchoResponse {
+    #[field(x_example = "Hello, World!")]
     pub echo: String,
+    #[field(x_example = 13)]
     pub length: i64,
 }
 
 #[derive(Query)]
 pub struct SearchQuery {
+    #[field(x_example = "rust wasm")]
     pub q: Option<String>,
-    #[field(default = 1)]
+    #[field(default = 1, x_example = 1)]
     pub page: u32,
-    #[field(default = 10, max = 100)]
+    #[field(default = 10, max = 100, x_example = 20)]
     pub limit: u32,
 }
 
 #[derive(Type)]
 pub struct SearchResponse {
+    #[field(x_example = "rust wasm")]
     pub query: Option<String>,
+    #[field(x_example = 1)]
     pub page: i64,
+    #[field(x_example = 20)]
     pub limit: i64,
+    #[field(x_example = "Searching for 'rust wasm' on page 1")]
     pub message: String,
 }
 
