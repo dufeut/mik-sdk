@@ -56,7 +56,7 @@ pub fn routes_impl(input: TokenStream) -> TokenStream {
 
     let route_blocks: Vec<TokenStream2> = defs.routes.iter().map(generate_route_block).collect();
 
-    let openapi_static = generate_openapi_json(&defs.routes);
+    let openapi_static = generate_openapi_json(&defs);
 
     let tokens = quote! {
         // Compile-time check: ensure bindings module is properly configured.

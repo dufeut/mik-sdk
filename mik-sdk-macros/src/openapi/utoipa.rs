@@ -196,6 +196,69 @@ pub fn object_schema_json(fields: Vec<JsonFieldDef>) -> String {
 }
 
 // ============================================================================
+// RFC 7807 PROBLEM DETAILS
+// ============================================================================
+
+/// Build the RFC 7807 Problem Details schema.
+///
+/// This is a reusable constant schema for error responses that complies
+/// with [RFC 7807](https://datatracker.ietf.org/doc/html/rfc7807).
+pub fn problem_details_schema() -> Schema {
+    ObjectBuilder::new()
+        .description(Some("RFC 7807 Problem Details for HTTP APIs"))
+        .property(
+            "type",
+            ObjectBuilder::new()
+                .schema_type(SchemaType::Type(utoipa::openapi::Type::String))
+                .description(Some("URI reference identifying the problem type"))
+                .default(Some(serde_json::Value::String("about:blank".to_string())))
+                .build(),
+        )
+        .required("type")
+        .property(
+            "title",
+            ObjectBuilder::new()
+                .schema_type(SchemaType::Type(utoipa::openapi::Type::String))
+                .description(Some("Short human-readable summary of the problem"))
+                .build(),
+        )
+        .required("title")
+        .property(
+            "status",
+            ObjectBuilder::new()
+                .schema_type(SchemaType::Type(utoipa::openapi::Type::Integer))
+                .description(Some("HTTP status code"))
+                .minimum(Some(100.0))
+                .maximum(Some(599.0))
+                .build(),
+        )
+        .required("status")
+        .property(
+            "detail",
+            ObjectBuilder::new()
+                .schema_type(SchemaType::Type(utoipa::openapi::Type::String))
+                .description(Some(
+                    "Human-readable explanation specific to this occurrence",
+                ))
+                .build(),
+        )
+        .property(
+            "instance",
+            ObjectBuilder::new()
+                .schema_type(SchemaType::Type(utoipa::openapi::Type::String))
+                .description(Some("URI reference identifying the specific occurrence"))
+                .build(),
+        )
+        .build()
+        .into()
+}
+
+/// Get the RFC 7807 Problem Details schema as JSON string.
+pub fn problem_details_json() -> String {
+    schema_to_json(&problem_details_schema())
+}
+
+// ============================================================================
 // SERIALIZATION
 // ============================================================================
 
@@ -260,5 +323,30 @@ mod tests {
         let json = ref_or_schema_to_json(&schema);
         assert!(json.contains("\"$ref\""));
         assert!(json.contains("MyCustomType"));
+    }
+
+    #[test]
+    fn test_problem_details_schema() {
+        let json = super::problem_details_json();
+        // Check required fields
+        assert!(
+            json.contains("\"type\":\"object\""),
+            "Should be object type"
+        );
+        assert!(json.contains("\"required\""), "Should have required fields");
+        // Check all RFC 7807 properties
+        assert!(json.contains("\"type\""), "Should have type property");
+        assert!(json.contains("\"title\""), "Should have title property");
+        assert!(json.contains("\"status\""), "Should have status property");
+        assert!(json.contains("\"detail\""), "Should have detail property");
+        assert!(
+            json.contains("\"instance\""),
+            "Should have instance property"
+        );
+        // Check descriptions
+        assert!(
+            json.contains("RFC 7807"),
+            "Should have RFC 7807 description"
+        );
     }
 }

@@ -3,7 +3,7 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{
-    Ident, LitStr, Result, Token,
+    Attribute, Ident, LitStr, Result, Token,
     parse::{Parse, ParseStream},
 };
 
@@ -76,11 +76,51 @@ pub struct RouteDef {
     pub(crate) handler: Ident,
     pub(crate) inputs: Vec<TypedInput>,
     pub(crate) output_type: Option<Ident>,
+    /// Operation summary from doc comment
+    pub(crate) summary: Option<String>,
+    /// Tag override from #[tag = "..."] attribute
+    pub(crate) tag_override: Option<String>,
 }
 
 /// All routes in the macro
 pub struct RoutesDef {
     pub(crate) routes: Vec<RouteDef>,
+    /// Global tag for all routes (from #[tag = "..."] at top of block)
+    pub(crate) default_tag: Option<String>,
+}
+
+impl RouteDef {
+    /// Get the effective tag for this route.
+    ///
+    /// Priority: route override > global default > auto-generated from path
+    pub(crate) fn effective_tag(&self, default_tag: Option<&str>) -> String {
+        if let Some(ref tag) = self.tag_override {
+            return tag.clone();
+        }
+        if let Some(tag) = default_tag {
+            return tag.to_string();
+        }
+        // Auto-generate from first path segment
+        self.patterns
+            .first()
+            .and_then(|p| {
+                p.trim_start_matches('/')
+                    .split('/')
+                    .next()
+                    .filter(|s| !s.is_empty() && !s.starts_with('{'))
+            })
+            .map_or_else(
+                || "Default".to_string(),
+                |s| {
+                    // Capitalize first letter
+                    let mut chars = s.chars();
+                    chars.next().map_or_else(
+                        || s.to_string(),
+                        |c| c.to_uppercase().collect::<String>() + chars.as_str(),
+                    )
+                },
+            )
+    }
 }
 
 // =============================================================================
@@ -90,6 +130,18 @@ pub struct RoutesDef {
 impl Parse for RoutesDef {
     fn parse(input: ParseStream<'_>) -> Result<Self> {
         let mut routes = Vec::new();
+        let mut default_tag = None;
+
+        // Check for global #[tag = "..."] at the start
+        while input.peek(Token![#]) {
+            let attrs: Vec<Attribute> = input.call(Attribute::parse_outer)?;
+            for attr in attrs {
+                if attr.path().is_ident("tag") {
+                    let value: LitStr = attr.parse_args()?;
+                    default_tag = Some(value.value());
+                }
+            }
+        }
 
         while !input.is_empty() {
             let route = parse_route(input)?;
@@ -100,12 +152,45 @@ impl Parse for RoutesDef {
             }
         }
 
-        Ok(Self { routes })
+        Ok(Self {
+            routes,
+            default_tag,
+        })
     }
 }
 
 #[allow(clippy::too_many_lines)] // Complex route parsing with many input variants
 fn parse_route(input: ParseStream<'_>) -> Result<RouteDef> {
+    // Parse doc comments (/// ...) and attributes (#[tag = "..."]) before the route
+    let mut summary = None;
+    let mut tag_override = None;
+
+    // Parse outer attributes (doc comments become #[doc = "..."])
+    let attrs: Vec<Attribute> = input.call(Attribute::parse_outer)?;
+    for attr in attrs {
+        if attr.path().is_ident("doc") {
+            // Extract doc comment text
+            if let syn::Meta::NameValue(meta) = &attr.meta
+                && let syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Str(lit_str),
+                    ..
+                }) = &meta.value
+            {
+                let text = lit_str.value().trim().to_string();
+                if !text.is_empty() {
+                    // Append to summary (multiple /// lines get combined)
+                    summary = Some(match summary {
+                        Some(existing) => format!("{existing} {text}"),
+                        None => text,
+                    });
+                }
+            }
+        } else if attr.path().is_ident("tag") {
+            let value: LitStr = attr.parse_args()?;
+            tag_override = Some(value.value());
+        }
+    }
+
     // Parse method: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
     let method_ident: Ident = input.parse().map_err(|e| {
         syn::Error::new(
@@ -299,6 +384,8 @@ fn parse_route(input: ParseStream<'_>) -> Result<RouteDef> {
         handler,
         inputs,
         output_type,
+        summary,
+        tag_override,
     })
 }
 

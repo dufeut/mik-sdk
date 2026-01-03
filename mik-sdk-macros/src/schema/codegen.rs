@@ -204,16 +204,20 @@ pub fn generate_input_parsing(inputs: &[TypedInput]) -> (Vec<TokenStream2>, Vec<
             },
             InputSource::Query => {
                 parsing.push(quote! {
+                    // Parse and URL-decode query parameters
                     let __mik_query_params: Vec<(String, String)> = __mik_req.path()
                         .split_once('?')
                         .map(|(_, q)| {
                             q.split('&')
                                 .filter_map(|pair| {
                                     let mut parts = pair.splitn(2, '=');
-                                    Some((
-                                        parts.next()?.to_string(),
-                                        parts.next().unwrap_or("").to_string()
-                                    ))
+                                    let key = parts.next()?;
+                                    let value = parts.next().unwrap_or("");
+                                    // URL-decode both key and value
+                                    match (mik_sdk::url_decode(key), mik_sdk::url_decode(value)) {
+                                        (Ok(k), Ok(v)) => Some((k, v)),
+                                        _ => None, // Skip pairs with decode errors
+                                    }
                                 })
                                 .collect()
                         })

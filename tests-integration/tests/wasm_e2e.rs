@@ -131,12 +131,48 @@ impl TestServer {
         let mut cmd = match runtime {
             Runtime::Wasmtime => {
                 let mut c = Command::new("wasmtime");
-                c.args(["serve", "-S", "cli=y", "--addr", &addr, wasm]);
+                // -S cli=y: Enable WASI CLI APIs
+                // -S http=y: Enable WASI HTTP imports (for outbound requests)
+                // -S inherit-network=y: Allow network access to all addresses
+                c.args([
+                    "serve",
+                    "-S", "cli=y",
+                    "-S", "http=y",
+                    "-S", "inherit-network=y",
+                    "--addr", &addr,
+                    wasm,
+                ]);
                 c
             }
             Runtime::Spin => {
+                // Create a temporary spin.toml manifest with allowed_outbound_hosts
+                let wasm_dir = wasm_path.parent().expect("wasm should have parent dir");
+                let wasm_filename = wasm_path.file_name().expect("wasm should have filename")
+                    .to_str().expect("filename should be valid utf8");
+                let manifest_path = wasm_dir.join("spin-temp.toml");
+                let manifest_content = format!(
+                    r#"spin_manifest_version = 2
+
+[application]
+name = "e2e-test"
+version = "0.1.0"
+
+[[trigger.http]]
+route = "/..."
+component = "handler"
+
+[component.handler]
+source = "{}"
+allowed_outbound_hosts = ["*://*:*"]
+"#,
+                    wasm_filename
+                );
+                std::fs::write(&manifest_path, manifest_content)
+                    .expect("Failed to write spin manifest");
+
                 let mut c = Command::new("spin");
-                c.args(["up", "-f", wasm, "--listen", &addr]);
+                c.args(["up", "-f", manifest_path.to_str().unwrap(), "--listen", &addr]);
+                c.current_dir(wasm_dir);
                 c
             }
             Runtime::WasmCloud => {
@@ -856,3 +892,424 @@ fn test_crud_api_search_users_disallowed_field() {
 // OpenAPI schema is now generated statically at build time (not served at runtime).
 // See: examples/hello-world/openapi.json
 // The /__schema endpoint no longer exists.
+
+// =============================================================================
+// HTTP Client E2E Tests (local mock server)
+// =============================================================================
+// These tests verify that the HTTP client works across WASI runtimes by:
+// 1. Starting a mock HTTP server on localhost
+// 2. Starting the WASM runtime with external-api-service.wasm
+// 3. Having the WASM service make outbound requests to the mock server
+// 4. Verifying the responses
+//
+// Runtime Support:
+// - wasmtime: Full support with -S http=y -S inherit-network=y
+// - spin: Full support with dynamically generated spin.toml (allowed_outbound_hosts)
+// - wasmcloud: Not supported (requires NATS infrastructure, use WASI_RUNTIME=wasmtime or spin)
+
+/// Mock HTTP server for testing outbound requests from WASM.
+struct MockServer {
+    port: u16,
+    shutdown_tx: Option<std::sync::mpsc::Sender<()>>,
+    handle: Option<std::thread::JoinHandle<()>>,
+}
+
+impl MockServer {
+    /// Start a mock HTTP server that echoes back request details as JSON.
+    fn start() -> Self {
+        use std::io::{Read, Write};
+        use std::sync::mpsc;
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind mock server");
+        let port = listener.local_addr().unwrap().port();
+        listener
+            .set_nonblocking(true)
+            .expect("Failed to set non-blocking");
+
+        let (shutdown_tx, shutdown_rx) = mpsc::channel::<()>();
+
+        let handle = std::thread::spawn(move || {
+            loop {
+                // Check for shutdown signal
+                if shutdown_rx.try_recv().is_ok() {
+                    break;
+                }
+
+                // Accept connections (non-blocking)
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        stream.set_read_timeout(Some(Duration::from_millis(100))).ok();
+                        stream.set_write_timeout(Some(Duration::from_millis(100))).ok();
+
+                        let mut buffer = [0u8; 4096];
+                        let n = match stream.read(&mut buffer) {
+                            Ok(n) if n > 0 => n,
+                            _ => continue,
+                        };
+
+                        let request = String::from_utf8_lossy(&buffer[..n]);
+
+                        // Parse basic HTTP request
+                        let first_line = request.lines().next().unwrap_or("");
+                        let parts: Vec<&str> = first_line.split_whitespace().collect();
+                        let method = parts.first().copied().unwrap_or("GET");
+                        let path = parts.get(1).copied().unwrap_or("/");
+
+                        // Extract body (after \r\n\r\n)
+                        let body = request
+                            .split("\r\n\r\n")
+                            .nth(1)
+                            .unwrap_or("")
+                            .trim();
+
+                        // Escape body for JSON (handle all control characters)
+                        let escaped_body = body
+                            .replace('\\', "\\\\")
+                            .replace('\"', "\\\"")
+                            .replace('\n', "\\n")
+                            .replace('\r', "\\r")
+                            .replace('\t', "\\t")
+                            .chars()
+                            .filter(|c| !c.is_control())
+                            .collect::<String>();
+
+                        // Create JSON response echoing request details
+                        let response_body = format!(
+                            r#"{{"method":"{}","path":"{}","body":"{}","server":"mock"}}"#,
+                            method,
+                            path.replace('\"', "\\\""),
+                            escaped_body
+                        );
+
+                        let response = format!(
+                            "HTTP/1.1 200 OK\r\n\
+                             Content-Type: application/json\r\n\
+                             Content-Length: {}\r\n\
+                             X-Mock-Server: true\r\n\
+                             \r\n\
+                             {}",
+                            response_body.len(),
+                            response_body
+                        );
+
+                        let _ = stream.write_all(response.as_bytes());
+                        let _ = stream.flush();
+                    }
+                    Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        // No connection yet, sleep briefly
+                        thread::sleep(Duration::from_millis(10));
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
+
+        Self {
+            port,
+            shutdown_tx: Some(shutdown_tx),
+            handle: Some(handle),
+        }
+    }
+
+    fn url(&self) -> String {
+        format!("http://127.0.0.1:{}", self.port)
+    }
+}
+
+impl Drop for MockServer {
+    fn drop(&mut self) {
+        // Signal shutdown
+        if let Some(tx) = self.shutdown_tx.take() {
+            let _ = tx.send(());
+        }
+        // Wait for thread to finish
+        if let Some(handle) = self.handle.take() {
+            let _ = handle.join();
+        }
+    }
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_http_client_get_request() {
+    run_on_all_runtimes("external-api-service.wasm", |server| {
+        // Start mock server
+        let mock = MockServer::start();
+        let mock_url = format!("{}/api/test", mock.url());
+        eprintln!("Mock server URL: {}", mock_url);
+
+        // Use POST /fetch-local with JSON body to avoid URL encoding issues
+        let result = ureq::post(&format!("{}/fetch-local", server.base_url()))
+            .set("Content-Type", "application/json")
+            .send_json(serde_json::json!({
+                "url": mock_url,
+                "method": "GET"
+            }));
+
+        let response = match result {
+            Ok(r) => r,
+            Err(ureq::Error::Status(code, resp)) => {
+                let body = resp.into_string().unwrap_or_default();
+                panic!("Request returned {}: {}", code, body);
+            }
+            Err(e) => panic!("Request failed: {}", e),
+        };
+
+        assert_eq!(response.status(), 200);
+
+        let json: serde_json::Value = response.into_json().expect("Failed to parse JSON");
+        assert_eq!(json["status"], 200, "Mock server should return 200");
+
+        // Parse the body returned by the proxy
+        let body_str = json["body"].as_str().expect("Should have body");
+        let inner: serde_json::Value =
+            serde_json::from_str(body_str).expect("Body should be JSON");
+
+        assert_eq!(inner["method"], "GET");
+        assert_eq!(inner["path"], "/api/test");
+        assert_eq!(inner["server"], "mock");
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_http_client_post_request() {
+    run_on_all_runtimes("external-api-service.wasm", |server| {
+        let mock = MockServer::start();
+        let mock_url = format!("{}/api/create", mock.url());
+
+        // POST with JSON body via fetch-local
+        let response = ureq::post(&format!("{}/fetch-local", server.base_url()))
+            .set("Content-Type", "application/json")
+            .send_json(serde_json::json!({
+                "url": mock_url,
+                "method": "POST",
+                "body": "{\"name\":\"test\",\"value\":42}"
+            }))
+            .expect("Request failed");
+
+        assert_eq!(response.status(), 200);
+
+        let json: serde_json::Value = response.into_json().expect("Failed to parse JSON");
+        assert_eq!(json["status"], 200);
+
+        let body_str = json["body"].as_str().expect("Should have body");
+        let inner: serde_json::Value =
+            serde_json::from_str(body_str).expect("Body should be JSON");
+
+        assert_eq!(inner["method"], "POST");
+        assert_eq!(inner["server"], "mock");
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_http_client_put_request() {
+    run_on_all_runtimes("external-api-service.wasm", |server| {
+        let mock = MockServer::start();
+        let mock_url = format!("{}/api/update/123", mock.url());
+
+        let response = ureq::post(&format!("{}/fetch-local", server.base_url()))
+            .set("Content-Type", "application/json")
+            .send_json(serde_json::json!({
+                "url": mock_url,
+                "method": "PUT",
+                "body": "{\"updated\":true}"
+            }))
+            .expect("Request failed");
+
+        assert_eq!(response.status(), 200);
+
+        let json: serde_json::Value = response.into_json().expect("Failed to parse JSON");
+        assert_eq!(json["status"], 200);
+
+        let body_str = json["body"].as_str().expect("Should have body");
+        let inner: serde_json::Value =
+            serde_json::from_str(body_str).expect("Body should be JSON");
+
+        assert_eq!(inner["method"], "PUT");
+        assert_eq!(inner["path"], "/api/update/123");
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_http_client_delete_request() {
+    run_on_all_runtimes("external-api-service.wasm", |server| {
+        let mock = MockServer::start();
+        let mock_url = format!("{}/api/delete/456", mock.url());
+
+        let response = ureq::post(&format!("{}/fetch-local", server.base_url()))
+            .set("Content-Type", "application/json")
+            .send_json(serde_json::json!({
+                "url": mock_url,
+                "method": "DELETE"
+            }))
+            .expect("Request failed");
+
+        assert_eq!(response.status(), 200);
+
+        let json: serde_json::Value = response.into_json().expect("Failed to parse JSON");
+        assert_eq!(json["status"], 200);
+
+        let body_str = json["body"].as_str().expect("Should have body");
+        let inner: serde_json::Value =
+            serde_json::from_str(body_str).expect("Body should be JSON");
+
+        assert_eq!(inner["method"], "DELETE");
+        assert_eq!(inner["path"], "/api/delete/456");
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_http_client_connection_refused() {
+    run_on_all_runtimes("external-api-service.wasm", |server| {
+        // Try to connect to a port where nothing is listening
+        let bad_url = "http://127.0.0.1:1"; // Port 1 is privileged and unlikely to be in use
+
+        // Use POST with JSON body to avoid URL encoding issues
+        let response = ureq::post(&format!("{}/fetch-local", server.base_url()))
+            .set("Content-Type", "application/json")
+            .send_json(serde_json::json!({
+                "url": bad_url,
+                "method": "GET"
+            }));
+
+        match response {
+            Ok(_) => panic!("Expected error for connection refused"),
+            Err(ureq::Error::Status(code, resp)) => {
+                assert_eq!(code, 502, "Should return 502 Bad Gateway");
+                let json: serde_json::Value = resp.into_json().expect("Should be JSON");
+                assert_eq!(json["title"], "Bad Gateway");
+            }
+            Err(e) => panic!("Unexpected error type: {e}"),
+        }
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_http_client_ssrf_protection() {
+    run_on_all_runtimes("external-api-service.wasm", |server| {
+        // The /proxy endpoint uses deny_private_ips(), should block localhost
+        // Note: We need to manually construct the URL because the SDK has a known
+        // issue with URL-decoding query parameters (tracked for future fix)
+        let proxy_url = format!("{}/proxy?url=http://127.0.0.1:8080/internal", server.base_url());
+        let response = ureq::get(&proxy_url).call();
+
+        match response {
+            Ok(_) => panic!("Expected SSRF block"),
+            Err(ureq::Error::Status(code, resp)) => {
+                assert_eq!(code, 403, "Should return 403 Forbidden for SSRF");
+                let json: serde_json::Value = resp.into_json().expect("Should be JSON");
+                assert_eq!(json["title"], "Forbidden");
+            }
+            Err(e) => panic!("Unexpected error: {e}"),
+        }
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_http_client_response_headers() {
+    run_on_all_runtimes("external-api-service.wasm", |server| {
+        let mock = MockServer::start();
+
+        // Use POST with JSON body to avoid URL encoding issues
+        let response = ureq::post(&format!("{}/fetch-local", server.base_url()))
+            .set("Content-Type", "application/json")
+            .send_json(serde_json::json!({
+                "url": mock.url(),
+                "method": "GET"
+            }))
+            .expect("Request failed");
+
+        assert_eq!(response.status(), 200);
+
+        let json: serde_json::Value = response.into_json().expect("Failed to parse JSON");
+
+        // Check that response headers from mock server are captured
+        let headers = json["headers"].as_array().expect("Should have headers array");
+        let headers_str: String = headers
+            .iter()
+            .map(|h| h.as_str().unwrap_or(""))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        assert!(
+            headers_str.to_lowercase().contains("content-type")
+                || headers_str.to_lowercase().contains("x-mock-server"),
+            "Should capture response headers, got: {}",
+            headers_str
+        );
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_http_client_url_decoding() {
+    // Test that URL-encoded query parameters are properly decoded
+    run_on_all_runtimes("external-api-service.wasm", |server| {
+        let mock = MockServer::start();
+        let mock_url = format!("{}/api/test", mock.url());
+
+        // Use ureq's .query() which URL-encodes the value
+        // This tests that the SDK properly decodes the URL before using it
+        let response = ureq::get(&format!("{}/fetch-local", server.base_url()))
+            .query("url", &mock_url)
+            .call();
+
+        let response = match response {
+            Ok(r) => r,
+            Err(ureq::Error::Status(code, resp)) => {
+                let body = resp.into_string().unwrap_or_default();
+                panic!("Request returned {}: {}", code, body);
+            }
+            Err(e) => panic!("Request failed: {}", e),
+        };
+
+        assert_eq!(response.status(), 200);
+
+        let json: serde_json::Value = response.into_json().expect("Failed to parse JSON");
+        assert_eq!(json["status"], 200, "Mock server should return 200");
+
+        // Parse the body returned by the proxy
+        let body_str = json["body"].as_str().expect("Should have body");
+        let inner: serde_json::Value =
+            serde_json::from_str(body_str).expect("Body should be JSON");
+
+        assert_eq!(inner["method"], "GET");
+        assert_eq!(inner["path"], "/api/test");
+        assert_eq!(inner["server"], "mock");
+    });
+}
+
+#[test]
+#[ignore = "requires pre-built WASM components"]
+fn test_http_client_external_api_index() {
+    run_on_all_runtimes("external-api-service.wasm", |server| {
+        // Basic sanity check that external-api-service is working
+        let response = ureq::get(&format!("{}/", server.base_url()))
+            .call()
+            .expect("Request failed");
+
+        assert_eq!(response.status(), 200);
+
+        let json: serde_json::Value = response.into_json().expect("Failed to parse JSON");
+        assert_eq!(json["name"], "External API Example");
+
+        // Verify fetch-local endpoints are listed
+        let endpoints = json["endpoints"].as_array().expect("Should have endpoints");
+        let endpoints_str = endpoints
+            .iter()
+            .filter_map(|e| e.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        assert!(
+            endpoints_str.contains("fetch-local"),
+            "Should list fetch-local endpoint"
+        );
+    });
+}

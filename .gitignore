@@ -36,6 +36,11 @@ CLAUDE.md
 # wasmCloud test binaries (nats-server, wash, wasmcloud-host)
 tests-integration/fixtures/wasmcloud-bin/
 
+# Spin runtime files
+.spin/
+tests-integration/fixtures/.spin/
+tests-integration/fixtures/spin-temp.toml
+
 # Generated OpenAPI schemas
 **/openapi.json
 

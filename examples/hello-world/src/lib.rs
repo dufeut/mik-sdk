@@ -56,9 +56,16 @@ pub struct SearchResponse {
 }
 
 routes! {
+    /// Welcome page with API information
     GET "/" | "" => home -> HomeResponse,
+
+    /// Greet a user by name
     GET "/hello/{name}" => hello(path: HelloPath) -> HelloResponse,
+
+    /// Echo back a message with its length
     POST "/echo" => echo(body: EchoInput) -> EchoResponse,
+
+    /// Search with pagination
     GET "/search" => search(query: SearchQuery) -> SearchResponse,
 }
 

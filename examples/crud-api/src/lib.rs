@@ -509,6 +509,7 @@ fn get_iso_time() -> String {
 #[cfg(test)]
 mod tests {
     #[test]
+    #[allow(clippy::expect_used)]
     fn write_openapi_json() {
         // Uses the auto-generated __mik_schema module from routes! macro
         super::__mik_schema::write_to(std::path::Path::new("openapi.json"))

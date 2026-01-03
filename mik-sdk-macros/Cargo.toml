@@ -36,6 +36,8 @@ trybuild = "1.0"
 macrotest = "1.0"
 # Snapshot testing for macro expansion verification
 insta = "1.40"
+# OpenAPI 3.0 schema validation
+openapiv3 = "2"
 
 [lints]
 workspace = true

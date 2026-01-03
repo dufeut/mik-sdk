@@ -30,5 +30,10 @@ world = "hello-world"
 "wasi:filesystem" = { path = "wit/deps/filesystem" }
 "wasi:sockets" = { path = "wit/deps/sockets" }
 
+[dev-dependencies]
+# OpenAPI 3.0 schema validation
+openapiv3 = "2"
+serde_json = "1.0"
+
 [lints]
 workspace = true

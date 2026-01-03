@@ -34,6 +34,21 @@ pub struct ProxyQuery {
     pub url: String,
 }
 
+#[derive(Query)]
+pub struct FetchLocalQuery {
+    pub url: String,
+    pub method: Option<String>,
+}
+
+#[derive(Type)]
+pub struct FetchLocalBody {
+    pub url: String,
+    #[field(docs = "HTTP method (GET, POST, PUT, DELETE)")]
+    pub method: Option<String>,
+    #[field(docs = "Optional JSON body for POST/PUT")]
+    pub body: Option<String>,
+}
+
 #[derive(Type)]
 pub struct ProxyResponse {
     pub status: i64,
@@ -85,6 +100,12 @@ routes! {
 
     // Aggregation example (demonstrates multiple sequential calls)
     GET "/aggregate" => aggregate,
+
+    /// Local fetch for e2e testing (no SSRF protection)
+    GET "/fetch-local" => fetch_local_get(query: FetchLocalQuery) -> ProxyResponse,
+
+    /// Local fetch with body for e2e testing (no SSRF protection)
+    POST "/fetch-local" => fetch_local_post(body: FetchLocalBody) -> ProxyResponse,
 }
 
 // ============================================================================
@@ -99,7 +120,9 @@ fn index(_req: &Request) -> Response {
             "GET /github/{username} - Fetch GitHub user info",
             "GET /proxy?url=<url> - Proxy external URL (SSRF protected)",
             "POST /webhook - Send webhook with JSON body",
-            "GET /aggregate - Aggregate multiple API calls"
+            "GET /aggregate - Aggregate multiple API calls",
+            "GET /fetch-local?url=<url> - Fetch from local URL (testing only)",
+            "POST /fetch-local - Fetch with body (testing only)"
         ]
     })
 }
@@ -375,4 +398,112 @@ fn aggregate(req: &Request) -> Response {
         "origin_ip": origin_ip,
         "timestamp": timestamp
     })
+}
+
+/// Fetch from local URL (for e2e testing only - no SSRF protection).
+///
+/// WARNING: This endpoint does NOT use deny_private_ips() and is intended
+/// ONLY for local e2e testing where a mock server runs on localhost.
+fn fetch_local_get(query: FetchLocalQuery, req: &Request) -> Response {
+    log!(info, "fetch-local GET", url: &query.url);
+
+    let result = fetch!(GET &query.url, timeout: 5000)
+        .with_trace_id(req.trace_id())
+        .send();
+
+    handle_fetch_result(result)
+}
+
+/// Fetch from local URL with body (for e2e testing only - no SSRF protection).
+fn fetch_local_post(body: FetchLocalBody, req: &Request) -> Response {
+    log!(info, "fetch-local POST", url: &body.url, method: body.method.as_deref().unwrap_or("POST"));
+
+    let method = body.method.as_deref().unwrap_or("POST").to_uppercase();
+
+    let result = match method.as_str() {
+        "GET" => fetch!(GET &body.url, timeout: 5000)
+            .with_trace_id(req.trace_id())
+            .send(),
+        "POST" => {
+            if let Some(ref json_body) = body.body {
+                http_client::post(&body.url)
+                    .header("Content-Type", "application/json")
+                    .body(json_body.as_bytes())
+                    .timeout_ms(5000)
+                    .with_trace_id(req.trace_id())
+                    .send()
+            } else {
+                fetch!(POST &body.url, timeout: 5000)
+                    .with_trace_id(req.trace_id())
+                    .send()
+            }
+        },
+        "PUT" => {
+            if let Some(ref json_body) = body.body {
+                http_client::put(&body.url)
+                    .header("Content-Type", "application/json")
+                    .body(json_body.as_bytes())
+                    .timeout_ms(5000)
+                    .with_trace_id(req.trace_id())
+                    .send()
+            } else {
+                http_client::put(&body.url)
+                    .timeout_ms(5000)
+                    .with_trace_id(req.trace_id())
+                    .send()
+            }
+        },
+        "DELETE" => http_client::delete(&body.url)
+            .timeout_ms(5000)
+            .with_trace_id(req.trace_id())
+            .send(),
+        _ => {
+            return error! {
+                status: 400,
+                title: "Bad Request",
+                detail: "Unsupported method. Use GET, POST, PUT, or DELETE."
+            };
+        },
+    };
+
+    handle_fetch_result(result)
+}
+
+/// Common result handler for fetch operations.
+fn handle_fetch_result(result: Result<http_client::Response, http_client::Error>) -> Response {
+    match result {
+        Ok(response) => {
+            let status = response.status();
+            let response_headers = response.headers();
+
+            let headers: Vec<String> = response_headers
+                .iter()
+                .take(10)
+                .map(|(k, v)| format!("{k}: {v}"))
+                .collect();
+
+            let body = response.body();
+            let body_str = String::from_utf8_lossy(&body);
+
+            let headers_arr = headers
+                .iter()
+                .fold(json::arr(), |arr, h| arr.push(json::str(h)));
+
+            let truncated_body: String = body_str.chars().take(10000).collect();
+            ok!({
+                "status": status as i64,
+                "body": truncated_body,
+                "headers": headers_arr
+            })
+        },
+        Err(e) => {
+            let error_msg = e.to_string();
+            log!(error, "fetch failed", error: &error_msg);
+            error! {
+                status: 502,
+                title: "Bad Gateway",
+                detail: error_msg
+            }
+        },
+    }
 }

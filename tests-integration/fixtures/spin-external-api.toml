@@ -1,0 +1,13 @@
+spin_manifest_version = 2
+
+[application]
+name = "external-api-test"
+version = "0.1.0"
+
+[[trigger.http]]
+route = "/..."
+component = "external-api"
+
+[component.external-api]
+source = "external-api-service.wasm"
+allowed_outbound_hosts = ["https://*:*", "http://*:*"]

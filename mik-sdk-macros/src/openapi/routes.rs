@@ -9,17 +9,31 @@
 use proc_macro2::{Ident, TokenStream as TokenStream2};
 use quote::quote;
 
-use crate::schema::types::{InputSource, RouteDef};
+use super::utoipa::problem_details_json;
+use crate::schema::types::{InputSource, RouteDef, RoutesDef};
 
 // =============================================================================
 // OPENAPI GENERATION
 // =============================================================================
 
 /// Generate code that builds an OpenAPI method entry at runtime.
-fn generate_method_entry_code(route: &RouteDef) -> TokenStream2 {
+fn generate_method_entry_code(route: &RouteDef, default_tag: Option<&str>) -> TokenStream2 {
     let method_name = route.method.as_str();
+    let tag = route.effective_tag(default_tag);
 
     let mut parts: Vec<TokenStream2> = Vec::new();
+
+    // Add tag
+    parts.push(quote! {
+        __parts.push(::std::format!("\"tags\":[\"{}\"]", #tag));
+    });
+
+    // Add summary if present
+    if let Some(ref summary) = route.summary {
+        parts.push(quote! {
+            __parts.push(::std::format!("\"summary\":\"{}\"", #summary));
+        });
+    }
 
     // Request body reference
     if let Some(body_input) = route
@@ -87,18 +101,18 @@ fn generate_method_entry_code(route: &RouteDef) -> TokenStream2 {
         });
     }
 
-    // Response
+    // Response - includes success and error responses
     if let Some(ref output_type) = route.output_type {
         let output_str = output_type.to_string();
         parts.push(quote! {
             __parts.push(::std::format!(
-                "\"responses\":{{\"200\":{{\"description\":\"Success\",\"content\":{{\"application/json\":{{\"schema\":{{\"$ref\":\"#/components/schemas/{}\"}}}}}}}}}}",
+                "\"responses\":{{\"200\":{{\"description\":\"Success\",\"content\":{{\"application/json\":{{\"schema\":{{\"$ref\":\"#/components/schemas/{}\"}}}}}}}},\"4XX\":{{\"description\":\"Client Error\",\"content\":{{\"application/problem+json\":{{\"schema\":{{\"$ref\":\"#/components/schemas/ProblemDetails\"}}}}}}}},\"5XX\":{{\"description\":\"Server Error\",\"content\":{{\"application/problem+json\":{{\"schema\":{{\"$ref\":\"#/components/schemas/ProblemDetails\"}}}}}}}}}}",
                 #output_str
             ));
         });
     } else {
         parts.push(quote! {
-            __parts.push("\"responses\":{\"200\":{\"description\":\"Success\"}}".to_string());
+            __parts.push("\"responses\":{\"200\":{\"description\":\"Success\"},\"4XX\":{\"description\":\"Client Error\",\"content\":{\"application/problem+json\":{\"schema\":{\"$ref\":\"#/components/schemas/ProblemDetails\"}}}},\"5XX\":{\"description\":\"Server Error\",\"content\":{\"application/problem+json\":{\"schema\":{\"$ref\":\"#/components/schemas/ProblemDetails\"}}}}}".to_string());
         });
     }
 
@@ -137,7 +151,7 @@ fn collect_type_names(routes: &[RouteDef]) -> Vec<Ident> {
 }
 
 /// Generate code that builds paths JSON at runtime.
-fn generate_paths_code(routes: &[RouteDef]) -> TokenStream2 {
+fn generate_paths_code(routes: &[RouteDef], default_tag: Option<&str>) -> TokenStream2 {
     use std::collections::HashMap;
 
     // Group routes by path
@@ -156,7 +170,7 @@ fn generate_paths_code(routes: &[RouteDef]) -> TokenStream2 {
         .map(|(path, methods)| {
             let method_codes: Vec<TokenStream2> = methods
                 .iter()
-                .map(|r| generate_method_entry_code(r))
+                .map(|r| generate_method_entry_code(r, default_tag))
                 .collect();
             quote! {
                 {
@@ -183,9 +197,13 @@ fn generate_paths_code(routes: &[RouteDef]) -> TokenStream2 {
 ///
 /// Everything is computed once at startup via LazyLock.
 /// Path/query parameters come from trait methods, allowing full type information.
-pub fn generate_openapi_json(routes: &[RouteDef]) -> TokenStream2 {
-    let paths_code = generate_paths_code(routes);
-    let type_names = collect_type_names(routes);
+pub fn generate_openapi_json(defs: &RoutesDef) -> TokenStream2 {
+    let default_tag = defs.default_tag.as_deref();
+    let paths_code = generate_paths_code(&defs.routes, default_tag);
+    let type_names = collect_type_names(&defs.routes);
+
+    // Get RFC 7807 ProblemDetails schema JSON at compile time
+    let problem_details = problem_details_json();
 
     // Generate code to build schema entries by calling trait methods
     // Use super:: prefix because this runs inside __mik_schema module
@@ -204,14 +222,19 @@ pub fn generate_openapi_json(routes: &[RouteDef]) -> TokenStream2 {
         .collect();
 
     // Return code that builds the OpenAPI JSON at init time
+    // Uses compile-time env vars for title/version from Cargo.toml
     quote! {
         {
             let __paths_json = #paths_code;
             let mut __schema_parts: ::std::vec::Vec<::std::string::String> = ::std::vec::Vec::new();
             #(#schema_builders)*
+            // Add RFC 7807 ProblemDetails schema (built with utoipa)
+            __schema_parts.push(::std::format!("\"ProblemDetails\":{}", #problem_details));
             let __schemas_json = __schema_parts.join(",");
             ::std::format!(
-                r#"{{"openapi":"3.0.0","info":{{"title":"API","version":"1.0.0"}},"paths":{{{}}},"components":{{"schemas":{{{}}}}}}}"#,
+                r#"{{"openapi":"3.0.0","info":{{"title":"{}","version":"{}"}},"paths":{{{}}},"components":{{"schemas":{{{}}}}}}}"#,
+                ::std::env!("CARGO_PKG_NAME"),
+                ::std::env!("CARGO_PKG_VERSION"),
                 __paths_json,
                 __schemas_json
             )
