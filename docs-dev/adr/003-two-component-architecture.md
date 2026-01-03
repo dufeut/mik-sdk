@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-WASI HTTP defines `wasi:http/incoming-handler` for handling requests. Runtimes (Spin, wasmCloud, wasmtime serve) expect components to export this interface.
+WASI HTTP defines `wasi:http/incoming-handler` for handling requests. WASI P2 runtimes expect components to export this interface.
 
 The problem: WASI HTTP is **low-level**. Handlers must:
 - Read streaming body bytes

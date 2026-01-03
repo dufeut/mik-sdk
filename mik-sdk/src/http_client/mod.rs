@@ -133,10 +133,8 @@
 //!
 //! # Runtime Support
 //!
-//! The HTTP client works on any WASI HTTP runtime that supports `wasi:http/outgoing-handler`:
-//! - **Spin**: Requires `allowed_outbound_hosts` in spin.toml
-//! - **wasmCloud**: Configure HTTP capability provider
-//! - **wasmtime serve**: Works with `-S cli=y` flag
+//! The HTTP client works on any WASI P2 runtime that supports `wasi:http/outgoing-handler`.
+//! Consult your runtime's documentation for configuration requirements.
 
 mod error;
 mod request;

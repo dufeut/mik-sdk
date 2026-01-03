@@ -107,6 +107,9 @@ mod mik_sdk {
             fn openapi_query_params() -> &'static str {
                 "[]"
             }
+            fn openapi_path_params() -> &'static str {
+                "[]"
+            }
         }
 
         // Implement FromJson for primitives
@@ -1503,14 +1506,14 @@ fn test_query_openapi_schema_has_full_properties() {
     );
     assert!(schema.contains("\"properties\""), "Should have properties");
 
-    // Verify each field exists with proper type
+    // Verify each field exists with proper type (including defaults)
     assert!(
-        schema.contains("\"page\":{\"type\":\"integer\"}"),
-        "page should be integer type"
+        schema.contains("\"page\":{\"type\":\"integer\",\"default\":1}"),
+        "page should be integer type with default 1, got: {schema}"
     );
     assert!(
-        schema.contains("\"limit\":{\"type\":\"integer\"}"),
-        "limit should be integer type"
+        schema.contains("\"limit\":{\"type\":\"integer\",\"default\":20}"),
+        "limit should be integer type with default 20, got: {schema}"
     );
     assert!(schema.contains("\"search\""), "search should be present");
     assert!(schema.contains("\"active\""), "active should be present");

@@ -8,7 +8,7 @@
 ///
 /// # WASI HTTP Error Mapping
 ///
-/// WASI runtimes (Spin, wasmCloud, wasmtime) return errors as strings or error codes.
+/// WASI runtimes return errors as strings or error codes.
 /// Use [`map_wasi_error`] to convert these to typed `Error` variants:
 ///
 /// ```
@@ -623,7 +623,7 @@ fn matches_any(error_bytes: &[u8], patterns: &[&[u8]]) -> bool {
 
 /// Maps WASI HTTP error strings to typed [`Error`] variants.
 ///
-/// WASI HTTP runtimes (Spin, wasmCloud, wasmtime) return errors as strings.
+/// WASI HTTP runtimes return errors as strings.
 /// This function parses common error patterns and maps them to the appropriate
 /// typed error variant for better error handling.
 ///

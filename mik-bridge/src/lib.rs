@@ -4,8 +4,7 @@
 //! - Imports mik:core/handler (the user's handler)
 //! - Exports wasi:http/incoming-handler (standard WASI HTTP interface)
 //!
-//! After composition, the final component runs on any WASI HTTP runtime:
-//! Spin, wasmCloud, wasmtime serve, etc.
+//! After composition, the final component runs on any WASI P2 HTTP runtime.
 //!
 //! ## Configuration
 //!
@@ -19,11 +18,7 @@
 //! ### Rate Limiting
 //!
 //! **This component does not implement rate limiting.** Rate limiting should be
-//! handled at the infrastructure layer by your WASI HTTP runtime:
-//!
-//! - **Spin**: Configure rate limiting in `spin.toml` or use a reverse proxy
-//! - **wasmCloud**: Use the built-in rate limiting capabilities or a gateway
-//! - **wasmtime serve**: Place behind a reverse proxy (nginx, Caddy, etc.)
+//! handled at the infrastructure layer by your WASI HTTP runtime or a reverse proxy.
 //!
 //! For production deployments, always use a reverse proxy or API gateway that
 //! provides:
@@ -121,7 +116,7 @@ fn get_max_body_size() -> usize {
 /// - Converts the response back to WASI HTTP format
 ///
 /// After WAC composition with a user handler, the combined component
-/// runs on any WASI HTTP runtime (Spin, wasmCloud, wasmtime serve, etc.).
+/// runs on any WASI P2 HTTP runtime.
 struct Bridge;
 
 /// WASI HTTP handler implementation.

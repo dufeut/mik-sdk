@@ -308,20 +308,39 @@ pub trait Validate {
 /// Trait for types that can generate their OpenAPI schema.
 ///
 /// Implemented by types derived with `#[derive(Type)]`, `#[derive(Query)]`, etc.
+///
+/// # WASM Builds
+///
+/// On WASM targets, all methods return empty/stub values to avoid including
+/// schema strings in the binary. Schema generation only happens via `cargo test`.
 pub trait OpenApiSchema {
     /// Get the OpenAPI JSON schema for this type.
-    fn openapi_schema() -> &'static str;
+    ///
+    /// Returns empty object on WASM to minimize binary size.
+    fn openapi_schema() -> &'static str {
+        r#"{"type":"object"}"#
+    }
 
     /// Get the schema name for $ref references.
-    fn schema_name() -> &'static str;
+    ///
+    /// Returns empty string on WASM to minimize binary size.
+    fn schema_name() -> &'static str {
+        ""
+    }
 
     /// Get OpenAPI query parameters array for Query types.
     ///
     /// Returns a JSON array of parameter objects for use in OpenAPI path items.
     /// Only meaningful for types derived with `#[derive(Query)]`.
-    ///
-    /// Default implementation returns empty array for non-Query types.
     fn openapi_query_params() -> &'static str {
+        "[]"
+    }
+
+    /// Get OpenAPI path parameters array for Path types.
+    ///
+    /// Returns a JSON array of parameter objects for use in OpenAPI path items.
+    /// Only meaningful for types derived with `#[derive(Path)]`.
+    fn openapi_path_params() -> &'static str {
         "[]"
     }
 }

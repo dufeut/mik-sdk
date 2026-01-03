@@ -94,7 +94,7 @@ cargo bench -p mik-sql
 
 ### E2E Tests (Cross-Runtime Validation)
 
-**Important:** We have comprehensive E2E tests that validate portability across WASI runtimes (wasmtime, Spin, wasmCloud). See `tests-integration/tests/wasm_e2e.rs`.
+**Important:** We have comprehensive E2E tests that validate portability across WASI runtimes. See `tests-integration/tests/wasm_e2e.rs`.
 
 ```bash
 # 1. Build and compose components first

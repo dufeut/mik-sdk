@@ -13,7 +13,7 @@
 //!
 //! # Why WASM-only?
 //!
-//! This SDK is designed for WASI HTTP handlers that run on wasmtime, Spin, or wasmCloud.
+//! This SDK is designed for WASI HTTP handlers that run on any WASI P2 runtime.
 //! The random functions use `wasi:random/random` for cryptographic randomness in WASM.
 //!
 //! Native builds compile (so `cargo check` works) but panic at runtime with a clear
