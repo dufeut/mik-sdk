@@ -113,6 +113,9 @@ The generated schema includes:
 | `#[derive(Path)]` | Path parameter definitions |
 | `/// doc comments` | Operation summaries |
 | `#[field(x_* = ...)]` | OpenAPI extension attributes |
+| `#[field(deprecated = true)]` | Deprecated field markers |
+| `#[deprecated]` on routes | Deprecated operation markers |
+| `#[status(code)]` on routes | Custom success status codes (201, 204, etc.) |
 | Path prefixes | Auto-generated tags (e.g., `/users/{id}` → `Users`) |
 | Error responses | RFC 7807 ProblemDetails for 4XX/5XX |
 
@@ -395,6 +398,104 @@ Supported value types:
 - `x_sensitive` - Flag sensitive data (for code generators)
 - `x_codegen_*` - Hints for client generators
 </Aside>
+
+### Deprecated Fields and Routes
+
+Mark fields or routes as deprecated using the `deprecated` attribute:
+
+```rust
+#[derive(Type)]
+pub struct User {
+    pub id: String,
+
+    #[field(deprecated = true, docs = "Use id instead")]
+    pub legacy_id: String,
+}
+
+routes! {
+    GET "/users" => list_users,
+
+    #[deprecated]
+    GET "/api/v1/users" => list_users_v1,
+}
+```
+
+Generates:
+
+```json
+{
+  "properties": {
+    "id": { "type": "string" },
+    "legacy_id": {
+      "type": "string",
+      "deprecated": true,
+      "description": "Use id instead"
+    }
+  }
+}
+```
+
+For routes:
+
+```json
+{
+  "/api/v1/users": {
+    "get": {
+      "deprecated": true,
+      "summary": "..."
+    }
+  }
+}
+```
+
+<Aside type="note" title="Deprecated vs x_deprecated_reason">
+Use `deprecated = true` for the standard OpenAPI `deprecated` flag. Use `x_deprecated_reason` if you also want to include a reason string as an extension attribute.
+</Aside>
+
+### Custom Status Codes
+
+By default, all routes document a `200` success response. Use `#[status(code)]` to specify a different status code:
+
+```rust
+routes! {
+    GET "/users" => list_users -> Vec<User>,            // 200 (default)
+
+    #[status(201)]
+    POST "/users" => create_user(body: Input) -> User,  // 201 Created
+
+    #[status(202)]
+    POST "/jobs" => start_job(body: JobInput) -> Job,   // 202 Accepted
+
+    #[status(204)]
+    DELETE "/users/{id}" => delete_user(path: Id),      // 204 No Content
+}
+```
+
+Generates appropriate response documentation:
+
+```json
+{
+  "/users": {
+    "post": {
+      "responses": {
+        "201": {
+          "description": "Created",
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } }
+        }
+      }
+    }
+  }
+}
+```
+
+Common status codes and their descriptions:
+
+| Code | Description | Use Case |
+|------|-------------|----------|
+| `200` | Success | Default for GET, PUT, PATCH |
+| `201` | Created | POST that creates a resource |
+| `202` | Accepted | Async operations |
+| `204` | No Content | DELETE, or updates with no body |
 
 ## CI Integration
 
