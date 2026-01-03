@@ -183,9 +183,12 @@ impl ClientRequest {
             .stream()
             .map_err(|()| Error::ResponseError("Failed to get body stream".into()))?;
 
+        // Read response body using blocking_read.
+        // Non-blocking read() can return empty immediately if data isn't ready,
+        // which causes empty bodies on some runtimes (e.g., wasmCloud http-client provider).
         let mut body_bytes = Vec::new();
         loop {
-            match body_stream.read(64 * 1024) {
+            match body_stream.blocking_read(64 * 1024) {
                 Ok(chunk) => {
                     if chunk.is_empty() {
                         break;
