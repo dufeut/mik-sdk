@@ -17,9 +17,19 @@ use syn::{Attribute, Data, DeriveInput, Expr, Fields, Lit, Type};
 use crate::errors::did_you_mean;
 
 /// Valid #[field(...)] attributes.
+/// Note: x_* attributes are also valid for OpenAPI extensions.
 const VALID_FIELD_ATTRS: &[&str] = &[
     "min", "max", "default", "format", "pattern", "rename", "docs",
 ];
+
+/// Value types for x-* extension attributes.
+#[derive(Clone, Debug)]
+pub enum XAttrValue {
+    String(String),
+    Bool(bool),
+    Int(i64),
+    Float(f64),
+}
 
 // Re-export the public entry points
 pub use path_derive::derive_path_impl;
@@ -64,6 +74,8 @@ pub struct FieldAttrs {
     pub(crate) default: Option<String>,
     pub(crate) rename: Option<String>,
     pub(crate) docs: Option<String>,
+    /// OpenAPI x-* extension attributes (x_foo_bar -> x-foo-bar)
+    pub(crate) x_attrs: Vec<(String, XAttrValue)>,
 }
 
 #[allow(clippy::too_many_lines)]
@@ -177,22 +189,59 @@ pub fn parse_field_attrs(attrs: &[Attribute]) -> Result<FieldAttrs, syn::Error> 
             } else {
                 let path = &meta.path;
                 let attr_name = quote!(#path).to_string();
-                let suggestion = did_you_mean(&attr_name, VALID_FIELD_ATTRS);
-                return Err(syn::Error::new_spanned(
-                    path,
-                    format!(
-                        "Unknown field attribute '{attr_name}'.{suggestion}\n\
-                         \n\
-                         ✅ Valid attributes:\n\
-                         #[field(min = 1)]           // minimum value/length\n\
-                         #[field(max = 100)]         // maximum value/length\n\
-                         #[field(default = 10)]      // default value\n\
-                         #[field(format = \"email\")] // format hint (OpenAPI)\n\
-                         #[field(pattern = \"...\")]  // regex pattern (OpenAPI)\n\
-                         #[field(rename = \"...\")]   // JSON key name\n\
-                         #[field(docs = \"...\")]     // description"
-                    ),
-                ));
+
+                // Check if this is an x_* attribute (OpenAPI extension)
+                if attr_name.starts_with("x_") {
+                    // Convert x_foo_bar to x-foo-bar
+                    let x_attr_name = attr_name.replace('_', "-");
+                    let value: Lit = meta.value()?.parse()?;
+                    let x_value = match value {
+                        Lit::Str(lit) => XAttrValue::String(lit.value()),
+                        Lit::Bool(lit) => XAttrValue::Bool(lit.value()),
+                        Lit::Int(lit) => {
+                            let n: i64 = lit.base10_parse().map_err(|_| {
+                                syn::Error::new_spanned(&lit, "Invalid integer for x-attr")
+                            })?;
+                            XAttrValue::Int(n)
+                        },
+                        Lit::Float(lit) => {
+                            let n: f64 = lit.base10_parse().map_err(|_| {
+                                syn::Error::new_spanned(&lit, "Invalid float for x-attr")
+                            })?;
+                            XAttrValue::Float(n)
+                        },
+                        _ => {
+                            return Err(syn::Error::new_spanned(
+                                &value,
+                                "x-attr values must be string, bool, int, or float!\n\
+                                 \n\
+                                 ✅ Examples:\n\
+                                 #[field(x_example = \"john@example.com\")]\n\
+                                 #[field(x_internal = true)]\n\
+                                 #[field(x_priority = 10)]",
+                            ));
+                        },
+                    };
+                    result.x_attrs.push((x_attr_name, x_value));
+                } else {
+                    let suggestion = did_you_mean(&attr_name, VALID_FIELD_ATTRS);
+                    return Err(syn::Error::new_spanned(
+                        path,
+                        format!(
+                            "Unknown field attribute '{attr_name}'.{suggestion}\n\
+                             \n\
+                             ✅ Valid attributes:\n\
+                             #[field(min = 1)]           // minimum value/length\n\
+                             #[field(max = 100)]         // maximum value/length\n\
+                             #[field(default = 10)]      // default value\n\
+                             #[field(format = \"email\")] // format hint (OpenAPI)\n\
+                             #[field(pattern = \"...\")]  // regex pattern (OpenAPI)\n\
+                             #[field(rename = \"...\")]   // JSON key name\n\
+                             #[field(docs = \"...\")]     // description\n\
+                             #[field(x_* = ...)]         // OpenAPI x-* extensions"
+                        ),
+                    ));
+                }
             }
             Ok(())
         })?;

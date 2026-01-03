@@ -111,6 +111,7 @@ The generated schema includes:
 | `#[derive(Query)]` | Query parameter definitions |
 | `#[derive(Path)]` | Path parameter definitions |
 | `/// doc comments` | Operation summaries |
+| `#[field(x_* = ...)]` | OpenAPI extension attributes |
 | Path prefixes | Auto-generated tags (e.g., `/users/{id}` → `Users`) |
 | Error responses | RFC 7807 ProblemDetails for 4XX/5XX |
 
@@ -323,6 +324,59 @@ pub struct CreateUserInput {
     pub bio: Option<String>,
 }
 ```
+
+### OpenAPI Extension Attributes (x-attrs)
+
+Add custom `x-*` extension attributes to fields using the `x_` prefix. Underscores are converted to hyphens in the output:
+
+```rust
+#[derive(Type)]
+pub struct User {
+    #[field(x_example = "john@example.com", x_sensitive = true)]
+    pub email: String,
+
+    #[field(x_deprecated_reason = "Use user_id instead", x_internal = true)]
+    pub id: String,
+
+    #[field(x_priority = 10)]
+    pub name: String,
+}
+```
+
+Generates:
+
+```json
+{
+  "email": {
+    "type": "string",
+    "x-example": "john@example.com",
+    "x-sensitive": true
+  },
+  "id": {
+    "type": "string",
+    "x-deprecated-reason": "Use user_id instead",
+    "x-internal": true
+  },
+  "name": {
+    "type": "string",
+    "x-priority": 10
+  }
+}
+```
+
+Supported value types:
+- **String**: `x_example = "value"`
+- **Boolean**: `x_internal = true`
+- **Integer**: `x_priority = 10`
+- **Float**: `x_weight = 0.5`
+
+<Aside type="tip" title="Common x-attrs">
+- `x_example` - Example values for documentation
+- `x_internal` - Mark internal-only fields
+- `x_deprecated_reason` - Explain deprecation
+- `x_sensitive` - Flag sensitive data (for code generators)
+- `x_codegen_*` - Hints for client generators
+</Aside>
 
 ## CI Integration
 

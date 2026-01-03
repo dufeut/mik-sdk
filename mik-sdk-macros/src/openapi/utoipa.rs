@@ -71,6 +71,8 @@ pub fn array_schema(items: RefOr<Schema>) -> Schema {
 // FIELD CONSTRAINTS
 // ============================================================================
 
+use crate::derive::XAttrValue;
+
 /// Field constraints from `#[field(...)]` attributes.
 #[derive(Default)]
 pub struct FieldConstraints {
@@ -79,6 +81,8 @@ pub struct FieldConstraints {
     pub format: Option<String>,
     pub pattern: Option<String>,
     pub description: Option<String>,
+    /// OpenAPI x-* extension attributes
+    pub x_attrs: Vec<(String, XAttrValue)>,
 }
 
 /// Apply field constraints to an `ObjectBuilder`.
@@ -166,6 +170,47 @@ pub struct JsonFieldDef {
     pub name: String,
     pub schema_json: String,
     pub required: bool,
+    /// OpenAPI x-* extension attributes for this field
+    pub x_attrs: Vec<(String, XAttrValue)>,
+}
+
+/// Format x-attrs as JSON key-value pairs.
+/// Returns empty string if no x-attrs, or ",\"x-foo\":value,..." format.
+fn format_x_attrs(x_attrs: &[(String, XAttrValue)]) -> String {
+    if x_attrs.is_empty() {
+        return String::new();
+    }
+
+    let parts: Vec<String> = x_attrs
+        .iter()
+        .map(|(name, value)| {
+            let json_value = match value {
+                XAttrValue::String(s) => format!("\"{}\"", escape_json_string(s)),
+                XAttrValue::Bool(b) => b.to_string(),
+                XAttrValue::Int(n) => n.to_string(),
+                XAttrValue::Float(f) => f.to_string(),
+            };
+            format!("\"{name}\":{json_value}")
+        })
+        .collect();
+
+    format!(",{}", parts.join(","))
+}
+
+/// Escape a string for use in JSON output.
+fn escape_json_string(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '"' => result.push_str("\\\""),
+            '\\' => result.push_str("\\\\"),
+            '\n' => result.push_str("\\n"),
+            '\r' => result.push_str("\\r"),
+            '\t' => result.push_str("\\t"),
+            c => result.push(c),
+        }
+    }
+    result
 }
 
 /// Build an object schema as JSON string from field definitions.
@@ -175,7 +220,23 @@ pub fn object_schema_json(fields: Vec<JsonFieldDef>) -> String {
     let mut required_fields = Vec::new();
 
     for field in fields {
-        properties.push(format!(r#""{}":{}"#, field.name, field.schema_json));
+        // Append x-attrs to the field schema if present
+        let schema_with_x_attrs = if field.x_attrs.is_empty() {
+            field.schema_json
+        } else {
+            // Insert x-attrs before the closing brace of the schema
+            let x_attrs_json = format_x_attrs(&field.x_attrs);
+            if field.schema_json.ends_with('}') {
+                format!(
+                    "{}{}}}",
+                    &field.schema_json[..field.schema_json.len() - 1],
+                    x_attrs_json
+                )
+            } else {
+                field.schema_json
+            }
+        };
+        properties.push(format!(r#""{}":{}"#, field.name, schema_with_x_attrs));
         if field.required {
             required_fields.push(format!(r#""{}""#, field.name));
         }

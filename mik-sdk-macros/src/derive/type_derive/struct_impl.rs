@@ -157,6 +157,7 @@ pub fn derive_struct_type_impl(input: &DeriveInput, data_struct: &syn::DataStruc
             format: attrs.format.clone(),
             pattern: attrs.pattern.clone(),
             description: attrs.docs.clone(),
+            x_attrs: attrs.x_attrs.clone(),
         };
 
         // Determine if this is a string type for constraint application
@@ -182,6 +183,7 @@ pub fn derive_struct_type_impl(input: &DeriveInput, data_struct: &syn::DataStruc
             name: json_key.clone(),
             schema_json: field_schema,
             required: !is_optional,
+            x_attrs: attrs.x_attrs.clone(),
         });
 
         // Generate validation checks (still uses base_schema_json for type detection)

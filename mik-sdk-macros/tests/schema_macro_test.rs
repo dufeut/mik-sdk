@@ -2257,3 +2257,156 @@ fn test_enum_snake_case_conversion() {
         "OptionsPreFlight should become options_pre_flight"
     );
 }
+
+// =============================================================================
+// OPENAPI X-ATTRS TESTS
+// =============================================================================
+// These tests verify that x_* field attributes are correctly added to OpenAPI schemas.
+
+#[test]
+fn test_type_openapi_with_x_attrs_string() {
+    #[derive(Type)]
+    struct WithXAttrs {
+        #[field(x_example = "john@example.com")]
+        email: String,
+    }
+
+    let schema = <WithXAttrs as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("WithXAttrs schema: {schema}");
+
+    // Should have x-example extension
+    assert!(
+        schema.contains("\"x-example\":\"john@example.com\""),
+        "Should have x-example extension, got: {schema}"
+    );
+}
+
+#[test]
+fn test_type_openapi_with_x_attrs_bool() {
+    #[derive(Type)]
+    struct WithXAttrsBool {
+        #[field(x_internal = true)]
+        internal_id: String,
+        #[field(x_deprecated = false)]
+        active: bool,
+    }
+
+    let schema = <WithXAttrsBool as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("WithXAttrsBool schema: {schema}");
+
+    // Should have x-internal extension as boolean
+    assert!(
+        schema.contains("\"x-internal\":true"),
+        "Should have x-internal:true, got: {schema}"
+    );
+    assert!(
+        schema.contains("\"x-deprecated\":false"),
+        "Should have x-deprecated:false, got: {schema}"
+    );
+}
+
+#[test]
+fn test_type_openapi_with_x_attrs_int() {
+    #[derive(Type)]
+    struct WithXAttrsInt {
+        #[field(x_priority = 10)]
+        important_field: String,
+        #[field(x_order = -5)]
+        negative_order: String,
+    }
+
+    let schema = <WithXAttrsInt as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("WithXAttrsInt schema: {schema}");
+
+    // Should have x-priority extension as integer
+    assert!(
+        schema.contains("\"x-priority\":10"),
+        "Should have x-priority:10, got: {schema}"
+    );
+    assert!(
+        schema.contains("\"x-order\":-5"),
+        "Should have x-order:-5, got: {schema}"
+    );
+}
+
+#[test]
+fn test_type_openapi_with_multiple_x_attrs() {
+    #[derive(Type)]
+    struct WithMultipleXAttrs {
+        #[field(x_example = "user@example.com", x_sensitive = true, x_priority = 1)]
+        email: String,
+    }
+
+    let schema = <WithMultipleXAttrs as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("WithMultipleXAttrs schema: {schema}");
+
+    // Should have all x-* extensions
+    assert!(
+        schema.contains("\"x-example\":\"user@example.com\""),
+        "Should have x-example, got: {schema}"
+    );
+    assert!(
+        schema.contains("\"x-sensitive\":true"),
+        "Should have x-sensitive:true, got: {schema}"
+    );
+    assert!(
+        schema.contains("\"x-priority\":1"),
+        "Should have x-priority:1, got: {schema}"
+    );
+}
+
+#[test]
+fn test_type_openapi_with_x_attrs_and_other_attrs() {
+    #[derive(Type)]
+    struct MixedAttrs {
+        #[field(min = 1, max = 100, x_example = "my_username", x_internal = false)]
+        username: String,
+    }
+
+    let schema = <MixedAttrs as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("MixedAttrs schema: {schema}");
+
+    // Should have regular constraints
+    assert!(
+        schema.contains("\"minLength\":1"),
+        "Should have minLength, got: {schema}"
+    );
+    assert!(
+        schema.contains("\"maxLength\":100"),
+        "Should have maxLength, got: {schema}"
+    );
+
+    // And also x-* extensions
+    assert!(
+        schema.contains("\"x-example\":\"my_username\""),
+        "Should have x-example, got: {schema}"
+    );
+    assert!(
+        schema.contains("\"x-internal\":false"),
+        "Should have x-internal:false, got: {schema}"
+    );
+}
+
+#[test]
+fn test_type_openapi_x_attrs_underscore_to_hyphen() {
+    #[derive(Type)]
+    struct XAttrNaming {
+        #[field(x_deprecated_reason = "Use new_field instead")]
+        old_field: String,
+        #[field(x_code_gen_ignore = true)]
+        internal: String,
+    }
+
+    let schema = <XAttrNaming as mik_sdk::typed::OpenApiSchema>::openapi_schema();
+    println!("XAttrNaming schema: {schema}");
+
+    // Underscores should be converted to hyphens
+    assert!(
+        schema.contains("\"x-deprecated-reason\":"),
+        "x_deprecated_reason should become x-deprecated-reason, got: {schema}"
+    );
+    assert!(
+        schema.contains("\"x-code-gen-ignore\":true"),
+        "x_code_gen_ignore should become x-code-gen-ignore, got: {schema}"
+    );
+}
