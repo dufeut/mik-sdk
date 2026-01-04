@@ -144,6 +144,27 @@ pub const MIME_HTML: &str = "text/html";
 /// Form URL-encoded MIME type.
 pub const MIME_FORM_URLENCODED: &str = "application/x-www-form-urlencoded";
 
+/// Multipart form-data MIME type.
+pub const MIME_MULTIPART: &str = "multipart/form-data";
+
+// ============================================================================
+// COOKIE CONSTANTS
+// ============================================================================
+
+/// Cookie header name (lowercase for lookups).
+pub const HEADER_COOKIE: &str = "cookie";
+
+/// Set-Cookie header name (title-case for setting headers).
+pub const HEADER_SET_COOKIE: &str = "Set-Cookie";
+
+// ============================================================================
+// MULTIPART LIMITS
+// ============================================================================
+
+/// Maximum number of multipart parts.
+/// Prevents DoS via forms with many file uploads.
+pub const MAX_MULTIPART_PARTS: usize = 100;
+
 // ============================================================================
 // HTTP STATUS TITLES
 // ============================================================================

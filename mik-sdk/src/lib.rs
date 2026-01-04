@@ -286,7 +286,9 @@ pub fn __ensure_helper<T, H: EnsureHelper<T>>(value: H) -> Option<T> {
     value.into_option()
 }
 
-pub use request::{DecodeError, Method, Request, url_decode};
+pub use request::{
+    DecodeError, Method, MultipartError, Part, Request, SameSite, SetCookie, url_decode,
+};
 
 /// HTTP status code constants.
 ///
@@ -377,7 +379,9 @@ pub mod prelude {
     pub use crate::json::ToJson;
     pub use crate::log;
     pub use crate::random;
-    pub use crate::request::{DecodeError, Method, Request};
+    pub use crate::request::{
+        DecodeError, Method, MultipartError, Part, Request, SameSite, SetCookie,
+    };
     pub use crate::status;
     pub use crate::time;
     // Typed input types
@@ -445,6 +449,15 @@ mod api_contracts {
 
     // DecodeError is Copy, Clone, Debug, PartialEq, Eq
     assert_impl_all!(crate::DecodeError: Copy, Clone, std::fmt::Debug, PartialEq, Eq);
+
+    // MultipartError is Clone, Debug, PartialEq, Eq
+    assert_impl_all!(crate::MultipartError: Clone, std::fmt::Debug, PartialEq, Eq);
+
+    // SameSite is Copy, Clone, Debug, PartialEq, Eq
+    assert_impl_all!(crate::SameSite: Copy, Clone, std::fmt::Debug, PartialEq, Eq);
+
+    // SetCookie is Clone, Debug
+    assert_impl_all!(crate::SetCookie: Clone, std::fmt::Debug);
 
     // ========================================================================
     // HTTP Client types (when http-client feature is enabled)

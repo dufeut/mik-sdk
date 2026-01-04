@@ -3,14 +3,18 @@
 //! This module provides the `Request` struct that wraps raw `request-data` from WIT
 //! and provides convenient accessors for path parameters, query strings, headers, and body.
 
+mod cookie;
+mod multipart;
 mod parsing;
 
+pub use cookie::{SameSite, SetCookie};
+pub use multipart::{MultipartError, Part};
 use parsing::contains_ignore_ascii_case;
 pub use parsing::{DecodeError, url_decode};
 
 use crate::constants::{
-    HEADER_TRACE_ID, MAX_FORM_FIELDS, MAX_HEADER_VALUE_LEN, MAX_TOTAL_HEADERS_SIZE,
-    MAX_URL_DECODED_LEN,
+    HEADER_COOKIE, HEADER_TRACE_ID, MAX_FORM_FIELDS, MAX_HEADER_VALUE_LEN, MAX_TOTAL_HEADERS_SIZE,
+    MAX_URL_DECODED_LEN, MIME_MULTIPART,
 };
 use crate::json::{self, JsonValue};
 use std::cell::OnceCell;
@@ -107,6 +111,11 @@ pub struct Request {
     /// access via `form()` or `form_all()`. This avoids parsing overhead for
     /// handlers that don't read form data.
     form_cache: OnceCell<HashMap<String, Vec<String>>>,
+    /// Lazily parsed cookies from the Cookie header.
+    ///
+    /// Uses `OnceCell` for lazy initialization - parsing only happens on first
+    /// access via `cookie_or()` or `cookies()`.
+    cookie_cache: OnceCell<Vec<(String, String)>>,
     /// Index map for O(1) header lookup (lowercase keys -> indices in headers vec).
     /// Supports multiple values per header (e.g., Set-Cookie).
     header_index: HashMap<String, Vec<usize>>,
@@ -202,6 +211,7 @@ impl Request {
             params,
             query_cache: OnceCell::new(),
             form_cache: OnceCell::new(),
+            cookie_cache: OnceCell::new(),
             header_index,
         }
     }
@@ -460,6 +470,62 @@ impl Request {
             .is_some_and(|ct| contains_ignore_ascii_case(ct, MIME_HTML))
     }
 
+    /// Check if Content-Type is multipart/form-data (case-insensitive).
+    #[inline]
+    #[must_use]
+    pub fn is_multipart(&self) -> bool {
+        self.content_type_opt()
+            .is_some_and(|ct| contains_ignore_ascii_case(ct, MIME_MULTIPART))
+    }
+
+    /// Parse multipart/form-data body into parts.
+    ///
+    /// Returns parsed parts for file uploads and form fields.
+    /// Use `is_multipart()` to check content type first.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// if req.is_multipart() {
+    ///     match req.multipart() {
+    ///         Ok(parts) => {
+    ///             for part in &parts {
+    ///                 println!("Field: {}", part.name());
+    ///                 if let Some(filename) = part.filename() {
+    ///                     println!("  File: {}, {} bytes", filename, part.data().len());
+    ///                 }
+    ///             }
+    ///         }
+    ///         Err(e) => return bad_request!("Invalid multipart: {}", e),
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `MultipartError` if:
+    /// - Content-Type is not multipart/form-data
+    /// - No boundary parameter in Content-Type
+    /// - No body in request
+    /// - Invalid multipart format
+    /// - Too many parts (exceeds MAX_MULTIPART_PARTS)
+    pub fn multipart(&self) -> Result<Vec<Part<'_>>, MultipartError> {
+        // Get and validate content type
+        let content_type = self
+            .content_type_opt()
+            .ok_or(MultipartError::NotMultipart)?;
+
+        // Extract boundary
+        let boundary =
+            multipart::extract_boundary(content_type).ok_or(MultipartError::NoBoundary)?;
+
+        // Get body
+        let body = self.body().ok_or(MultipartError::NoBody)?;
+
+        // Parse
+        multipart::parse_multipart(body, boundary)
+    }
+
     /// Check if client accepts a content type (via Accept header).
     ///
     /// Performs a simple case-insensitive substring match against the Accept header.
@@ -513,6 +579,48 @@ impl Request {
         self.form_cache().get(name).map_or(&[], Vec::as_slice)
     }
 
+    /// Get a cookie value by name from the Cookie header, or a default.
+    ///
+    /// Parses the `Cookie` header lazily on first access.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// // Cookie: session=abc123; theme=dark
+    /// let session = req.cookie_or("session", "");  // "abc123"
+    /// let theme = req.cookie_or("theme", "light"); // "dark"
+    /// let missing = req.cookie_or("missing", "default"); // "default"
+    /// ```
+    #[inline]
+    #[must_use]
+    pub fn cookie_or<'a>(&'a self, name: &str, default: &'a str) -> &'a str {
+        self.cookie_opt(name).unwrap_or(default)
+    }
+
+    /// Internal: Get a cookie value by name (Option variant).
+    fn cookie_opt(&self, name: &str) -> Option<&str> {
+        self.cookie_cache()
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, v)| v.as_str())
+    }
+
+    /// Get all cookies from the Cookie header as name-value pairs.
+    ///
+    /// Parses the `Cookie` header lazily on first access.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// // Cookie: session=abc123; theme=dark
+    /// for (name, value) in req.cookies() {
+    ///     println!("{}: {}", name, value);
+    /// }
+    /// ```
+    pub fn cookies(&self) -> &[(String, String)] {
+        self.cookie_cache()
+    }
+
     /// Parse request body as JSON using the provided parser.
     ///
     /// # Returns
@@ -555,6 +663,21 @@ impl Request {
 
     fn form_cache(&self) -> &HashMap<String, Vec<String>> {
         self.form_cache.get_or_init(|| self.parse_form())
+    }
+
+    fn cookie_cache(&self) -> &Vec<(String, String)> {
+        self.cookie_cache.get_or_init(|| self.parse_cookies())
+    }
+
+    fn parse_cookies(&self) -> Vec<(String, String)> {
+        self.header_opt(HEADER_COOKIE)
+            .map(|h| {
+                cookie::parse_cookie_header(h)
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     fn parse_form(&self) -> HashMap<String, Vec<String>> {
