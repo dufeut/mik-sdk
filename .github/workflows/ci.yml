@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -60,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -83,8 +83,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@1.100
       - uses: Swatinem/rust-cache@v2
       - name: Run tests (all features)
         run: cargo test --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api --exclude resilient-api --all-features
@@ -96,7 +96,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Build documentation
@@ -115,13 +115,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@1.100
         with:
           targets: wasm32-wasip2
       - name: Cache cargo-component
         id: cache-cargo-component
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/bin/cargo-component
           key: cargo-component-0.18
@@ -149,13 +149,13 @@ jobs:
         # wasmcloud excluded - wash dev requires NATS and additional setup not available in CI
         # Run locally with: WASI_RUNTIME=wasmcloud cargo test -- --ignored
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@1.100
         with:
           targets: wasm32-wasip2
       - name: Cache WASM tools
         id: cache-wasm-tools
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/bin/cargo-component
@@ -174,7 +174,7 @@ jobs:
       - name: Cache Spin
         if: matrix.runtime == 'spin'
         id: cache-spin
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.spin
           key: spin-v3.0
@@ -211,8 +211,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@1.100
       - uses: Swatinem/rust-cache@v2
       - name: Check compilation
         run: cargo check --workspace --exclude hello-world --exclude crud-api --exclude auth-api --exclude external-api --exclude resilient-api
@@ -228,7 +228,7 @@ jobs:
     permissions:
       issues: write  # Required for rustsec to create advisories
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: rustsec/audit-check@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -238,7 +238,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: EmbarkStudios/cargo-deny-action@v2
 
   semver:
@@ -248,7 +248,7 @@ jobs:
     # Only run on PRs to catch breaking changes before merge
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
@@ -272,11 +272,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@nightly
       - name: Cache cargo-fuzz
         id: cache-cargo-fuzz
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cargo/bin/cargo-fuzz
           key: cargo-fuzz-0.12
@@ -306,7 +306,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Compile benchmarks (mik-sdk)
@@ -323,8 +323,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.89
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@1.100
         with:
           components: llvm-tools-preview
       - uses: taiki-e/install-action@cargo-llvm-cov
@@ -334,7 +334,7 @@ jobs:
       # Note: CODECOV_TOKEN secret must be added to repo settings at:
       # Settings > Secrets and variables > Actions > New repository secret
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: lcov.info
           fail_ci_if_error: false
