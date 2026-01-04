@@ -35,7 +35,7 @@ mik_sdk = { path = "../mik-sdk", package = "mik-sdk" }
 trybuild = "1.0"
 macrotest = "1.0"
 # Snapshot testing for macro expansion verification
-insta = "1.40"
+insta = "1.46"
 # OpenAPI 3.0 schema validation
 openapiv3 = "2"
 
