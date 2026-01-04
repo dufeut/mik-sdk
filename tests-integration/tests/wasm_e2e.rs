@@ -146,10 +146,11 @@ impl TestServer {
             }
             Runtime::Spin => {
                 // Create a temporary spin.toml manifest with allowed_outbound_hosts
+                // Use port in filename to avoid race conditions between parallel tests
                 let wasm_dir = wasm_path.parent().expect("wasm should have parent dir");
                 let wasm_filename = wasm_path.file_name().expect("wasm should have filename")
                     .to_str().expect("filename should be valid utf8");
-                let manifest_path = wasm_dir.join("spin-temp.toml");
+                let manifest_path = wasm_dir.join(format!("spin-temp-{port}.toml"));
                 let manifest_content = format!(
                     r#"spin_manifest_version = 2
 
