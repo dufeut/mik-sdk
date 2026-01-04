@@ -133,6 +133,7 @@ pub struct QueryExample {
 | `header_or(name, def)`   | `&str`              | Header (case-insensitive) |
 | `header_all(name)`       | `Vec<&str>`         | All header values         |
 | `trace_id_or(def)`       | `&str`              | traceparent header        |
+| `bearer_token_or(def)`   | `&str`              | Bearer token from Auth    |
 | `body()`                 | `Option<&[u8]>`     | Raw body bytes            |
 | `text()`                 | `Option<&str>`      | Body as UTF-8             |
 | `json()`                 | `Option<JsonValue>` | Parse as JSON             |

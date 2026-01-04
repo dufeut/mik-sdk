@@ -96,6 +96,7 @@ fn handler(req: &Request) -> Response {
 
     // Common header shortcuts with defaults
     let trace_id = req.trace_id_or("");           // traceparent header
+    let token = req.bearer_token_or("");          // Bearer token from Authorization
     let content_type = req.content_type_or("");   // Content-Type header
 
     ok!({ "auth": auth })
@@ -254,6 +255,7 @@ fn create_item(req: &Request) -> Response {
 | `header_all(name)`       | `Vec<&str>`           | All header values             |
 | `headers()`              | `&[(String, String)]` | All headers                   |
 | `trace_id_or(def)`       | `&str`                | traceparent header            |
+| `bearer_token_or(def)`   | `&str`                | Bearer token from Authorization |
 | `body()`                 | `Option<&[u8]>`       | Raw body bytes                |
 | `text()`                 | `Option<&str>`        | Body as UTF-8                 |
 | `json()`                 | `Option<JsonValue>`   | Parse body as JSON            |
