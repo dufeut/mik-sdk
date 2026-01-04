@@ -448,3 +448,82 @@ fn test_malformed_content_type() {
         assert_eq!(req.is_form(), is_form, "is_form failed for: {content_type}");
     }
 }
+
+#[test]
+fn test_bearer_token_present() {
+    let req = Request::new(
+        Method::Get,
+        "/api/data".to_string(),
+        vec![(
+            "authorization".to_string(),
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9".to_string(),
+        )],
+        None,
+        HashMap::new(),
+    );
+
+    assert_eq!(
+        req.bearer_token_or(""),
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+    );
+}
+
+#[test]
+fn test_bearer_token_missing() {
+    let req = Request::new(
+        Method::Get,
+        "/api/data".to_string(),
+        vec![],
+        None,
+        HashMap::new(),
+    );
+
+    assert_eq!(req.bearer_token_or(""), "");
+    assert_eq!(req.bearer_token_or("default"), "default");
+}
+
+#[test]
+fn test_bearer_token_wrong_scheme() {
+    // Basic auth instead of Bearer
+    let req = Request::new(
+        Method::Get,
+        "/api/data".to_string(),
+        vec![(
+            "authorization".to_string(),
+            "Basic dXNlcjpwYXNz".to_string(),
+        )],
+        None,
+        HashMap::new(),
+    );
+
+    assert_eq!(req.bearer_token_or(""), "");
+}
+
+#[test]
+fn test_bearer_token_case_sensitive_scheme() {
+    // "Bearer" must be exact case
+    let req = Request::new(
+        Method::Get,
+        "/api/data".to_string(),
+        vec![("authorization".to_string(), "bearer token123".to_string())],
+        None,
+        HashMap::new(),
+    );
+
+    // "bearer" (lowercase) doesn't match "Bearer "
+    assert_eq!(req.bearer_token_or("none"), "none");
+}
+
+#[test]
+fn test_bearer_token_header_case_insensitive() {
+    // Header name is case-insensitive
+    let req = Request::new(
+        Method::Get,
+        "/api/data".to_string(),
+        vec![("Authorization".to_string(), "Bearer mytoken".to_string())],
+        None,
+        HashMap::new(),
+    );
+
+    assert_eq!(req.bearer_token_or(""), "mytoken");
+}

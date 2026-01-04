@@ -13,8 +13,8 @@ use parsing::contains_ignore_ascii_case;
 pub use parsing::{DecodeError, url_decode};
 
 use crate::constants::{
-    HEADER_COOKIE, HEADER_TRACE_ID, MAX_FORM_FIELDS, MAX_HEADER_VALUE_LEN, MAX_TOTAL_HEADERS_SIZE,
-    MAX_URL_DECODED_LEN, MIME_MULTIPART,
+    HEADER_AUTHORIZATION, HEADER_COOKIE, HEADER_TRACE_ID, MAX_FORM_FIELDS, MAX_HEADER_VALUE_LEN,
+    MAX_TOTAL_HEADERS_SIZE, MAX_URL_DECODED_LEN, MIME_MULTIPART,
 };
 use crate::json::{self, JsonValue};
 use std::cell::OnceCell;
@@ -351,6 +351,27 @@ impl Request {
     #[inline]
     pub fn trace_id_or<'a>(&'a self, default: &'a str) -> &'a str {
         self.header_opt(HEADER_TRACE_ID).unwrap_or(default)
+    }
+
+    /// Get the Bearer token from the Authorization header, or a default.
+    ///
+    /// Extracts the token from `Authorization: Bearer <token>` header.
+    /// Returns the default if the header is missing or doesn't start with "Bearer ".
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let token = req.bearer_token_or("");
+    /// guard!(!token.is_empty(), 401, "Missing token");
+    ///
+    /// // Validate token
+    /// let claims = validate_jwt(token)?;
+    /// ```
+    #[inline]
+    pub fn bearer_token_or<'a>(&'a self, default: &'a str) -> &'a str {
+        self.header_opt(HEADER_AUTHORIZATION)
+            .and_then(|h| h.strip_prefix("Bearer "))
+            .unwrap_or(default)
     }
 
     /// Get all values for a header (case-insensitive).
