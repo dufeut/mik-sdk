@@ -85,6 +85,47 @@ pub struct QueryExample {
 }
 ```
 
+### Enums
+
+Use `#[derive(Type)]` on enums to serialize them as JSON strings. Only unit variants (no fields) are supported.
+
+```rust
+#[derive(Type)]
+pub enum Status {
+    Active,     // serializes as "active"
+    Inactive,   // serializes as "inactive"
+    Pending,    // serializes as "pending"
+}
+
+#[derive(Type)]
+pub enum Priority {
+    #[field(rename = "HIGH")]
+    High,
+    #[field(rename = "MEDIUM")]
+    Medium,
+    #[field(rename = "LOW")]
+    Low,
+}
+```
+
+**Behavior:**
+
+- Variants are converted from `PascalCase` to `snake_case` by default (`SuperAdmin` → `"super_admin"`)
+- Use `#[field(rename = "...")]` on variants to customize the JSON string
+- Invalid values return a helpful error listing all valid options
+- OpenAPI schema is generated as `{ "type": "string", "enum": ["active", "inactive", "pending"] }`
+
+**Usage in structs:**
+
+```rust
+#[derive(Type)]
+pub struct Task {
+    pub id: String,
+    pub status: Status,
+    pub priority: Priority,
+}
+```
+
 ## Response Macros
 
 | Macro                         | Status | Purpose                  |
@@ -122,28 +163,28 @@ pub struct QueryExample {
 
 ## Request Methods
 
-| Method                   | Returns             | Description               |
-| ------------------------ | ------------------- | ------------------------- |
-| `method()`               | `Method`            | HTTP method               |
-| `path()`                 | `&str`              | Full path with query      |
-| `path_without_query()`   | `&str`              | Path only                 |
-| `param_or(name, def)`    | `&str`              | Path parameter            |
-| `query_or(name, def)`    | `&str`              | Query parameter           |
-| `query_all(name)`        | `&[String]`         | All query values          |
-| `header_or(name, def)`   | `&str`              | Header (case-insensitive) |
-| `header_all(name)`       | `Vec<&str>`         | All header values         |
-| `trace_id_or(def)`       | `&str`              | traceparent header        |
-| `bearer_token_or(def)`   | `&str`              | Bearer token from Auth    |
-| `body()`                 | `Option<&[u8]>`     | Raw body bytes            |
-| `text()`                 | `Option<&str>`      | Body as UTF-8             |
-| `json()`                 | `Option<JsonValue>` | Parse as JSON             |
-| `json_with(parser)`      | `Option<T>`         | Parse with custom parser  |
-| `has_body()`             | `bool`              | True if non-empty         |
-| `content_type_or(def)`   | `&str`              | Content-Type header       |
-| `is_json()`              | `bool`              | Content-Type is JSON      |
-| `is_form()`              | `bool`              | Content-Type is form      |
-| `form_or(name, def)`     | `&str`              | Form field value          |
-| `form_all(name)`         | `&[String]`         | All form values           |
+| Method                 | Returns             | Description               |
+| ---------------------- | ------------------- | ------------------------- |
+| `method()`             | `Method`            | HTTP method               |
+| `path()`               | `&str`              | Full path with query      |
+| `path_without_query()` | `&str`              | Path only                 |
+| `param_or(name, def)`  | `&str`              | Path parameter            |
+| `query_or(name, def)`  | `&str`              | Query parameter           |
+| `query_all(name)`      | `&[String]`         | All query values          |
+| `header_or(name, def)` | `&str`              | Header (case-insensitive) |
+| `header_all(name)`     | `Vec<&str>`         | All header values         |
+| `trace_id_or(def)`     | `&str`              | traceparent header        |
+| `bearer_token_or(def)` | `&str`              | Bearer token from Auth    |
+| `body()`               | `Option<&[u8]>`     | Raw body bytes            |
+| `text()`               | `Option<&str>`      | Body as UTF-8             |
+| `json()`               | `Option<JsonValue>` | Parse as JSON             |
+| `json_with(parser)`    | `Option<T>`         | Parse with custom parser  |
+| `has_body()`           | `bool`              | True if non-empty         |
+| `content_type_or(def)` | `&str`              | Content-Type header       |
+| `is_json()`            | `bool`              | Content-Type is JSON      |
+| `is_form()`            | `bool`              | Content-Type is form      |
+| `form_or(name, def)`   | `&str`              | Form field value          |
+| `form_all(name)`       | `&[String]`         | All form values           |
 
 ## JSON Module
 
