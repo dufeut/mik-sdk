@@ -27,7 +27,7 @@ criterion = { workspace = true }
 insta = { workspace = true }
 static_assertions = "1.1"
 # SQLite for integration testing - validates generated SQL actually works
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.38", features = ["bundled"] }
 
 [[bench]]
 name = "sql_builder"
