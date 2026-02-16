@@ -29,9 +29,9 @@ prettyplease = { version = "0.2", optional = true }
 # See: https://github.com/googleapis/release-please/issues/1662
 mik_sql = { path = "../mik-sql", package = "mik-sql" }
 trybuild = "1.0"
-macrotest = "1.0"
+macrotest = "1.2"
 # Snapshot testing for macro expansion verification
-insta = "1.40"
+insta = "1.46"
 
 [lints]
 workspace = true
